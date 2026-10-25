@@ -3,11 +3,11 @@ import type { NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { getServiceSupabase } from '@/lib/supabaseServer'
-import { enviarEmailRenderizado, type EmailRenderizado } from '@/lib/email'
+import { enviarEmailRenderizado, renderArrependimentoEmail, type EmailRenderizado } from '@/lib/email'
 import { custosDaCobranca, devolverComissaoComCusto } from '@/lib/custoEstornoStripe'
 import { registrarFaltaComoDebito } from '@/lib/debitoVendedor'
 import {
-  FOTO_MIMES, DIAS_RECLAMAR, refundValido, restanteEstornavel, conferirRefund, type SlotFoto, type SlotFotoEnvio,
+  FOTO_MIMES, DIAS_RECLAMAR, prazoContestacao, fmtPrazo, refundValido, restanteEstornavel, conferirRefund, type SlotFoto, type SlotFotoEnvio,
 } from '@/lib/leilao-reclamacao'
 
 /**
@@ -389,6 +389,10 @@ export async function concluirDevolucao(sb: SupabaseClient, rid: string, pedido:
   }
   if (restante <= 0) return { ok: false, http: 409, erro: 'Não há valor a estornar neste pedido.' }
 
+  // Etiqueta reversa paga pela Bynx (#500): sai da comissao que volta a loja.
+  const { data: etq } = await sb.from('pedido_reclamacoes').select('etiqueta_custo_cents').eq('id', rid).limit(1)
+  const custoEtiqueta = Number(etq?.[0]?.etiqueta_custo_cents) || 0
+
   let refundId: string
   let valor: number
   try {
@@ -397,6 +401,7 @@ export async function concluirDevolucao(sb: SupabaseClient, rid: string, pedido:
       chave,
       amountCents: restante,
       metadata: { pedido_id: pedido.id, reclamacao_id: rid, decisao: 'arrependimento' },
+      custosExtrasCents: custoEtiqueta,
     })
     const conf = conferirRefund(r, restante)
     if (!conf.ok) {
@@ -477,4 +482,45 @@ export function erroDoAbrir(msg: string): { status: number; mensagem: string } {
 export async function teveOcorrencia(sb: SupabaseClient, pedidoId: string): Promise<boolean> {
   const { count } = await sb.from('pedido_reclamacoes').select('id', { count: 'exact', head: true }).eq('pedido_id', pedidoId)
   return (count ?? 0) > 0
+}
+
+/**
+ * Marca a devolucao da desistencia como ENTREGUE na loja e abre a janela de
+ * contestacao (contestar_ate = quando + DIAS_UTEIS_CONTESTAR dias uteis).
+ * Compare-and-set: so desistencia postada, aberta e ainda nao entregue. Avisa
+ * a loja (sino + e-mail). Usada pelo admin (plano B) e pelo rastreio da
+ * etiqueta reversa (#500). Devolve null quando nao mexeu.
+ */
+export async function marcarDevolucaoEntregue(sb: SupabaseClient, rid: string, quando: Date): Promise<{ contestarAte: Date } | null> {
+  const contestarAte = prazoContestacao(quando)!
+  const { data: mexeu, error } = await sb
+    .from('pedido_reclamacoes')
+    .update({ devolucao_entregue_em: quando.toISOString(), contestar_ate: contestarAte.toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', rid)
+    .eq('motivo', 'arrependimento')
+    .eq('status', 'aguardando_devolucao')
+    .not('devolucao_postada_em', 'is', null)
+    .is('devolucao_entregue_em', null)
+    .select('id, pedido_id, loja_id, vendedor_user_id')
+  if (error) throw new Error(error.message)
+  const rec = mexeu?.[0]
+  if (!rec) return null
+  try {
+    const pedido = await carregarPedido(sb, rec.pedido_id)
+    const loja = await nomeDaLoja(sb, rec.loja_id)
+    const lojista = loja.owner || rec.vendedor_user_id
+    const prazo = fmtPrazo(contestarAte)
+    await sino(sb, lojista, 'A devolução chegou na loja',
+      `Confira a carta do pedido #${pedido?.numero ?? ''}. Se voltou diferente, conteste até ${prazo}.`, `/minha-loja/${rec.loja_id}/pedidos`)
+    const cl = await contato(sb, lojista)
+    if (cl.email && pedido) {
+      await emailSeguro(renderArrependimentoEmail({
+        to: cl.email, nome: cl.nome, papel: 'loja', etapa: 'entregue', prazo,
+        pedidoId: pedido.id, pedidoNumero: pedido.numero, itemNome: pedido.item_nome, lojaNome: loja.nome, lojaId: rec.loja_id,
+      }))
+    }
+  } catch (err) {
+    console.error('[devolucao entregue] avisos:', (err as Error)?.message)
+  }
+  return { contestarAte }
 }

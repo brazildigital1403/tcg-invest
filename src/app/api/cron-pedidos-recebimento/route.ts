@@ -5,6 +5,8 @@ import {
   acaoRecebimento, acaoDevolucao, somarDias, fmtPrazo, DIAS_FECHAMENTO_AUTO, DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR,
 } from '@/lib/leilao-reclamacao'
 import { sbServico, sino, carregarPedido, concluirDevolucao, emailSeguro, contato, nomeDaLoja } from '@/lib/reclamacaoServer'
+import { emitirEtiquetaReversa, sincronizarEtiqueta } from '@/lib/etiquetaReversaServer'
+import { MAX_TENTATIVAS_ETIQUETA } from '@/lib/etiquetaReversa'
 import { enviarLoteEmails, renderRecebimentoAvisoEmail, renderArrependimentoEmail, type EmailLoteItem } from '@/lib/email'
 
 /**
@@ -198,10 +200,12 @@ export async function GET(req: NextRequest) {
     // Poucas linhas (so abertas, indice parcial pedido_reclamacoes_devolucao_idx).
     let expiradas = 0
     let estornadas = 0
+    let etiquetas = 0
+    let rastreios = 0
     if (!semTempo()) {
       const { data: devs, error: dErr } = await sb
         .from('pedido_reclamacoes')
-        .select('id, pedido_id, loja_id, vendedor_user_id, comprador_user_id, motivo, status, postar_ate, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em')
+        .select('id, pedido_id, loja_id, vendedor_user_id, comprador_user_id, motivo, status, postar_ate, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em, etiqueta_status, etiqueta_tentativas, updated_at')
         .eq('status', 'aguardando_devolucao')
         .eq('motivo', 'arrependimento')
         .order('created_at', { ascending: true })
@@ -209,6 +213,21 @@ export async function GET(req: NextRequest) {
       if (dErr) console.error('[cron-recebimento] desistencias:', dErr.message)
       for (const d of devs || []) {
         if (semTempo()) break
+        // Etiqueta reversa (#500): repete a que nao saiu (teto de tentativas,
+        // e so 5 min depois da ultima mexida para nao correr com a rota) e
+        // sincroniza o rastreio das prontas (postado / entregue na loja).
+        if (!dry && !d.devolucao_postada_em && (d.etiqueta_status === 'gerando' || d.etiqueta_status === 'falhou')
+            && (d.etiqueta_tentativas ?? 0) < MAX_TENTATIVAS_ETIQUETA
+            && agora - new Date(d.updated_at as string).getTime() > 5 * 60_000) {
+          const r = await emitirEtiquetaReversa(sb, d.id as string)
+          if (r.ok) etiquetas++
+          continue
+        }
+        if (!dry && d.etiqueta_status === 'pronta' && !d.devolucao_entregue_em) {
+          const s = await sincronizarEtiqueta(sb, d.id as string)
+          if (s === 'postado' || s === 'entregue') rastreios++
+          if (s !== 'nada') continue
+        }
         const acao = acaoDevolucao(d, agora)
         if (!acao || dry) continue
         const pedido = await carregarPedido(sb, d.pedido_id as string)
@@ -257,7 +276,7 @@ export async function GET(req: NextRequest) {
       if (emailsOk < emails.length) console.error(`[cron-recebimento] ${emails.length - emailsOk} e-mail(s) de aviso falharam`)
     }
 
-    return NextResponse.json({ ok: true, candidatos: plano.length, fechados, avisados, emails: emailsOk, expiradas, estornadas, ms: Date.now() - inicio })
+    return NextResponse.json({ ok: true, candidatos: plano.length, fechados, avisados, emails: emailsOk, expiradas, estornadas, etiquetas, rastreios, ms: Date.now() - inicio })
   } catch (err) {
     console.error('[cron-recebimento] erro:', (err as Error)?.message)
     return NextResponse.json({ ok: false, error: 'Erro interno.' }, { status: 500 })

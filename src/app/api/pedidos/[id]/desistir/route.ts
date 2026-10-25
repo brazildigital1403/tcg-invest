@@ -6,12 +6,14 @@ import {
   cancelarPagoComEstorno, erroDoAbrir, sino, emailSeguro, contato, nomeDaLoja, teveOcorrencia,
 } from '@/lib/reclamacaoServer'
 import { renderArrependimentoEmail } from '@/lib/email'
+import { cpfValido, soDigitos } from '@/lib/etiquetaReversa'
+import { emitirEtiquetaReversa } from '@/lib/etiquetaReversaServer'
 
 /**
  * /api/pedidos/[id]/desistir -- direito de arrependimento (art. 49 do CDC) em
  * pedido de LEILAO. Regras puras em podeDesistir (lib/leilao-reclamacao).
  *
- * POST { confirmo?: true }
+ * POST { confirmo?: true, cpf?: string }
  *   - pedido 'pago' (antes do envio): estorno integral na hora, mesma
  *     sequencia do cancelamento por atraso (cancelarPagoComEstorno, chave
  *     'desistencia-<pedido>');
@@ -24,8 +26,14 @@ import { renderArrependimentoEmail } from '@/lib/email'
  * GET -> para onde devolver: endereco da loja, so para o comprador com
  *   desistencia aberta neste pedido (o endereco nao fica exposto a mais ninguem).
  *
- * ★ Etiqueta reversa paga pela Bynx (Melhor Envio) e a etapa 2 (#469). Ate
- *   la o comprador posta e informa o rastreio em /desistir/postagem.
+ * ★ ETIQUETA REVERSA (#500): depois de abrir, a Bynx compra a logistica
+ *   reversa dos Correios no Melhor Envio (lib/etiquetaReversaServer) e o
+ *   comprador recebe um codigo de postagem. Os Correios exigem o CPF de quem
+ *   devolve: sem CPF valido na conta, o POST pede `cpf` (erro
+ *   'cpf_obrigatorio') e grava na conta. Se o Melhor Envio falhar, a
+ *   desistencia fica aberta com etiqueta 'falhou' e o cron tenta de novo; o
+ *   prazo de postar so corre com o codigo pronto. /desistir/postagem (rastreio
+ *   a mao) fica para a etapa 1 e para etiqueta que falhou.
  */
 
 export const dynamic = 'force-dynamic'
@@ -124,6 +132,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (body?.confirmo !== true) {
       return json(400, { error: 'Confirme que vai devolver a carta no estado em que recebeu.' })
     }
+    // CPF de quem devolve: os Correios exigem na logistica reversa. Pede so
+    // quando a conta nao tem um valido, e grava na conta.
+    const { data: us } = await sb.from('users').select('cpf').eq('id', userId).limit(1)
+    if (!cpfValido(us?.[0]?.cpf)) {
+      if (!cpfValido(body?.cpf)) {
+        return json(400, { error: 'Informe o seu CPF. Os Correios exigem para a devolução.', code: 'cpf_obrigatorio' })
+      }
+      const { error: cpfErr } = await sb.from('users').update({ cpf: soDigitos(body.cpf) }).eq('id', userId)
+      if (cpfErr) {
+        console.error('[desistir] cpf:', cpfErr.message)
+        return json(500, { error: 'Não foi possível salvar o CPF. Tente de novo.' })
+      }
+    }
     const agora = new Date()
     const postarAte = prazoPostagem(agora)!
     const { data: rid, error } = await sb.rpc('pedido_arrependimento_abrir', {
@@ -138,12 +159,27 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return json(e.status, { error: e.mensagem })
     }
 
+    // Etiqueta reversa: tenta ja. Falhou -> a desistencia segue aberta com
+    // etiqueta 'falhou', o cron tenta de novo e o prazo nao corre.
+    let etiqueta: Awaited<ReturnType<typeof emitirEtiquetaReversa>> | null = null
     try {
-      const prazo = fmtPrazo(postarAte)
+      // Marca antes de chamar a rede: se o processo cair no meio, o cron acha
+      // a desistencia pelo etiqueta_status e continua (nunca vira etapa 1).
+      await sb.from('pedido_reclamacoes').update({ etiqueta_status: 'gerando' }).eq('id', String(rid)).is('etiqueta_status', null)
+      etiqueta = await emitirEtiquetaReversa(sb, String(rid))
+    } catch (err) {
+      console.error('[desistir] etiqueta:', (err as Error)?.message)
+    }
+
+    try {
+      const prazo = fmtPrazo(etiqueta?.ok && etiqueta.postarAte ? etiqueta.postarAte : postarAte)
       await sino(sb, userId, 'Desistência registrada',
-        `Poste a carta do pedido #${pedido.numero} até ${prazo} e informe o rastreio.`, `/pedido/${pedido.id}`)
+        etiqueta?.ok
+          ? `Leve a carta a uma agência dos Correios até ${prazo} e mostre o código de postagem. O frete já está pago.`
+          : `Estamos gerando o código de postagem do pedido #${pedido.numero}. Você recebe um aviso assim que sair.`,
+        `/pedido/${pedido.id}`)
       await sino(sb, lojista, 'O comprador vai devolver a carta',
-        `Desistência no pedido #${pedido.numero}. A postagem vai até ${prazo}.`, `/minha-loja/${pedido.loja_id}/pedidos`)
+        `Desistência no pedido #${pedido.numero}. A etiqueta de volta é paga pela Bynx e o rastreio aparece sozinho.`, `/minha-loja/${pedido.loja_id}/pedidos`)
       const cc = await contato(sb, userId)
       if (cc.email) await emailSeguro(renderArrependimentoEmail({ ...base, to: cc.email, nome: cc.nome, papel: 'comprador', etapa: 'aberto', registradoEm: fmtPrazo(agora), prazo }))
       const cl = await contato(sb, lojista)
@@ -152,7 +188,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       console.error('[desistir] avisos:', (err as Error)?.message)
     }
 
-    return json(200, { ok: true, modo: 'devolucao', id: rid, postar_ate: postarAte.toISOString() })
+    return json(200, {
+      ok: true, modo: 'devolucao', id: rid,
+      etiqueta: etiqueta?.ok ? 'pronta' : 'gerando',
+      postar_ate: etiqueta?.ok ? etiqueta.postarAte : null,
+    })
   } catch (err) {
     console.error('[desistir] erro:', (err as Error)?.message)
     return json(500, { error: 'Erro interno.' })

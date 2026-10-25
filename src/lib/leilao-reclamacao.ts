@@ -309,6 +309,8 @@ export interface DevolucaoEstado {
   devolucao_entregue_em?: string | null
   contestar_ate?: string | null
   contestada_em?: string | null
+  /** Etiqueta reversa (#500): null = etapa 1, o comprador posta por conta propria. */
+  etiqueta_status?: string | null
 }
 
 /** Desistencia ainda andando sozinha (antes de contestacao): fora dos botoes de decisao da Bynx. */
@@ -322,6 +324,9 @@ function ehDevolucaoAberta(r: DevolucaoEstado): boolean {
 
 /** Comprador ainda pode informar a postagem? */
 export function podeInformarPostagem(r: DevolucaoEstado, agora: number): boolean {
+  // Com etiqueta da Bynx pronta ou sendo gerada, o rastreio chega sozinho:
+  // digitar a mao so na etapa 1 (sem etiqueta) ou se a etiqueta falhou.
+  if (r.etiqueta_status === 'pronta' || r.etiqueta_status === 'gerando') return false
   return ehDevolucaoAberta(r) && !r.devolucao_postada_em && agora <= ms(r.postar_ate)
 }
 
@@ -342,6 +347,9 @@ export function lojaPodeContestar(r: DevolucaoEstado, agora: number): boolean {
 export function acaoDevolucao(r: DevolucaoEstado, agora: number): 'expirar' | 'estornar' | null {
   if (!ehDevolucaoAberta(r)) return null
   if (!r.devolucao_postada_em) {
+    // O prazo de postar so corre com o codigo pronto (#500): etiqueta ainda
+    // sendo gerada, ou que falhou, nao expira a desistencia.
+    if (r.etiqueta_status && r.etiqueta_status !== 'pronta') return null
     const lim = ms(r.postar_ate)
     return Number.isFinite(lim) && agora > lim ? 'expirar' : null
   }

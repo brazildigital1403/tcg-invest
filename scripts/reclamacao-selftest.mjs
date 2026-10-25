@@ -32,6 +32,11 @@ writeFileSync(join(tmp, 'c.mjs'), ts.transpileModule(srcC, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText)
 const C = await import(pathToFileURL(join(tmp, 'c.mjs')).href)
+const srcEt = readFileSync(join(raiz, 'src/lib/etiquetaReversa.ts'), 'utf8')
+writeFileSync(join(tmp, 'et.mjs'), ts.transpileModule(srcEt, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText)
+const ET = await import(pathToFileURL(join(tmp, 'et.mjs')).href)
 const srcP = readFileSync(join(raiz, 'src/lib/painelPedidos.ts'), 'utf8')
 writeFileSync(join(tmp, 'p.mjs'), ts.transpileModule(srcP, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -584,6 +589,53 @@ try {
     assert.equal(C.descontoDeDebito({ debitoAbertoCents: 0, liquidoVendedorCents: 14842 }), 0)
     assert.equal(C.descontoDeDebito({ debitoAbertoCents: NaN, liquidoVendedorCents: -1 }), 0)
   }, 'custo do estorno: a Bynx retem a taxa da Stripe e a etiqueta, ate o limite da comissao; debito na proxima venda')
+
+  ok(() => {
+    // CPF
+    assert.equal(ET.cpfValido('529.982.247-25'), true)
+    assert.equal(ET.cpfValido('52998224724'), false)
+    assert.equal(ET.cpfValido('111.111.111-11'), false)
+    assert.equal(ET.cpfValido(null), false)
+    // Endereco da loja em texto livre
+    assert.deepEqual(ET.separarEndereco('Rua de Teste, 100 - Butantã'), { rua: 'Rua de Teste', numero: '100', bairro: 'Butantã' })
+    assert.deepEqual(ET.separarEndereco('Av. Paulista, nº 1578'), { rua: 'Av. Paulista', numero: '1578', bairro: '' })
+    assert.deepEqual(ET.separarEndereco('Estrada do Campo Limpo 2645 - Vila Prel'), { rua: 'Estrada do Campo Limpo', numero: '2645', bairro: 'Vila Prel' })
+    assert.equal(ET.separarEndereco('Rua sem numero - Centro').numero, 'S/N')
+    // Montagem
+    const comprador = { nome: 'Ana', email: 'ana@x.com', telefone: '+55 11 99999-0000', cpf: '529.982.247-25', rua: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'São Paulo', uf: 'sp', cep: '05777-001' }
+    const loja = { nome: 'Loja', email: 'l@x.com', telefone: '11999990000', cpf: '52998224725', rua: 'Rua B', numero: '100', bairro: 'Butantã', cidade: 'São Paulo', uf: 'SP', cep: '05083000' }
+    const m = ET.montarReversa({ comprador, loja, valorDeclaradoCents: 16000, nomeItem: 'Eevee 173/215' })
+    assert.equal(m.ok, true)
+    assert.equal(m.body.service, ET.SERVICO_PAC)
+    assert.equal(m.body.insurance_value, 160)
+    assert.equal(m.body.from.document, '52998224725')
+    assert.equal(m.body.from.phone, '11999990000', 'tira o 55 do celular')
+    assert.equal(m.body.from.state_abbr, 'SP')
+    assert.equal(m.body.to.postal_code, '05083000')
+    assert.deepEqual(m.body.package, ET.PACOTE_UMA_CARTA)
+    const sem = ET.montarReversa({ comprador: { ...comprador, cpf: null, cep: '123' }, loja: { ...loja, cpf: '' }, valorDeclaradoCents: 16000, nomeItem: 'x' })
+    assert.deepEqual(sem, { ok: false, faltando: ['cpf_comprador', 'endereco_comprador', 'documento_loja'] })
+    // Leitura do pedido do Melhor Envio
+    let e = ET.lerPedidoME({ status: 'released', authorization_code: '123456789', tracking: null, price: 19.9 })
+    assert.deepEqual(e, { status: 'released', codigo: '123456789', rastreio: null, postado: false, entregue: false, cancelado: false, precoCents: 1990 })
+    e = ET.lerPedidoME({ status: 'posted', tracking: 'AA123456785BR', authorization_code: '123' })
+    assert.equal(e.postado, true); assert.equal(e.entregue, false); assert.equal(e.rastreio, 'AA123456785BR')
+    assert.equal(ET.lerPedidoME({ status: 'delivered' }).entregue, true)
+    assert.equal(ET.lerPedidoME({ status: 'canceled' }).cancelado, true)
+    assert.deepEqual(ET.lerPedidoME(null).codigo, null)
+    // O prazo de postar so corre com o codigo pronto
+    const agora = Date.parse('2026-10-25T12:00:00Z')
+    const vencida = { motivo: 'arrependimento', status: 'aguardando_devolucao', postar_ate: '2026-10-20T00:00:00Z' }
+    assert.equal(R.acaoDevolucao(vencida, agora), 'expirar', 'etapa 1 segue expirando')
+    assert.equal(R.acaoDevolucao({ ...vencida, etiqueta_status: 'gerando' }, agora), null)
+    assert.equal(R.acaoDevolucao({ ...vencida, etiqueta_status: 'falhou' }, agora), null)
+    assert.equal(R.acaoDevolucao({ ...vencida, etiqueta_status: 'pronta' }, agora), 'expirar')
+    // Digitar o rastreio a mao: so sem etiqueta ou com ela falhando
+    const aberta = { motivo: 'arrependimento', status: 'aguardando_devolucao', postar_ate: '2026-10-30T00:00:00Z' }
+    assert.equal(R.podeInformarPostagem(aberta, agora), true)
+    assert.equal(R.podeInformarPostagem({ ...aberta, etiqueta_status: 'pronta' }, agora), false)
+    assert.equal(R.podeInformarPostagem({ ...aberta, etiqueta_status: 'falhou' }, agora), true)
+  }, 'etiqueta reversa: CPF, endereco, corpo do Melhor Envio, leitura do pedido e prazo so com codigo pronto')
 
   console.log(`\n${n} blocos ok`)
 } finally {

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
 
     const { data: recs } = await sb
       .from('pedido_reclamacoes')
-      .select('id, pedido_id, motivo, status, prazo_loja_ate, comprador_user_id, contestacao_tipo')
+      .select('id, pedido_id, motivo, status, prazo_loja_ate, comprador_user_id, contestacao_tipo, etiqueta_custo_cents')
       .eq('id', rid)
       .limit(1)
     const rec = recs?.[0]
@@ -125,6 +125,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
           chave,
           amountCents: plano.valorCents,
           metadata: { pedido_id: pedido.id, reclamacao_id: rid, decisao },
+          // Desistencia contestada: a etiqueta reversa (#500) tambem sai da comissao da loja.
+          custosExtrasCents: rec.motivo === 'arrependimento' ? Number(rec.etiqueta_custo_cents) || 0 : 0,
         })
         const conf = conferirRefund(r, plano.valorCents)
         if (!conf.ok) {
