@@ -158,7 +158,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     if (LEILAO_ATIVO) {
       const { data: rs } = await supabase
         .from('pedido_reclamacoes')
-        .select('motivo, status, created_at, prazo_loja_ate, prazo_decisao_ate, postar_ate, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em')
+        .select('motivo, status, created_at, prazo_loja_ate, prazo_decisao_ate, postar_ate, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em, etiqueta_status')
         .eq('pedido_id', id)
         .order('created_at', { ascending: false })
         .limit(5)

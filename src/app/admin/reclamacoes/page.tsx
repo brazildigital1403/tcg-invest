@@ -55,6 +55,12 @@ type Linha = {
   contestada_em: string | null
   contestacao_video_url: string | null
   contestacao_tipo: TipoContestacao | null
+  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | null
+  etiqueta_codigo: string | null
+  etiqueta_protocolo: string | null
+  etiqueta_custo_cents: number | null
+  etiqueta_erro: string | null
+  etiqueta_tentativas: number
   destino_carta: DestinoCarta | null
   pode_improcedente: boolean
   pode_marcar_entregue: boolean
@@ -170,6 +176,25 @@ export default function AdminReclamacoesPage() {
     })
   }
 
+  // Etiqueta reversa (#500): gerar de novo ou ler o rastreio. Sem confirmacao:
+  // repetir nao compra outra etiqueta (os passos feitos sao reaproveitados).
+  async function etiqueta(r: Linha, acao: 'gerar' | 'sincronizar') {
+    setSalvando(r.id); setMsg(null)
+    try {
+      const res = await fetch(`/api/admin/reclamacoes/${r.id}/etiqueta`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || j.ok === false) throw new Error(j.error || (acao === 'gerar' ? 'A etiqueta não saiu.' : 'Não deu para ler o rastreio.'))
+      await aposAcao(r.id, acao === 'gerar' ? `Código de postagem: ${j.codigo}.` : `Rastreio lido: ${j.resultado}.`)
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: (e as Error).message, rid: r.id })
+      await load()
+    } finally {
+      setSalvando(null)
+    }
+  }
+
   // Caixa de confirmacao dentro do item (substitui o window.confirm).
   function caixaConfirmacao(r: Linha) {
     if (!pendente || pendente.rid !== r.id) return null
@@ -279,7 +304,23 @@ export default function AdminReclamacoesPage() {
                           <div><span>Postada</span>{fmtPrazo(r.devolucao_postada_em) || '-'}</div>
                           <div><span>Entregue na loja</span>{fmtPrazo(r.devolucao_entregue_em) || '-'}</div>
                           <div><span>Loja contesta até</span>{fmtPrazo(r.contestar_ate) || '-'}</div>
+                          {r.etiqueta_status && <>
+                            <div><span>Etiqueta</span>{r.etiqueta_status}{r.etiqueta_tentativas ? ` · ${r.etiqueta_tentativas} tentativa${r.etiqueta_tentativas === 1 ? '' : 's'}` : ''}</div>
+                            <div><span>Código de postagem</span>{r.etiqueta_codigo ? <code>{r.etiqueta_codigo}</code> : '-'}</div>
+                            <div><span>Custo da etiqueta</span>{r.etiqueta_custo_cents ? fmtBRL(r.etiqueta_custo_cents) : '-'}{r.etiqueta_protocolo ? ` · ${r.etiqueta_protocolo}` : ''}</div>
+                          </>}
                         </div>
+                        {r.etiqueta_erro && <p className="ar-cit">Melhor Envio: {r.etiqueta_erro}</p>}
+                        {r.status === 'aguardando_devolucao' && !r.devolucao_postada_em && r.etiqueta_status && r.etiqueta_status !== 'pronta' && (
+                          <div className="ar-bts">
+                            <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => etiqueta(r, 'gerar')}>Gerar etiqueta de novo</button>
+                          </div>
+                        )}
+                        {r.status === 'aguardando_devolucao' && r.etiqueta_status === 'pronta' && !r.devolucao_entregue_em && (
+                          <div className="ar-bts">
+                            <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => etiqueta(r, 'sincronizar')}>Ler o rastreio agora</button>
+                          </div>
+                        )}
                         {r.pode_marcar_entregue && (
                           <div className="ar-bts">
                             <button type="button" className="ar-bt ar-bt-pri" disabled={!!salvando} onClick={() => marcarEntregue(r)}>Marcar devolução entregue</button>

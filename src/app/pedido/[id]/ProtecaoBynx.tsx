@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
 import { comprimirImagem } from '@/lib/comprimirImagem'
+import { cpfValido } from '@/lib/etiquetaReversa'
 import {
   IconShield, IconCamera, IconCheck, IconWarning, IconClock, IconBox, IconTruck, IconLoja, IconCard, IconLocation, IconCopy,
   IconChevronDown, IconChevronRight,
@@ -66,6 +67,9 @@ interface Reclamacao {
   decisao: Decisao | null
   decisao_nota: string | null
   destino_carta: DestinoCarta | null
+  /** Etiqueta reversa (#500): gerando | pronta | falhou; null = etapa 1. */
+  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | null
+  etiqueta_codigo: string | null
   valor_estornado_cents: number
   created_at: string
   postar_ate: string | null
@@ -82,7 +86,7 @@ type Fotos = Partial<Record<SlotFoto, File>>
 
 type Passo = { rotulo: string; Icone: typeof IconBox }
 const PASSOS_CONFIRMAR: Passo[] = [
-  { rotulo: 'Embale', Icone: IconBox },
+  { rotulo: 'Código pago pela Bynx', Icone: IconBox },
   { rotulo: `Poste em ${DIAS_POSTAR_DEVOLUCAO} dias`, Icone: IconTruck },
   { rotulo: 'Loja recebe', Icone: IconLoja },
   { rotulo: 'Estorno integral', Icone: IconCard },
@@ -152,6 +156,10 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const [agora, setAgora] = useState(() => Date.now())
   const [desistindo, setDesistindo] = useState(false)
   const [confirmo, setConfirmo] = useState(false)
+  // CPF so aparece quando a conta nao tem um valido (a rota responde cpf_obrigatorio).
+  const [pedeCpf, setPedeCpf] = useState(false)
+  const [cpf, setCpf] = useState('')
+  const [codigoCopiado, setCodigoCopiado] = useState(false)
   const [rastreio, setRastreio] = useState('')
   const [endereco, setEndereco] = useState<EnderecoLoja | null>(null)
   const [copiado, setCopiado] = useState(false)
@@ -160,7 +168,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const carregar = useCallback(async () => {
     const { data } = await supabase
       .from('pedido_reclamacoes')
-      .select('id, motivo, descricao, status, resposta_tipo, resposta_loja, contraproposta_cents, prazo_loja_ate, prazo_decisao_ate, decisao, decisao_nota, valor_estornado_cents, created_at, postar_ate, devolucao_rastreio, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em, destino_carta')
+      .select('id, motivo, descricao, status, resposta_tipo, resposta_loja, contraproposta_cents, prazo_loja_ate, prazo_decisao_ate, decisao, decisao_nota, valor_estornado_cents, created_at, postar_ate, devolucao_rastreio, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em, destino_carta, etiqueta_status, etiqueta_codigo')
       .eq('pedido_id', pedido.id)
       .order('created_at', { ascending: false })
       .limit(5)
@@ -262,11 +270,12 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
     try {
       const r = await authFetch(`/api/pedidos/${pedido.id}/desistir`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmo }),
+        body: JSON.stringify({ confirmo, ...(pedeCpf ? { cpf } : {}) }),
       })
       const j = await r.json().catch(() => ({}))
+      if (!r.ok && j.code === 'cpf_obrigatorio') { setPedeCpf(true); throw new Error(j.error) }
       if (!r.ok) throw new Error(j.error || 'Não foi possível registrar a desistência.')
-      setDesistindo(false); setConfirmo(false)
+      setDesistindo(false); setConfirmo(false); setPedeCpf(false); setCpf('')
       await carregar()
       onMudou()
     } catch (e) {
@@ -338,6 +347,9 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
           : atual.devolucao_postada_em ? 2
           : 1
         const aPostar = atual.status === 'aguardando_devolucao' && !atual.devolucao_postada_em
+        const comEtiqueta = !!atual.etiqueta_status
+        const gerandoCodigo = aPostar && comEtiqueta && atual.etiqueta_status !== 'pronta'
+        const codigo = atual.etiqueta_status === 'pronta' ? atual.etiqueta_codigo : null
         const enderecoTxt = endereco
           ? [endereco.endereco, [endereco.cidade, endereco.estado].filter(Boolean).join(' - '), endereco.cep].filter(Boolean).join(' · ')
           : ''
@@ -349,14 +361,31 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
                 : atual.status === 'em_analise' ? 'Devolução em análise'
                 : atual.devolucao_entregue_em ? 'A loja está conferindo'
                 : atual.devolucao_postada_em ? 'Devolução a caminho'
+                : gerandoCodigo ? 'Estamos gerando o seu código'
                 : <>Poste até <span className="pb-dest">{fmtData(atual.postar_ate)}</span></>}
             </div>
 
             {atual.status !== 'improcedente' && <LinhaDevolucao passos={PASSOS_ANDAMENTO} etapa={etapa} />}
 
-            {aPostar && (
+            {gerandoCodigo && (
+              <p className="pb-txt">O frete de volta é pago pela Bynx. Você recebe um aviso no sino assim que o código de postagem sair, e o prazo de {DIAS_POSTAR_DEVOLUCAO} dias para postar só começa aí.</p>
+            )}
+
+            {aPostar && codigo && (
+              <div className="pb-codigo">
+                <span className="pb-rot">Código de postagem nos Correios</span>
+                <b className="pb-codigo-num">{codigo}</b>
+                <span className="pb-txt pb-mut">Mostre este código no balcão de qualquer agência dos Correios. Não precisa imprimir etiqueta: o frete já está pago.</span>
+                <button type="button" className="pb-bt pb-bt-ghost pb-full"
+                  onClick={() => { navigator.clipboard?.writeText(codigo).then(() => { setCodigoCopiado(true); setTimeout(() => setCodigoCopiado(false), 1600) }).catch(() => {}) }}>
+                  {codigoCopiado ? <><IconCheck size={16} color="var(--bx-green)" />Copiado</> : <><IconCopy size={16} color="currentColor" />Copiar código</>}
+                </button>
+              </div>
+            )}
+
+            {aPostar && !gerandoCodigo && (
               <>
-                {endereco && (
+                {!comEtiqueta && endereco && (
                   <div className="pb-end">
                     <IconLocation size={18} color="var(--bx-text-3)" />
                     <div className="pb-end-txt">
@@ -370,7 +399,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
                   </div>
                 )}
                 <div className="pb-dica"><IconBox size={15} color="var(--bx-text-3)" />Embale como recebeu: sleeve, toploader e envelope com proteção.</div>
-                {podeInformarPostagem(atual, agora) && (
+                {!comEtiqueta && podeInformarPostagem(atual, agora) && (
                   <div className="pb-postar">
                     <label className="pb-rot" htmlFor="pb-rastreio">Código de rastreio</label>
                     <div className="pb-campo">
@@ -390,7 +419,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
               <div className="pb-linha-info"><IconTruck size={15} color="var(--bx-text-3)" /><span>Rastreio</span><b>{atual.devolucao_rastreio}</b></div>
             )}
             {atual.status === 'aguardando_devolucao' && atual.devolucao_postada_em && !atual.devolucao_entregue_em && (
-              <p className="pb-txt">Quando a loja receber e conferir, o estorno integral sai no seu cartão.</p>
+              <p className="pb-txt">{comEtiqueta ? 'O rastreio atualiza sozinho: você não precisa informar nada. ' : ''}Quando a loja receber e conferir, o estorno integral sai no seu cartão.</p>
             )}
             {atual.status === 'aguardando_devolucao' && atual.devolucao_entregue_em && atual.contestar_ate && (
               <p className="pb-txt">Sem contestação até {fmtPrazo(atual.contestar_ate)}, o estorno sai sozinho. O valor aparece no seu cartão em 5 a 10 dias úteis, no prazo do banco.</p>
@@ -545,14 +574,25 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
               {desistindo && desist.pode && desist.modo === 'devolucao' && (
             <div className="pb-form">
               <div className="pb-titulo">Desistir da compra</div>
-              <p className="pb-txt pb-mut">Não precisa explicar o motivo.</p>
+              <p className="pb-txt pb-mut">Não precisa explicar o motivo. O frete de volta é por conta da Bynx: você recebe um código para mostrar nos Correios, sem imprimir etiqueta.</p>
               <LinhaDevolucao passos={PASSOS_CONFIRMAR} etapa={-1} />
+              {pedeCpf && (
+                <div className="pb-postar">
+                  <label className="pb-rot" htmlFor="pb-cpf">Seu CPF</label>
+                  <div className="pb-campo">
+                    <input id="pb-cpf" value={cpf} onChange={e => setCpf(e.target.value.replace(/[^\d.-]/g, '').slice(0, 14))}
+                      placeholder="000.000.000-00" inputMode="numeric" autoComplete="off" maxLength={14} />
+                  </div>
+                  <div className="pb-txt pb-mut">Os Correios exigem o CPF de quem devolve. Ele fica salvo na sua conta.</div>
+                  {cpf.replace(/\D/g, '').length === 11 && !cpfValido(cpf) && <div className="pb-aviso-campo">Confira o CPF: os dígitos não batem.</div>}
+                </div>
+              )}
               <label className="pb-check">
                 <input type="checkbox" checked={confirmo} onChange={e => setConfirmo(e.target.checked)} />
                 <span>Devolvo a carta como recebi.</span>
               </label>
               <div className="pb-linha">
-                <button type="button" className="pb-bt pb-bt-perigo" disabled={!confirmo || !!enviando} onClick={desistir}>{enviando || 'Confirmar desistência'}</button>
+                <button type="button" className="pb-bt pb-bt-perigo" disabled={!confirmo || !!enviando || (pedeCpf && !cpfValido(cpf))} onClick={desistir}>{enviando || 'Confirmar e gerar o código'}</button>
                 <button type="button" className="pb-bt pb-bt-ghost" disabled={!!enviando} onClick={() => { setDesistindo(false); setConfirmo(false); setErro(null) }}>Voltar</button>
               </div>
             </div>
@@ -633,6 +673,8 @@ const CSS = `
 .pb-dica{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--bx-text-2)}
 .pb-dica svg{flex-shrink:0;margin-top:2px}
 .pb-postar{display:grid;gap:8px;margin-top:12px}
+.pb-codigo{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:12px;padding:16px 14px;border-radius:12px;background:var(--bx-surface-2);border:1px solid var(--bx-border);text-align:center}
+.pb-codigo-num{font-family:'DM Mono',ui-monospace,monospace;font-size:24px;font-weight:600;letter-spacing:.08em;color:var(--bx-text);word-break:break-all}
 .pb-campo{display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:10px;background:var(--bx-surface-2);border:1px solid var(--bx-border);transition:border-color .15s ease}
 .pb-campo:focus-within{border-color:var(--bx-border-2)}
 .pb-campo input{flex:1;min-width:0;min-height:46px;background:transparent;border:none;outline:none;color:var(--bx-text);font:inherit;font-size:16px;letter-spacing:.04em}

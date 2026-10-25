@@ -181,7 +181,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await sino(sb, lojista, 'O comprador vai devolver a carta',
         `Desistência no pedido #${pedido.numero}. A etiqueta de volta é paga pela Bynx e o rastreio aparece sozinho.`, `/minha-loja/${pedido.loja_id}/pedidos`)
       const cc = await contato(sb, userId)
-      if (cc.email) await emailSeguro(renderArrependimentoEmail({ ...base, to: cc.email, nome: cc.nome, papel: 'comprador', etapa: 'aberto', registradoEm: fmtPrazo(agora), prazo }))
+      if (cc.email) await emailSeguro(renderArrependimentoEmail({ ...base, to: cc.email, nome: cc.nome, papel: 'comprador', etapa: 'aberto', registradoEm: fmtPrazo(agora), prazo, codigo: etiqueta?.ok ? etiqueta.codigo : null }))
       const cl = await contato(sb, lojista)
       if (cl.email) await emailSeguro(renderArrependimentoEmail({ ...base, to: cl.email, nome: cl.nome, papel: 'loja', etapa: 'aberto', prazo }))
     } catch (err) {

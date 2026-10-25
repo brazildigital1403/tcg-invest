@@ -3743,6 +3743,8 @@ export function renderArrependimentoEmail(a: ReclamacaoEmailBase & {
   /** Prazo da etapa ja formatado: postar, contestar ou decidir. */
   prazo?: string
   rastreio?: string | null
+  /** Etiqueta reversa (#500): codigo de postagem, quando ja saiu. */
+  codigo?: string | null
   valorCents?: number
 }): EmailRenderizado {
   const comprador = a.papel === 'comprador'
@@ -3769,10 +3771,12 @@ export function renderArrependimentoEmail(a: ReclamacaoEmailBase & {
       titulo = comprador ? 'Recebemos a sua desistência' : 'O comprador vai devolver a carta'
       corpo = comprador
         ? p(`${nome}, registramos a sua desistência do pedido #${num} (${item})${a.registradoEm ? ` em ${escapeHtml(a.registradoEm)} (horário de Brasília)` : ''}.`)
-          + p(`Poste a carta de volta para a ${loja} até ${forte(a.prazo || '')} e informe o código de rastreio na página do pedido. Envie como recebeu: sleeve, toploader e envelope com proteção.`)
-          + p('Quando a devolução chegar e a loja conferir, o estorno integral sai no seu cartão. Se não postar no prazo, a desistência expira e a compra continua valendo.')
-        : p(`${nome}, o comprador desistiu do pedido #${num} (${item}) dentro dos 7 dias garantidos pelo Código de Defesa do Consumidor. Ele tem até ${forte(a.prazo || '')} para postar a carta de volta.`)
-          + p('Quando a devolução chegar, você confere a carta. Se ela voltou trocada ou danificada, conteste com a prova pelo painel. Sem contestação, o estorno sai sozinho.')
+          + (a.codigo
+            ? p(`Leve a carta a uma agência dos Correios até ${forte(a.prazo || '')} e mostre o código de postagem ${forte(a.codigo)}. O frete de volta é pago pela Bynx: não precisa imprimir etiqueta. Envie como recebeu: sleeve, toploader e envelope com proteção.`)
+            : p('Estamos gerando o código de postagem dos Correios, com o frete de volta pago pela Bynx. Você recebe um aviso assim que ele sair, e o prazo de 7 dias para postar começa nessa hora.'))
+          + p('Quando a devolução chegar e a loja conferir, o estorno integral sai no seu cartão, em 5 a 10 dias úteis no prazo do banco. Se não postar no prazo, a desistência expira e a compra continua valendo.')
+        : p(`${nome}, o comprador desistiu do pedido #${num} (${item}) dentro dos 7 dias garantidos pelo Código de Defesa do Consumidor. Ele tem 7 dias para postar a carta de volta depois que o código de postagem sair.`)
+          + p('A etiqueta de volta é paga pela Bynx e o rastreio aparece sozinho no painel. Quando a devolução chegar, você confere a carta. Se ela voltou trocada ou danificada, conteste com a prova pelo painel. Sem contestação, o estorno sai sozinho; a etiqueta e a taxa do cartão saem da comissão que voltaria para a loja.')
           + semReputacao
       assunto = comprador ? `Desistência do pedido #${a.pedidoNumero} registrada` : `Pedido #${a.pedidoNumero}: o comprador vai devolver a carta`
       break

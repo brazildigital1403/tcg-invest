@@ -23,7 +23,8 @@ import { SERVICO_PAC, SERVICO_SEDEX } from '@/lib/etiquetaReversa'
  *                             rastreio) e entregue (abre a janela de
  *                             contestacao da loja).
  *
- * ★ TOKEN: o mesmo MELHOR_ENVIO_TOKEN da cotacao, mas a reversa precisa dos
+ * ★ TOKEN: MELHOR_ENVIO_REVERSA_TOKEN (+ _REVERSA_BASE) quando existir, senao
+ *   o mesmo MELHOR_ENVIO_TOKEN da cotacao. A reversa precisa dos
  *   escopos cart-write, shipping-checkout, shipping-generate e orders-read. Um
  *   token so de cotacao falha aqui com 401/403 -- a mensagem vai para
  *   etiqueta_erro.
@@ -32,11 +33,14 @@ import { SERVICO_PAC, SERVICO_SEDEX } from '@/lib/etiquetaReversa'
  * ★ NUNCA importar em componente 'use client'.
  */
 
-const BASE = process.env.MELHOR_ENVIO_BASE || 'https://www.melhorenvio.com.br'
+// A reversa pode apontar para outro ambiente que a cotacao: no teste local a
+// cotacao fica no sandbox e a etiqueta de verdade vai para producao (o
+// sandbox nao gera o codigo). Sem as variaveis _REVERSA, usa as da cotacao.
+const BASE = process.env.MELHOR_ENVIO_REVERSA_BASE || process.env.MELHOR_ENVIO_BASE || 'https://www.melhorenvio.com.br'
 const UA = process.env.MELHOR_ENVIO_UA || 'Bynx (contato@bynx.gg)'
 
 async function me(path: string, metodo: 'GET' | 'POST', body?: unknown): Promise<{ ok: boolean; status: number; json: unknown; texto: string }> {
-  const token = process.env.MELHOR_ENVIO_TOKEN
+  const token = process.env.MELHOR_ENVIO_REVERSA_TOKEN || process.env.MELHOR_ENVIO_TOKEN
   if (!token) return { ok: false, status: 0, json: null, texto: 'MELHOR_ENVIO_TOKEN ausente' }
   const r = await fetch(`${BASE}${path}`, {
     method: metodo,

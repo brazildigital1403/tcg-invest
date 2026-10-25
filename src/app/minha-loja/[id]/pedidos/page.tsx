@@ -365,6 +365,7 @@ function Faixa({ l, agora }: { l: Linha; agora: number }) {
       txt = r?.status === 'aguardando_loja' ? <>decide · <span className="lp-red">você não respondeu no prazo</span></> : <>decide até {quando}</>
       break
     case 'devolucao_bynx': quem = 'Bynx'; txt = 'combinando a devolução com o comprador'; break
+    case 'etiqueta': quem = 'Bynx'; txt = 'gerando a etiqueta de devolução, paga pela Bynx'; break
     case 'estorno': quem = 'Bynx'; txt = p.status === 'cancelando' ? 'processando o estorno' : 'estorno automático em andamento'; break
     case 'entregue': quem = 'Concluído'; txt = <>líquido de {fmtBRL(p.liquido_loja_cents)}</>; break
     case 'reembolsado':
@@ -400,7 +401,8 @@ function seloOcorrencia(l: Linha): string | null {
 function notaDoCaso(l: Linha): string | null {
   const { c } = l
   if (c.acao === 'conferir') return 'Sem conferência até lá, o estorno sai sozinho.'
-  if (c.acao === 'postar') return 'Se não postar, a desistência expira e a venda continua valendo.'
+  if (c.acao === 'postar') return 'A etiqueta de volta é paga pela Bynx e sai da comissão no estorno. Se o comprador não postar, a desistência expira e a venda continua valendo.'
+  if (c.acao === 'etiqueta') return 'O prazo do comprador para postar só começa quando o código sair.'
   if (c.acao === 'confirmar_recebimento' && c.fechaEm) return `Se ele não confirmar, o pedido fecha sozinho em ${fmtPrazo(c.fechaEm).split(' ')[0]}.`
   if (c.acao === 'decidir' && l.r?.status === 'aguardando_loja') return 'Sem resposta da loja, a decisão fica a favor do comprador.'
   return null

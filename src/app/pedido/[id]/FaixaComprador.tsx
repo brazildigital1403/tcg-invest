@@ -93,10 +93,15 @@ export default function FaixaComprador({ caso, processando, entregueEm, protecao
       titulo = 'A Bynx combina a devolução com você'
       sub = 'O estorno sai quando a carta chegar de volta à loja.'
       break
+    case 'gerando_codigo':
+      selo = 'COM A BYNX'; Ic = IconShield
+      titulo = 'Estamos gerando o seu código de postagem'
+      sub = 'O frete de volta é pago pela Bynx. Você recebe um aviso assim que o código sair, e o prazo de 7 dias para postar só começa aí.'
+      break
     case 'postar_devolucao':
       selo = 'SUA VEZ'; Ic = IconBox
       titulo = `Poste a carta até ${ate}`
-      sub = 'O endereço da loja e o campo do rastreio estão logo abaixo.'
+      sub = 'O código de postagem está logo abaixo. Mostre no balcão dos Correios: o frete já está pago.'
       break
     case 'devolucao_a_caminho':
       selo = 'AGUARDANDO OS CORREIOS'; Ic = IconTruck

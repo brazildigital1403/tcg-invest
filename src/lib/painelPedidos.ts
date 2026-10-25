@@ -24,7 +24,7 @@ export type Quem = 'voce' | 'comprador' | 'correios' | 'bynx' | 'concluido'
 export type Acao =
   | 'enviar' | 'responder' | 'conferir'
   | 'confirmar_recebimento' | 'postar' | 'a_caminho'
-  | 'decidir' | 'devolucao_bynx' | 'estorno'
+  | 'decidir' | 'devolucao_bynx' | 'estorno' | 'etiqueta'
   | 'entregue' | 'cancelado' | 'reembolsado'
 export type Tipo = 'venda' | 'leilao'
 export type Ocorrencia = 'reclamacao' | 'desistencia' | null
@@ -107,6 +107,10 @@ export function classificarCaso(p: PedidoPainel, r: ReclamacaoPainel | null, ago
   if (r && aberta) {
     if (r.motivo === 'arrependimento' && r.status === 'aguardando_devolucao') {
       if (!r.devolucao_postada_em) {
+        // Etiqueta reversa (#500) ainda saindo: e com a Bynx, nao com o comprador.
+        if (r.etiqueta_status && r.etiqueta_status !== 'pronta') {
+          return caso({ aba: 'bynx', quem: 'bynx', acao: 'etiqueta', prazo: null, botao: null })
+        }
         const prazo = r.postar_ate ? new Date(r.postar_ate) : null
         return caso({ aba: 'comprador', quem: 'comprador', acao: 'postar', prazo, botao: null })
       }
@@ -181,7 +185,7 @@ export type QuemComprador = 'voce' | 'loja' | 'bynx' | 'correios' | 'pagamento' 
 export type AcaoComprador =
   | 'pagar' | 'aguardar_envio' | 'cancelar_atraso' | 'confirmar_recebimento' | 'estorno'
   | 'loja_responde' | 'bynx_decide' | 'bynx_devolucao'
-  | 'postar_devolucao' | 'devolucao_a_caminho' | 'loja_confere'
+  | 'gerando_codigo' | 'postar_devolucao' | 'devolucao_a_caminho' | 'loja_confere'
   | 'entregue' | 'reembolsado' | 'cancelado'
 
 export interface CasoComprador {
@@ -203,7 +207,11 @@ export function casoComprador(
 
   if (r && (STATUS_ABERTOS as string[]).includes(r.status)) {
     if (r.motivo === 'arrependimento' && r.status === 'aguardando_devolucao') {
-      if (!r.devolucao_postada_em) return out('voce', 'postar_devolucao', r.postar_ate ? new Date(r.postar_ate) : null)
+      if (!r.devolucao_postada_em) {
+        // O prazo de postar so corre com o codigo da etiqueta pronto (#500).
+        if (r.etiqueta_status && r.etiqueta_status !== 'pronta') return out('bynx', 'gerando_codigo')
+        return out('voce', 'postar_devolucao', r.postar_ate ? new Date(r.postar_ate) : null)
+      }
       if (!r.devolucao_entregue_em) return out('correios', 'devolucao_a_caminho')
       return out('loja', 'loja_confere', r.contestar_ate ? new Date(r.contestar_ate) : null)
     }

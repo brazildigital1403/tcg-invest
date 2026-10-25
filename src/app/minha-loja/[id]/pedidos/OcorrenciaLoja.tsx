@@ -54,6 +54,8 @@ export interface Recl {
   contestada_em: string | null
   contestacao_video_url: string | null
   contestacao_tipo: TipoContestacao | null
+  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | null
+  etiqueta_custo_cents: number | null
   destino_carta: keyof typeof DESTINOS_CARTA | null
 }
 
@@ -120,6 +122,13 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
           </ol>
         )}
 
+        {r.etiqueta_status && (
+          <div className="oc-par"><IconTruck size={15} color="var(--bx-text-3)" /><span>Etiqueta de volta</span>
+            <b>{r.etiqueta_status === 'pronta' ? 'paga pela Bynx' : 'sendo gerada pela Bynx'}{r.etiqueta_custo_cents ? ` · ${fmtBRL(r.etiqueta_custo_cents)}` : ''}</b></div>
+        )}
+        {r.etiqueta_status && r.status === 'aguardando_devolucao' && (
+          <p className="oc-legal">O rastreio da devolução aparece sozinho. No estorno, a etiqueta e a taxa do cartão saem da comissão que voltaria para a loja.</p>
+        )}
         {r.devolucao_rastreio && (
           <div className="oc-par"><IconTruck size={15} color="var(--bx-text-3)" /><span>Rastreio da devolução</span><b>{r.devolucao_rastreio}</b></div>
         )}
