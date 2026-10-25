@@ -1028,5 +1028,33 @@ const CSS = `
 .cr-h1{font-size:42px}
 .cr-hero .cr-in{padding:32px 0}
 }
+/* Hero compacto no celular (25/10/2026): com o contador, o CTA do hero tinha
+   ido para baixo da dobra (912 px em 375x812). Leque menor, titulo e contador
+   mais enxutos; o desktop nao muda. */
+@media (max-width:767px){
+.cr-hero{padding-top:18px}
+.cr-h1{font-size:28px;margin-top:10px}
+.cr-hero .cr-p{font-size:14.5px;margin-top:8px}
+.cr-fan{height:222px;margin-top:14px}
+.cr-fan-c{width:76px;top:54px}
+.cr-fan-slab{width:134px}
+.cr-fan-slab .sa{padding:7px}
+.cr-fan-slab .sa-lab{padding:5px 7px;gap:4px;min-height:40px}
+.cr-fan-slab .sa-nome{max-width:none}
+.cr-fan-slab .sa-nota{font-size:20px}
+.cr-fan-slab .sa-tier{font-size:7px;letter-spacing:.06em}
+.cr-fan-0{transform:translateX(calc(-50% - 104px)) translateY(18px) rotate(-12deg)}
+.cr-fan-1{transform:translateX(calc(-50% - 58px)) translateY(4px) rotate(-6deg)}
+.cr-fan-2{transform:translateX(calc(-50% + 58px)) translateY(4px) rotate(6deg)}
+.cr-fan-3{transform:translateX(calc(-50% + 104px)) translateY(18px) rotate(12deg)}
+.cr-oferta{margin-top:12px}
+.cr-oferta li{min-height:32px;font-size:12.5px}
+.cr-ct{margin-top:10px;padding:12px}
+.cr-ct-n{font-size:36px}
+.cr-ct-pre,.cr-ct-t{font-size:14px}
+.cr-ct-regua,.cr-ct-barra-cont{margin-top:10px}
+.cr-ct-p{margin-top:8px}
+.cr-hero .cr-cta{margin-top:14px}
+}
 @media (prefers-reduced-motion: reduce){.cr *{transition:none!important}.cr-ct-pulso{animation:none}}
 `
