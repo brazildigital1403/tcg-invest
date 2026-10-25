@@ -22,7 +22,7 @@ import { trackSignUp } from '@/lib/analytics'
 import { SENHA_REGRA_MSG } from '@/lib/senha'
 import { APRESENTACAO_PARCERIA } from '@/lib/parceriaMaterial'
 import {
-  IconCalendar, IconCheck, IconChevronDown, IconClose, IconInstagram, IconLink, IconPlay, IconAccount, IconCollection,
+  IconCalendar, IconCheck, IconChevronDown, IconClock, IconClose, IconInstagram, IconLink, IconAccount, IconCollection,
   IconCard, IconShare, IconDownload,
 } from '@/components/ui/Icons'
 
@@ -40,18 +40,22 @@ const SLAB_BGS = { nome: 'Jirachi ex', img: `${IMG}30C-Jirachi-ex-102.jpg` }
 const SLAB_PSA = { nome: 'Pikachu', img: `${IMG}30C-Pikachu-036.jpg` }
 const MINIS = [`${IMG}30C-Lapras-131.jpg`, `${IMG}30C-Espeon-ex-070.jpg`, `${IMG}30C-Greninja-ex-021.jpg`]
 
-// Trilho de conteudo: so pecas da propria Bynx ate haver criador autorizado.
-// Com `youtubeId`, o toque troca a capa pelo player (youtube-nocookie, ja
-// liberado no CSP). Sem ele, o toque abre o link fora.
-type Midia = { tipo: 'Short' | 'Reel' | 'Post'; titulo: string; autor: string; capa: string; href: string; youtubeId?: string }
-const MIDIAS: Midia[] = [
-  { tipo: 'Short', titulo: 'Master Set fechando', autor: '@bynx_gg', capa: `${IMG}30C-Pikachu-047.jpg`, href: 'https://www.youtube.com/@bynx_gg/shorts' },
-  { tipo: 'Reel', titulo: 'Graduada chegando', autor: '@bynx.gg', capa: `${IMG}30C-Lycanroc-138.jpg`, href: 'https://www.instagram.com/bynx.gg/reels/' },
-  { tipo: 'Post', titulo: 'A coleção na tela', autor: '@bynx.gg', capa: `${IMG}30C-Umbreon-091.jpg`, href: 'https://www.instagram.com/bynx.gg/' },
+// Prova social: posts reais de parceiros (pedido do Du, 25/10/2026). A capa
+// fica no Storage da Bynx porque a URL de imagem do Instagram expira; o
+// toque abre o post no Instagram. Ja vem com o play do Instagram embutido.
+const CAPA_POST = 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/parceria-material/prova-'
+type Post = { autor: string; titulo: string; capa: string; href: string }
+const PROVA: Post[] = [
+  { autor: '@oinstadodelimas', titulo: 'Pikachus de 30 anos para fechar o Master Set', capa: `${CAPA_POST}Det6WBgxp6o.jpg`, href: 'https://www.instagram.com/p/Det6WBgxp6o/' },
+  { autor: '@poke.fatos', titulo: 'Quanto vale a sua coleção de cartas Pokémon?', capa: `${CAPA_POST}Deb-fJ7Rh2S.jpg`, href: 'https://www.instagram.com/p/Deb-fJ7Rh2S/' },
+  { autor: '@weslleyverso', titulo: 'A coleção cadastrada, com o valor em reais', capa: `${CAPA_POST}DdUEqnjuE10.jpg`, href: 'https://www.instagram.com/p/DdUEqnjuE10/' },
 ]
 
 type Estado = 'carregando' | 'ativo' | 'encerrado' | 'invalido'
 type Sucesso = { proAte: string | null; aviso: string | null }
+
+const dataCurta = (iso: string) =>
+  new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
 
 const dataBR = (iso: string) =>
   new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
@@ -61,6 +65,7 @@ export default function CriadoresClient() {
   const [codigo, setCodigo] = useState<string | null>(null)
   const [estado, setEstado] = useState<Estado>('carregando')
   const [expiraEm, setExpiraEm] = useState<string | null>(null)
+  const [vagas, setVagas] = useState<number | null>(null)
   const [logado, setLogado] = useState(false)
   const [folha, setFolha] = useState(false)
   const [sucesso, setSucesso] = useState<Sucesso | null>(null)
@@ -80,9 +85,10 @@ export default function CriadoresClient() {
     if (!c) { setEstado('invalido'); return }
     fetch(`/api/criadores/convite?c=${encodeURIComponent(c)}`)
       .then(r => r.json())
-      .then((d: { estado?: Estado; expiraEm?: string }) => {
+      .then((d: { estado?: Estado; expiraEm?: string; vagas?: number }) => {
         setEstado(d.estado === 'ativo' || d.estado === 'encerrado' ? d.estado : 'invalido')
         setExpiraEm(d.expiraEm || null)
+        setVagas(typeof d.vagas === 'number' ? d.vagas : null)
         if (d.estado === 'ativo' && !visitaFeita.current) { visitaFeita.current = true; evento('visita', c) }
       })
       .catch(() => setEstado('invalido'))
@@ -142,7 +148,7 @@ export default function CriadoresClient() {
   if (sucesso) return <TelaSucesso sucesso={sucesso} />
   if (estado === 'encerrado' || estado === 'invalido') return <TelaEncerrado invalido={estado === 'invalido'} />
 
-  const ctaTexto = ativando ? 'Ativando...' : 'Ativar meu ano de Pro'
+  const ctaTexto = ativando ? 'Liberando...' : 'Liberar meu 1 ano grátis'
 
   return (
     <div className="cr">
@@ -160,12 +166,13 @@ export default function CriadoresClient() {
       </header>
 
       <main>
-        {/* 1. Hero */}
+        {/* 1. Hero: a oferta inteira no primeiro contato (12 meses, sem cartao,
+            vagas e prazo) e o ganho do criador logo abaixo do botao. */}
         <section className="cr-sec cr-hero bx-gutter">
           <div className="cr-in">
             <p className="cr-eyebrow">Convite para criadores de Pokémon TCG</p>
-            <h1 className="cr-h1">Sua coleção merece o mesmo cuidado que o <em>seu conteúdo.</em></h1>
-            <p className="cr-p">Um ano de Bynx Pro liberado para você. Coleção, graduadas e patrimônio em real, organizados do seu jeito.</p>
+            <h1 className="cr-h1">Sua coleção já faz parte do seu conteúdo. <em>Agora ela trabalha a seu favor.</em></h1>
+            <p className="cr-p">Ganhe 1 ano de Bynx Pro para organizar sua coleção, mostrar suas cartas em um perfil público e oferecer desconto para quem acompanha você.</p>
 
             <figure className="cr-fan" aria-hidden="true">
               {LEQUE.map((c, i) => (
@@ -178,15 +185,43 @@ export default function CriadoresClient() {
               </div>
             </figure>
 
-            <div className="cr-band"><IconCalendar size={18} color="var(--ac-1)" /><span>12 meses de Pro, com todas as funções. Convite feito para este grupo.</span></div>
+            <ul className="cr-oferta">
+              <li><IconCalendar size={16} color="var(--ac-1)" />12 meses grátis</li>
+              <li><IconCheck size={16} color="var(--ac-1)" />Sem cartão</li>
+              {vagas && expiraEm && <li><IconClock size={16} color="var(--ac-1)" />{vagas} vagas até {dataCurta(expiraEm)}</li>}
+            </ul>
             {erroTopo && <p className="cr-erro" role="alert">{erroTopo}</p>}
             <button ref={heroCta} type="button" className="cr-cta" onClick={cta} disabled={ativando || estado !== 'ativo'}>{estado === 'carregando' ? 'Carregando...' : ctaTexto}</button>
-            <p className="cr-micro">Sem cartão. Sem cobrança no fim.</p>
-            <div className="cr-chip-wrap"><a href="#parceria" className="cr-chip"><IconAccount size={14} color="var(--ac-1)" />Programa de Parceria com comissão</a></div>
+            <p className="cr-micro">Sem cobrança no fim.</p>
+            <div className="cr-chip-wrap"><a href="#parceria" className="cr-chip"><IconAccount size={14} color="var(--ac-1)" />Parceria: 20% para seus seguidores e comissão para você</a></div>
           </div>
         </section>
 
-        {/* 2. Colecao */}
+        {/* 2. Parceria: logo depois do hero, com a comissao em numero. */}
+        <section className="cr-sec cr-s-par bx-gutter" id="parceria">
+          <div className="cr-in">
+            <p className="cr-eyebrow">Parceria</p>
+            <h2 className="cr-h2">Sua comunidade ganha. Você também.</h2>
+            <p className="cr-p">Quem segue você assina com desconto, e cada assinatura pelo seu cupom vira comissão para você.</p>
+            <Parceria logado={logado} onPrecisaConta={() => setFolha(true)} />
+          </div>
+        </section>
+
+        {/* 3. Prova social: posts reais de parceiros (capas no Storage da Bynx;
+            o link do Instagram expira). O toque abre o post no Instagram. */}
+        <section className="cr-sec cr-s-cont bx-gutter">
+          <div className="cr-in">
+            <p className="cr-eyebrow">Quem já mostra a Bynx</p>
+            <h2 className="cr-h2">Coleção organizada rende conteúdo melhor.</h2>
+            <p className="cr-p">Pasta aberta na câmera, Master Set fechando, o valor da coleção em R$. Veja como criadores parceiros mostram a Bynx.</p>
+            <div className="cr-rail">
+              {PROVA.map(m => <CartaoPost key={m.href} m={m} />)}
+            </div>
+          </div>
+        </section>
+
+        {/* 4. Colecao: o perfil publico vem primeiro, porque e o ganho mais
+            direto para quem cria conteudo. */}
         <section className="cr-sec cr-s-col bx-gutter">
           <div className="cr-in">
             <div className="cr-head">
@@ -196,10 +231,18 @@ export default function CriadoresClient() {
             </div>
             <div className="cr-feat">
               <div>
+                <h3>Perfil público</h3>
+                <p>Um link com a sua coleção, pronto para a bio e para os vídeos.</p>
+                <div className="cr-shot">
+                  <div className="cr-url"><IconLink size={14} /><span>bynx.gg/perfil/<b>seunome</b></span></div>
+                  <div className="cr-minis">{MINIS.map(s => <Image key={s} src={s} alt="" width={120} height={168} sizes="(min-width:1024px) 120px, 100px" />)}</div>
+                </div>
+              </div>
+              <div>
                 <h3>Pastas do seu jeito</h3>
                 <p>Por set, por Pokémon, por ilustrador ou pela lógica que só você entende.</p>
                 <div className="cr-shot cr-folders">
-                  {['Graduadas', 'Para troca', 'Ilustradores', 'Do canal'].map(n => (
+                  {['Cartas graduadas', 'Para troca', 'Ilustradores', 'Do canal'].map(n => (
                     <div key={n} className="cr-fd"><IconCollection size={18} color="var(--ac-1)" /><span>{n}</span></div>
                   ))}
                 </div>
@@ -216,16 +259,8 @@ export default function CriadoresClient() {
                 </div>
               </div>
               <div>
-                <h3>Perfil público</h3>
-                <p>Um link com a sua coleção, pronto para a bio e para os vídeos.</p>
-                <div className="cr-shot">
-                  <div className="cr-url"><IconLink size={14} /><span>bynx.gg/perfil/<b>seunome</b></span></div>
-                  <div className="cr-minis">{MINIS.map(s => <Image key={s} src={s} alt="" width={120} height={168} sizes="(min-width:1024px) 120px, 100px" />)}</div>
-                </div>
-              </div>
-              <div>
                 <h3>Patrimônio em R$</h3>
-                <p>Quanto a coleção vale hoje, atualizado pelo Mercado Brasileiro. Sem planilha.</p>
+                <p>Quanto a coleção vale hoje, pelo Mercado Brasileiro. É uma estimativa de mercado, não uma garantia de venda.</p>
                 <div className="cr-shot cr-pat">
                   <span className="cr-ex">Exemplo ilustrativo</span>
                   <span className="cr-pat-l">Patrimônio</span>
@@ -237,12 +272,12 @@ export default function CriadoresClient() {
           </div>
         </section>
 
-        {/* 3. Graduadas */}
+        {/* 5. Cartas graduadas */}
         <section className="cr-sec cr-s-grad bx-gutter">
           <div className="cr-in">
-            <p className="cr-eyebrow">Graduadas</p>
+            <p className="cr-eyebrow">Cartas graduadas</p>
             <h2 className="cr-h2">Slab não é linha de planilha.</h2>
-            <p className="cr-p">Registre graduadora, nota, subnotas, Black Label e certificado. Veja o valor da graduada ao lado do valor da carta sem graduação.</p>
+            <p className="cr-p">Registre graduadora, nota, subnotas, Black Label e certificado. Veja o valor da carta graduada ao lado do valor da carta sem graduação.</p>
             <div className="cr-pair">
               <div>
                 <SlabArte graduadora="bgs" nota={10} blackLabel img={SLAB_BGS.img} nome={SLAB_BGS.nome} sizes="(min-width:1024px) 260px, 200px" certificado />
@@ -258,27 +293,6 @@ export default function CriadoresClient() {
           </div>
         </section>
 
-        {/* 4. Conteudo */}
-        <section className="cr-sec cr-s-cont bx-gutter">
-          <div className="cr-in">
-            <p className="cr-eyebrow">Conteúdo</p>
-            <h2 className="cr-h2">Coleção organizada rende conteúdo melhor.</h2>
-            <p className="cr-p">Abertura de booster, Master Set fechando, graduada chegando. Com a coleção e o valor na tela, o vídeo conta a história sozinho.</p>
-            <div className="cr-rail">
-              {MIDIAS.map(m => <CartaoMidia key={m.titulo} m={m} />)}
-            </div>
-          </div>
-        </section>
-
-        {/* 5. Parceria */}
-        <section className="cr-sec cr-s-par bx-gutter" id="parceria">
-          <div className="cr-in">
-            <p className="cr-eyebrow">Parceria</p>
-            <h2 className="cr-h2">Sua comunidade ganha. Você também.</h2>
-            <Parceria logado={logado} onPrecisaConta={() => setFolha(true)} />
-          </div>
-        </section>
-
         {/* 6. Passos, FAQ e fechamento */}
         <section className="cr-sec cr-s-faq bx-gutter">
           <div className="cr-in">
@@ -291,8 +305,9 @@ export default function CriadoresClient() {
             <div className="cr-faq">
               <Pergunta q="Preciso de cartão?" a="Não. Nada é cobrado, nem no fim do ano." aberta />
               <Pergunta q="E depois de 12 meses?" a="Sua conta passa para o plano Grátis. As cartas continuam salvas, mas recursos do Pro, como scan, Master Sets e pastas extras, ficam bloqueados até você assinar. Avisamos antes." aberta />
-              <Pergunta q="Já tenho conta." a="Toque em Já tenho conta, no topo da página. Depois de entrar, o botão Ativar meu ano de Pro aplica o ano na sua conta." />
-              <Pergunta q="Posso falar da Bynx no meu conteúdo?" a="Pode e queremos. Se quiser ganhar com isso, peça a Parceria logo acima." />
+              <Pergunta q="Já tenho conta." a="Toque em Já tenho conta, no topo da página. Depois de entrar, o botão Liberar meu 1 ano grátis aplica o ano na sua conta." />
+              <Pergunta q="De onde vem o valor das cartas?" a="Do Mercado Brasileiro: preço em R$ de quem vende carta no Brasil, não dólar convertido. É uma estimativa de mercado para você acompanhar a coleção, não uma avaliação oficial nem garantia de venda." />
+              <Pergunta q="Posso falar da Bynx no meu conteúdo?" a="Pode e queremos. Se quiser ganhar com isso, peça a Parceria lá no começo da página." />
               {expiraEm && <Pergunta q="O convite tem prazo?" a={`Sim. Ele vale até ${dataBR(expiraEm)} ou até as vagas acabarem.`} />}
             </div>
           </div>
@@ -302,7 +317,7 @@ export default function CriadoresClient() {
           <div className="cr-in">
             <h2 className="cr-h2">A Bynx foi feita para quem vive o hobby. Isso inclui você.</h2>
             <button type="button" className="cr-cta" onClick={cta} disabled={ativando}>{ctaTexto}</button>
-            <p className="cr-micro">Sem cartão. Sem cobrança no fim.</p>
+            <p className="cr-micro">{vagas && expiraEm ? `${vagas} vagas para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.` : 'Sem cartão. Sem cobrança no fim.'}</p>
           </div>
         </section>
       </main>
@@ -338,34 +353,15 @@ function Pergunta({ q, a, aberta = false }: { q: string; a: string; aberta?: boo
   )
 }
 
-function CartaoMidia({ m }: { m: Midia }) {
-  const [tocando, setTocando] = useState(false)
-  if (tocando && m.youtubeId) {
-    return (
-      <div className="cr-vid">
-        <iframe
-          src={`https://www.youtube-nocookie.com/embed/${m.youtubeId}?autoplay=1&playsinline=1`}
-          title={m.titulo}
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    )
-  }
-  const conteudo = (
-    <>
+function CartaoPost({ m }: { m: Post }) {
+  return (
+    <a className="cr-vid" href={m.href} target="_blank" rel="noopener noreferrer" aria-label={`Post de ${m.autor} no Instagram: ${m.titulo} (abre em outra aba)`}>
       <Image src={m.capa} alt="" fill sizes="(min-width:1024px) 176px, 148px" />
-      <span className="cr-vid-tag">{m.tipo}</span>
-      {m.tipo === 'Post'
-        ? <span className="cr-vid-ext"><IconShare size={16} /></span>
-        : <span className="cr-vid-play"><IconPlay size={20} color="var(--bx-text)" /></span>}
+      <span className="cr-vid-tag">Parceiro</span>
+      <span className="cr-vid-ext"><IconInstagram size={16} /></span>
       <span className="cr-vid-meta">{m.titulo}<small>{m.autor}</small></span>
-    </>
+    </a>
   )
-  if (m.youtubeId) {
-    return <button type="button" className="cr-vid" onClick={() => setTocando(true)} aria-label={`Assistir: ${m.titulo}`}>{conteudo}</button>
-  }
-  return <a className="cr-vid" href={m.href} target="_blank" rel="noopener noreferrer" aria-label={`${m.titulo} (abre em outra aba)`}>{conteudo}</a>
 }
 
 function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta: () => void }) {
@@ -418,8 +414,9 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
   return (
     <div className="cr-partner">
       <ul>
-        <li><IconCheck size={18} color="var(--bx-green)" />Seus seguidores têm 20% de desconto com o seu cupom.</li>
-        <li><IconCheck size={18} color="var(--bx-green)" />Você recebe comissão na primeira assinatura e nas renovações.</li>
+        <li><IconCheck size={18} color="var(--bx-green)" /><span>Seus seguidores têm <b>20% de desconto</b> na primeira cobrança com o seu cupom.</span></li>
+        <li><IconCheck size={18} color="var(--bx-green)" /><span>Você recebe <b>100% da primeira cobrança</b>, até R$ 100.</span></li>
+        <li><IconCheck size={18} color="var(--bx-green)" /><span>E <b>20% de cada renovação mensal</b>, por até 12 meses.</span></li>
       </ul>
       <div className="cr-coupon">SEUNOME20 <small>seu cupom sai com o seu @</small></div>
       <form onSubmit={pedir} className="cr-partner-form">
@@ -620,6 +617,9 @@ const CSS = `
 .cr-band{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.28);font-size:13px;font-weight:600}
 .cr-band svg{flex:none;margin-top:1px}
 .cr-chip-wrap{text-align:center;margin-top:14px}
+.cr-oferta{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.cr-oferta li{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.28);font-size:13px;font-weight:700;color:var(--bx-text)}
+.cr-partner li b{color:var(--bx-text);font-weight:700}
 .cr-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);font-size:12px;font-weight:700;color:var(--bx-text-2);text-decoration:none}
 
 .cr-fan{position:relative;height:262px;margin:22px 0 0;background:radial-gradient(55% 60% at 50% 55%,rgba(var(--ac-1-rgb),0.16),transparent 70%)}
@@ -660,7 +660,7 @@ const CSS = `
 .cr-subs dd{margin:0;font-size:15px;font-weight:800;color:var(--bx-text)}
 .cr-quote{margin:22px 0 0;padding-left:12px;border-left:2px solid var(--ac-1);font-size:15px;font-weight:700}
 
-.cr-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:22px -16px 0;padding:0 16px 6px;scrollbar-width:none}
+.cr-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:16px;margin:22px -16px 0;padding:0 16px 6px;scrollbar-width:none}
 .cr-rail::-webkit-scrollbar{display:none}
 .cr-vid{flex:0 0 148px;aspect-ratio:9/16;border-radius:12px;overflow:hidden;position:relative;scroll-snap-align:start;border:1px solid var(--bx-border-2);background:var(--bx-bg-elev);color:var(--bx-text);text-decoration:none;padding:0;font:inherit;text-align:left;cursor:pointer;transition:transform .15s ease}
 .cr-vid:hover{transform:translateY(-2px)}
@@ -824,10 +824,12 @@ const CSS = `
 .cr-vid-meta{font-size:14px}
 
 .cr-s-par{padding-top:96px;padding-bottom:96px}
-.cr-s-par .cr-in{grid-template-rows:auto auto 1fr}
-.cr-s-par .cr-in>:not(.cr-partner){grid-column:1/6}
+.cr-s-par{background:var(--bx-bg-elev)}
+.cr-s-par .cr-in{grid-template-rows:auto auto auto 1fr}
+.cr-s-par .cr-in>:not(.cr-partner){grid-column:8/13}
+.cr-s-par .cr-eyebrow{margin-top:24px}
 .cr-s-par .cr-h2{font-size:clamp(36px,3.4vw,48px)}
-.cr-s-par .cr-partner{grid-column:7/13;grid-row:1/span 3;margin-top:0;padding:28px}
+.cr-s-par .cr-partner{grid-column:1/7;grid-row:1/span 4;margin-top:0;padding:28px}
 .cr-coupon{font-size:24px;min-height:64px;padding:0 20px;border-radius:12px;letter-spacing:.12em}
 
 .cr-s-faq{padding-top:88px;padding-bottom:88px}

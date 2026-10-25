@@ -19,6 +19,8 @@ export interface ConviteGrupoPublico {
   nome?: string
   diasPro?: number
   expiraEm?: string
+  /** Teto do convite (as vagas anunciadas). Os usos ficam no servidor. */
+  vagas?: number
 }
 
 export type CodigoResgate =
@@ -68,7 +70,7 @@ export function estadoDoConvite(c: LinhaConvite | null): EstadoConvite {
 export function conviteParaPublico(c: LinhaConvite | null): ConviteGrupoPublico {
   const estado = estadoDoConvite(c)
   if (!c || estado === 'invalido') return { estado }
-  return { estado, nome: c.nome, diasPro: c.dias_pro, expiraEm: c.expira_em }
+  return { estado, nome: c.nome, diasPro: c.dias_pro, expiraEm: c.expira_em, vagas: c.max_usos }
 }
 
 export async function registrarEventoConvite(conviteId: string, etapa: 'visita' | 'cta' | 'envio' | 'erro'): Promise<void> {
