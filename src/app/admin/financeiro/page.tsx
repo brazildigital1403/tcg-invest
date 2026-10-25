@@ -15,6 +15,7 @@ type Cards = {
   resultado:      { valor: number; trend: number }
   a_pagar:        { valor: number; count: number }
   saldo_projeto:  { valor: number }
+  a_receber:      { valor: number; count: number }
 }
 
 type DashboardData = {
@@ -23,6 +24,7 @@ type DashboardData = {
   vencimentos_proximos: { id: string; nome: string; valor: number; dias: number; dia_vencimento: number }[]
   chart_linha: { mes: string; receita: number; despesa: number }[]
   chart_pizza: { categoria: string; valor: number }[]
+  chart_pizza_receitas: { categoria: string; valor: number }[]
 }
 
 type DespesaRecorrente = {
@@ -63,7 +65,9 @@ const CATEGORIAS_DESPESA = ['infra','marketing','dominio','pagamentos','impostos
 // 'master_set' = compra AVULSA e vitalicia de um master set (R$ 9,99 por set).
 // Nao e recorrente: misturar com 'assinatura' inflava o MRR — em 27/07/2026
 // eram R$ 19,98 de R$ 55,78 (36%) lidos como receita recorrente.
-const CATEGORIAS_RECEITA = ['assinatura','comissao','master_set','outros']
+// 'servico' = servico de bancada (restauracao, pre-grading, completo), uma
+// linha por etapa paga (sinal, servico, integral); grava sozinho desde 23/10/2026.
+const CATEGORIAS_RECEITA = ['assinatura','comissao','master_set','servico','outros']
 
 const CAT_LABELS: Record<string, string> = {
   infra:       'Infraestrutura',
@@ -74,6 +78,7 @@ const CAT_LABELS: Record<string, string> = {
   assinatura:  'Assinatura',
   comissao:    'Comissão de venda',
   master_set:  'Master Set',
+  servico:     'Serviço de bancada',
   outros:      'Outros',
 }
 
@@ -89,6 +94,8 @@ const CAT_COLORS: Record<string, string> = {
   comissao:    '#a3e635',
   // Terceiro tom da familia de receita, ainda distinto do ambar de `pagamentos`.
   master_set:  '#14b8a6',
+  // Quarto motor de receita; rosa para nao cair perto do verde/teal das outras.
+  servico:     '#f472b6',
   outros:      'rgba(255,255,255,0.4)',
 }
 
@@ -320,12 +327,16 @@ export default function AdminFinanceiroPage() {
             <Card label="Resultado"         valor={data.cards.resultado.valor}      trend={data.cards.resultado.trend}      color={data.cards.resultado.valor >= 0 ? '#22c55e' : '#ef4444'} />
             <Card label="A pagar"           valor={data.cards.a_pagar.valor}        trend={null} color="#f59e0b" subtitle={`${data.cards.a_pagar.count} ${data.cards.a_pagar.count === 1 ? 'conta' : 'contas'} pendente${data.cards.a_pagar.count === 1 ? '' : 's'}`} />
             <Card label="Saldo do projeto" valor={data.cards.saldo_projeto.valor} trend={null} color={data.cards.saldo_projeto.valor > 0 ? '#ef4444' : '#22c55e'} subtitle="despesas − receitas · total" />
+            <Card label="A receber" valor={data.cards.a_receber?.valor || 0} trend={null} color="#f472b6" subtitle={`${data.cards.a_receber?.count || 0} ${(data.cards.a_receber?.count || 0) === 1 ? 'etapa' : 'etapas'} de serviço combinada${(data.cards.a_receber?.count || 0) === 1 ? '' : 's'}`} />
           </div>
 
           {/* ── Gráficos ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 14, marginBottom: 22 }} className="fin-charts">
             <ChartLinha rows={data.chart_linha} />
             <ChartPizza rows={data.chart_pizza} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 14, marginBottom: 22 }}>
+            <ChartPizza rows={data.chart_pizza_receitas || []} titulo="Receitas por categoria (mês atual)" vazio="Sem receitas no mês ainda." />
           </div>
         </>
       )}
@@ -698,7 +709,7 @@ function ChartLinha({ rows }: { rows: { mes: string; receita: number; despesa: n
   )
 }
 
-function ChartPizza({ rows }: { rows: { categoria: string; valor: number }[] }) {
+function ChartPizza({ rows, titulo = 'Despesas por categoria (mês atual)', vazio = 'Sem despesas no mês ainda.' }: { rows: { categoria: string; valor: number }[]; titulo?: string; vazio?: string }) {
   const total = rows.reduce((s, r) => s + r.valor, 0)
   const cx = 100, cy = 100, R = 80
   let acc = 0
@@ -721,10 +732,10 @@ function ChartPizza({ rows }: { rows: { categoria: string; valor: number }[] }) 
 
   return (
     <div style={surface}>
-      <h3 style={sectionTitle}>Despesas por categoria (mês atual)</h3>
+      <h3 style={sectionTitle}>{titulo}</h3>
       {total === 0 ? (
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', padding: '40px 0', textAlign: 'center' }}>
-          Sem despesas no mês ainda.
+          {vazio}
         </p>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>

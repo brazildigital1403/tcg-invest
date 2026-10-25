@@ -37,6 +37,7 @@ import { maisValiosas, mediuVariacao, mexidas, r1, r2, repetidas } from './anali
 import { novaAvaliacao, passaNasRegras, pular, type Avaliacao } from './avaliacao'
 import { enviarCandidatos, type Candidato, type ResultadoEnvio } from './envio'
 import { DIA_MS, ddmm, diaDeMes, mesPorExtenso, somarDias } from './tempo'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 export const EDITORIAIS = ['E01', 'E10', 'E11', 'E12', 'E17', 'E18', 'E19'] as const
 export type IdEditorial = (typeof EDITORIAIS)[number]
@@ -156,7 +157,7 @@ async function montarE10(ctx: Contexto, u: Usuario, col: Colecao, edicao: Record
       const c = alta.carta.cat!
       colecao = {
         nome: u.nome, valor: col.valor,
-        maisSubiu: { nome: alta.carta.nome, numero: c.setTotal ? `${c.numero}/${c.setTotal}` : c.numero, imagem: c.imagem, precoAntes: alta.antes, precoAgora: alta.agora, dias: 7 },
+        maisSubiu: { nome: alta.carta.nome, numero: c.setTotal ? numeroSobreTotal(c.numero, c.setTotal) : c.numero, imagem: c.imagem, precoAntes: alta.antes, precoAgora: alta.agora, dias: 7 },
       }
     }
   }

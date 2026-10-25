@@ -24,7 +24,7 @@
 import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { serieExibicao, nomeSetSemCadastro } from '@/lib/setExibicao'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Fragment, cache } from 'react'
@@ -34,6 +34,7 @@ import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import { IconCollection } from '@/components/ui/Icons'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 // ISR: regenera a cada 6h. Após o rename dos sets, os títulos precisam
 // refletir o nome novo sem esperar 24h; preços/contagens também mudam.
@@ -175,6 +176,28 @@ const fetchSetData = cache(async function fetchSetData(
   return { set: setData, cards: cleanCards }
 })
 
+// ─── Set do fornecedor esvaziado pela dedup (14/10/2026) ──────────────────
+// Os 71 set_id com prefixo "liga-" eram uma importacao antiga das mesmas cartas
+// do set sem prefixo (liga-15b x 15b). A dedup esconde a copia e grava o de->para
+// em `dedup_liga_map` (o mesmo mapa que a pagina da carta ja usa). Quando o set
+// fica sem carta visivel, a URL antiga vai com 301 para o set onde as cartas
+// ficaram, em vez de virar 404. So roda no caminho de "nao achei carta".
+// Vale para qualquer set_id que o mapa conheca, nao so os "liga-": a dedup no
+// mesmo idioma (cec -> sm12, 14/10/2026) usa o mesmo caminho.
+async function destinoDeSetRemovido(id: string): Promise<string | null> {
+  const sb = getServiceSupabase()
+  if (!sb) return null
+  const { data: mapa } = await sb.from('dedup_liga_map').select('cat_id').eq('set_id', id).limit(200)
+  const ids = (mapa || []).map(m => m.cat_id).filter(Boolean) as string[]
+  if (ids.length === 0) return null
+  const { data: cartas } = await sb.from('pokemon_cards').select('set_id').in('id', ids)
+  const cont = new Map<string, number>()
+  for (const c of cartas || []) if (c.set_id) cont.set(c.set_id, (cont.get(c.set_id) || 0) + 1)
+  let melhor: string | null = null
+  for (const [setId, n] of cont) if (!melhor || n > (cont.get(melhor) || 0)) melhor = setId
+  return melhor && melhor !== id ? melhor : null
+}
+
 // ─── Helper ────────────────────────────────────────────────────────────────
 
 const formatBRL = (v: number) =>
@@ -250,6 +273,8 @@ export default async function SetPage({
   const { set, cards } = await fetchSetData(id)
 
   if (!set || cards.length === 0) {
+    const destino = await destinoDeSetRemovido(id)
+    if (destino) permanentRedirect(`/set/${destino}`)
     notFound()
   }
 
@@ -436,7 +461,7 @@ export default async function SetPage({
                      que a grade usa. Continua lazy — so as visiveis baixam. */
                   <Image
                     src={card.image_small}
-                    alt={card.name + (card.number ? ' ' + card.number + (set.printedTotal ? '/' + set.printedTotal : '') : '') + ' — ' + (set.namePt || set.name)}
+                    alt={card.name + (card.number ? ' ' + numeroSobreTotal(card.number, set.printedTotal) : '') + ' — ' + (set.namePt || set.name)}
                     width={245}
                     height={342}
                     loading="lazy"
@@ -481,7 +506,7 @@ export default async function SetPage({
                 </p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                   {card.number && set.printedTotal
-                    ? `${card.number}/${set.printedTotal}`
+                    ? numeroSobreTotal(card.number, set.printedTotal)
                     : card.number
                       ? `#${card.number}`
                       : ''}

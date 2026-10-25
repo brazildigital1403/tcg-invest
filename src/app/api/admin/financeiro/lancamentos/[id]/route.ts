@@ -9,7 +9,7 @@ function supabaseAdmin() {
   )
 }
 
-const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'outros']
+const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'servico', 'outros']
 
 function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string; valor: number; taxa: number }[] } | { ok: false; error: string } {
   if (detalhes === null) return { ok: true, lista: [] }

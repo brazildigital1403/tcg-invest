@@ -314,9 +314,13 @@ export default function MetaPage() {
         setLimite(lim); return
       }
       if (error.code === '23505') {
-        showAlert(meta.idioma
-          ? 'Esta carta já está na sua coleção em outro idioma. Por enquanto, a coleção guarda um idioma por carta.'
-          : 'Esta carta já está na sua coleção.', 'warning')
+        // ★ Ate 14/10 o indice unico ignorava idioma e variante, e qualquer
+        //   segunda copia da carta caia aqui -- dai o aviso falar em "um
+        //   idioma por carta". Agora a pilha inclui os dois, entao 23505 so
+        //   acontece quando a pessoa ja tem exatamente esta carta, neste
+        //   idioma. O aviso que mencionava o limite de idioma deixou de ser
+        //   verdade e saiu.
+        showAlert('Esta carta já está na sua coleção.', 'warning')
         await carregar(); return
       }
       showAlert('Não conseguimos adicionar a carta. Tente de novo.', 'error'); return

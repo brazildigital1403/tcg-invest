@@ -10,9 +10,14 @@ import {
   lerFaixaNota, lerGraduadora, textoDoTermo, type FichaCondicao, type ServicoId,
 } from '@/lib/servicos'
 import { BUCKET_SERVICOS, pagamentosDoPedido, pendencias } from '@/lib/servicosServer'
+import { lerMedicaoFace } from '@/lib/centralizacao/medicao'
+import { medir, textoDoLaudo, type Medida } from '@/lib/centralizacao/medida'
+import { escadasDeCentralizacao } from '@/lib/centralizacao/graduadoras'
+import { LIMITES_CONSULTA } from '@/lib/servicos'
 import {
   NOTA_MARCO, NOTA_PRONTA, TITULO_TERMO,
   type RelatorioDados, type RelatorioFoto, type RelatorioLaudo, type RelatorioPagamento, type RelatorioProcedimento,
+  type RelatorioCentralizacaoFace,
 } from '@/lib/servicosRelatorio'
 
 /** Tipos de midia que o papel mostra (so foto; video e PDF nao). */
@@ -66,7 +71,10 @@ export async function montarRelatorio(sb: SupabaseClient, id: string): Promise<R
   // Foto mais recente de cada slot (a refeita vale). Chave: item + tipo + posicao.
   const ultima = new Map<string, { item_id: string; tipo: string; posicao: string; path: string; created_at: string }>()
   for (const m of midias || []) {
-    if (!m.item_id || !TIPOS_FOTO.includes(m.tipo) || !MIMES_FOTO.includes(m.mime)) continue
+    // Alem do protocolo, a imagem anotada da ferramenta de centralizacao
+    // (midia de laudo com posicao centralizacao_frente/verso).
+    const anotada = m.tipo === 'laudo' && /^centralizacao_(frente|verso)$/.test(m.posicao || '')
+    if (!m.item_id || !(TIPOS_FOTO.includes(m.tipo) || anotada) || !MIMES_FOTO.includes(m.mime)) continue
     ultima.set(`${m.item_id}:${m.tipo}:${m.posicao || ''}`, { item_id: m.item_id, tipo: m.tipo, posicao: m.posicao || '', path: m.path, created_at: m.created_at })
   }
   const paths = [...ultima.values()].map(m => m.path)
@@ -123,9 +131,37 @@ export async function montarRelatorio(sb: SupabaseClient, id: string): Promise<R
 
   const cartas = (itens || []).map(it => {
     const laudoBruto = (it.laudo && typeof it.laudo === 'object' ? it.laudo : null) as Record<string, unknown> | null
+    // Medida da ferramenta, por face. So vale se o texto do laudo ainda for o da
+    // medida: se o admin reescreveu a centralizacao a mao depois, a face sai (e a
+    // imagem anotada dela tambem), para o papel nunca mostrar dois numeros.
+    const medicaoBruta = (laudoBruto?.centralizacao_medicao && typeof laudoBruto.centralizacao_medicao === 'object'
+      ? laudoBruto.centralizacao_medicao : {}) as Record<string, unknown>
+    const medidas: Record<'frente' | 'verso', { medida: Medida; rel: RelatorioCentralizacaoFace } | null> = { frente: null, verso: null }
+    for (const f of ['frente', 'verso'] as const) {
+      const g = lerMedicaoFace(medicaoBruta[f])
+      if (!g) continue
+      const m = medir(g.linhas)
+      if (textoDoLaudo(m) !== texto(laudoBruto?.[`centralizacao_${f}`])) continue
+      medidas[f] = {
+        medida: m,
+        rel: {
+          mm: m.mm, laterais: { texto: m.lr.texto, maior: m.lr.maior }, topoBase: { texto: m.tb.texto, maior: m.tb.maior },
+          vale: m.lr.maior >= m.tb.maior ? 'laterais' : 'topoBase', semMoldura: g.sem_moldura, medidoEm: g.medido_em,
+        },
+      }
+    }
+    const gradLaudo = lerGraduadora(laudoBruto?.graduadora)
+    let centralizacaoEscada: RelatorioLaudo['centralizacaoEscada'] = null
+    if (gradLaudo && (medidas.frente || medidas.verso)) {
+      const r = escadasDeCentralizacao(medidas.frente?.medida ?? null, medidas.verso?.medida ?? null)
+      const escada = r.escadas.find(e => e.graduadora === gradLaudo)
+      if (escada && r.base !== 'nenhuma') centralizacaoEscada = { base: r.base, escada, consulta: LIMITES_CONSULTA }
+    }
     const laudo: RelatorioLaudo | null = laudoBruto ? {
       centralizacaoFrente: texto(laudoBruto.centralizacao_frente),
       centralizacaoVerso: texto(laudoBruto.centralizacao_verso),
+      centralizacaoMedida: medidas.frente || medidas.verso ? { frente: medidas.frente?.rel ?? null, verso: medidas.verso?.rel ?? null } : null,
+      centralizacaoEscada,
       cantos: texto(laudoBruto.cantos),
       bordas: texto(laudoBruto.bordas),
       superficie: texto(laudoBruto.superficie),
@@ -135,6 +171,7 @@ export async function montarRelatorio(sb: SupabaseClient, id: string): Promise<R
       caderno: texto(laudoBruto.caderno),
     } : null
     const fotos: RelatorioFoto[] = [...ultima.values()].filter(m => m.item_id === it.id)
+      .filter(m => !(m.tipo === 'laudo' && ((m.posicao === 'centralizacao_frente' && !medidas.frente) || (m.posicao === 'centralizacao_verso' && !medidas.verso))))
       .map(m => ({ tipo: m.tipo, posicao: m.posicao, url: urlPor.get(m.path) || null, em: m.created_at }))
     const procedimentos: RelatorioProcedimento[] = (procs || []).filter(p => p.item_id === it.id).map(p => ({
       ordem: p.ordem, problema: p.problema, procedimento: p.procedimento, objetivo: p.objetivo,
@@ -155,7 +192,8 @@ export async function montarRelatorio(sb: SupabaseClient, id: string): Promise<R
       fichaSaidaEm: it.ficha_saida_em,
       procedimentos,
       laudo,
-      laudoAnexo: (midias || []).some(m => m.item_id === it.id && m.tipo === 'laudo'),
+      // A imagem anotada da centralizacao tambem e midia de laudo, mas nao e laudo anexo.
+      laudoAnexo: (midias || []).some(m => m.item_id === it.id && m.tipo === 'laudo' && !(m.posicao || '').startsWith('centralizacao_')),
       fotos,
     }
   })

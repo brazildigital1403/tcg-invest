@@ -609,6 +609,22 @@ export const TERMO_V2 = [
   TERMO_V1[5],
 ]
 
+/**
+ * v3 (21/10/2026): restauracao e completo. Igual a v2 com o aviso de whitening
+ * logo depois do item do metodo, pedido do Du no primeiro orcamento real
+ * (#S-0006): borda e canto branco sao tinta que saiu e nao voltam. Mesmo
+ * texto da landing ("Borda ou canto branco").
+ */
+export const TERMO_V3 = [
+  TERMO_V2[0],
+  'Borda e canto branco (whitening) não são restaurados: é tinta que saiu do cartão, e cobrir exigiria repintura. O branco continua na carta depois do serviço e conta na nota da graduadora.',
+  TERMO_V2[1],
+  TERMO_V2[2],
+  TERMO_V2[3],
+  TERMO_V2[4],
+  TERMO_V2[5],
+]
+
 /** Pre-grading v1: avaliacao sem intervencao nenhuma na carta. */
 export const TERMO_PRE_GRADING_V1 = [
   'O pré-grading é uma avaliação: a carta é medida, examinada com lupa e fotografada em luz difusa e rasante. Nada é feito na carta: sem limpeza e sem nenhum tratamento.',
@@ -623,6 +639,7 @@ export const TERMO_PRE_GRADING_V1 = [
 export const TERMOS_POR_VERSAO: Record<string, string[]> = {
   'v1-2026-09': TERMO_V1,
   'v2-2026-09': TERMO_V2,
+  'v3-2026-10': TERMO_V3,
   'pg-v1-2026-09': TERMO_PRE_GRADING_V1,
 }
 
@@ -630,7 +647,7 @@ export const TERMOS_POR_VERSAO: Record<string, string[]> = {
 export function termoDoServico(servico: string): { versao: string; itens: string[] } {
   return servico === 'pre_grading'
     ? { versao: 'pg-v1-2026-09', itens: TERMO_PRE_GRADING_V1 }
-    : { versao: 'v2-2026-09', itens: TERMO_V2 }
+    : { versao: 'v3-2026-10', itens: TERMO_V3 }
 }
 
 export const GUIA_EMBALAGEM = [
@@ -645,6 +662,21 @@ export const GUIA_EMBALAGEM = [
  * rastreio OFICIAL ja com o objeto preenchido (a pessoa so resolve o captcha
  * deles); qualquer outro formato vai para o 17TRACK, que cobre transportadoras.
  */
+/**
+ * Codigo que PARECE dos Correios (termina em BR, com numeros no meio) mas nao
+ * tem o formato certo: 2 letras + 9 numeros + BR. Foi o caso do #S-0006
+ * (22/10/2026): o cliente digitou Y986175085BR em vez de OY986175085BR, o
+ * sistema aceitou e o "Rastrear" caiu no 17TRACK sem resultado. Devolve o
+ * aviso para a tela, ou null quando o codigo esta certo ou e de transportadora.
+ */
+export function avisoRastreio(codigo: string): string | null {
+  const c = codigo.toUpperCase().replace(/[\s.-]/g, '')
+  if (!c) return null
+  const pareceCorreios = /BR$/.test(c) && /\d{6,}/.test(c)
+  if (!pareceCorreios || /^[A-Z]{2}\d{9}BR$/.test(c)) return null
+  return 'Código dos Correios tem 2 letras, 9 números e BR, como AA123456789BR. Confira no comprovante.'
+}
+
 export function linkRastreio(codigo: string): { href: string; onde: string } {
   const c = codigo.toUpperCase().replace(/[\s.-]/g, '')
   if (/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(c)) {
@@ -1042,7 +1074,11 @@ export const FAQ_PRE_GRADING_EXTRA: Faq[] = [
   },
   {
     q: 'Dá para avaliar só pelas fotos?',
-    a: 'As fotos servem para o orçamento. A medição que vira laudo é feita com a carta na bancada.',
+    // ★ 12/10/2026: existe a previa gratis (/centralizacao), que estima so a
+    //   centralizacao da FRENTE pela foto. A resposta antiga ("so as fotos nao
+    //   avaliam") passou a contradizer a pagina; agora separa as duas coisas.
+    a: 'As fotos servem para o orçamento. Antes de pedir, você pode medir grátis a centralização da frente pela foto, '
+      + 'mas é uma estimativa. O laudo, com o verso, cantos, bordas, superfície e as medidas em mm, é feito com a carta na bancada.',
   },
   {
     q: 'Posso mandar várias cartas de uma vez?',

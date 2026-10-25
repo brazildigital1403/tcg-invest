@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { OFERTAS_EVENTO } from '@/lib/ofertasEvento'
 import { IconShield } from '@/components/ui/Icons'
 import { posthog } from '@/lib/posthog'
 
@@ -58,7 +60,18 @@ function pushConsentUpdate(granted: boolean) {
   }
 }
 
+// ★ 17/10/2026: nas landings de EVENTO o banner nao aparece. Elas tem um CTA
+// fixo no rodape do celular, e o banner cobria exatamente esse botao (print do
+// Du na Poke Fan Fest). Sem o clique no banner o 'consent default' continua
+// denied (nada de cookie nao essencial e PostHog sem captura), entao esconder
+// aqui nao muda o que e gravado -- so tira o obstaculo da compra. O banner
+// volta em qualquer outra rota do site.
+// 23/10/2026: idem na landing de criadores (/criadores), que pode ser filmada
+// pelo criador e tem a mesma barra fixa de CTA no celular.
+const ROTAS_SEM_BANNER = new Set<string>([...Object.values(OFERTAS_EVENTO).map(o => o.landing), '/criadores'])
+
 export default function CookieBanner() {
+  const pathname = usePathname()
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
 
@@ -102,6 +115,7 @@ export default function CookieBanner() {
 
   // Não renderiza no SSR pra evitar hydration mismatch (localStorage é client-only)
   if (!mounted || !visible) return null
+  if (pathname && ROTAS_SEM_BANNER.has(pathname)) return null
 
   return (
     <div style={S.wrapper} role="dialog" aria-live="polite" aria-label="Aviso de cookies">

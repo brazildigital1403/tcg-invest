@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import TicketAnexos from '@/components/suporte/TicketAnexos'
 import Link from 'next/link'
 import { useAppModal } from '@/components/ui/useAppModal'
+import TextoComLinks from '@/components/ui/TextoComLinks'
 
 type UserInfo = {
   id: string
@@ -312,7 +313,7 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
                     color: 'rgba(255,255,255,0.85)',
                     whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                   }}>
-                    {m.content}
+                    <TextoComLinks texto={m.content} />
                   </div>
                 </div>
               )

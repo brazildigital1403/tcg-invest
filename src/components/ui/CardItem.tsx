@@ -11,6 +11,7 @@ import { GRADUADORA_MAP, isNotaTop, notaCurta } from '@/lib/graduadoras'
 import { IconHistory, IconShield } from '@/components/ui/Icons'
 import { ehVerificada } from '@/lib/origemCarta'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 // Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
 // "Liga BR — MEP" -> "Set MEP" ; "Liga BR" -> "Set" ; demais nomes inalterados
@@ -142,6 +143,14 @@ interface CardItemProps {
   badge?: ReactNode
   // Slot extra no rodapé do card (ex: editor de condição)
   footerSlot?: ReactNode
+  /**
+   * Mostra a variante ao lado do número. Quem chama liga isto quando a MESMA
+   * carta aparece na listagem em mais de uma pilha -- aí os dois cartões ficam
+   * com nome, número, arte e selo de idioma idênticos, e o único sinal era o
+   * ponto de 7px na mini-tabela de preços. Pilhas separadas por variante só
+   * existem desde 14/10/2026.
+   */
+  marcarVariante?: boolean
   // Câmbio para estimativas USD/EUR
   exchangeRate?: { usd: number; eur: number }
   // Esconde a mini-tabela de variantes/preço (fica só o badge de preço na
@@ -228,6 +237,7 @@ export default function CardItem({
   onSelect,
   badge,
   footerSlot,
+  marcarVariante,
   exchangeRate = { usd: 6.0, eur: 6.5 },
   hidePriceTable = false,
   ocultarIdioma = false,
@@ -239,15 +249,19 @@ export default function CardItem({
   const image = card.card_image || card.image_large || card.image_small
   const name = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
   const setName = setLabel(card.set_name)
-  // Numero impresso: "(NNN/TTT)" do nome original (cartas Liga) tem prioridade;
-  // senao monta de number + total. Nunca exibe o id interno "liga-...".
+  // Numero impresso: o CATALOGO manda (number + set_total, que desde o #505 e o
+  // total impresso). O "(NNN/TTT)" do nome e so reserva: em user_cards e
+  // marketplace ele e foto do momento em que a carta entrou e envelhece
+  // (12/10/2026: 2.868 cartas de 182 usuarios com o total antigo no nome).
+  // Nunca exibe o id interno do fornecedor.
   const _printed = String(card.card_name || card.name || '').match(/\((\d+)\/(\d+)\)/)
   const rawNum = card.number || card.card_id?.split('/')?.[0]
   const total = card.price?.set_total || card.set_total
-  const number = _printed
-    ? `${_printed[1]}/${_printed[2]}`
-    : (rawNum && !String(rawNum).toLowerCase().startsWith('liga'))
-      ? (total ? `${String(rawNum).padStart(String(total).length, '0')}/${total}` : String(rawNum))
+  const temNumCatalogo = !!rawNum && !String(rawNum).toLowerCase().startsWith('liga')
+  const number = temNumCatalogo
+    ? (total ? numeroSobreTotal(String(rawNum).padStart(String(total).length, '0'), total) : String(rawNum))
+    : _printed
+      ? `${_printed[1]}/${_printed[2]}`
       : ''
   const rColor = rarityColor(card.rarity || '')
   const imgAlt = name + (number ? ' ' + number : '') + (setName ? ' — ' + setName : '')
@@ -436,9 +450,14 @@ export default function CardItem({
         {/* Nome + número */}
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-text)', lineHeight: 1.3, marginBottom: 1 }}>{name}</p>
-          {(number || setName) && (
-            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-              {number ? number : ''}{number && setName ? ' · ' : ''}{setName}
+          {(number || setName || marcarVariante) && (
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+              <span>{number ? number : ''}{number && setName ? ' · ' : ''}{setName}</span>
+              {marcarVariante && (
+                <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ac-1)', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 5, padding: '1px 6px' }}>
+                  {variante || 'normal'}
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -507,13 +526,22 @@ export default function CardItem({
             Confirmado: CardItem so roda em contexto App (Pokedex, Colecao,
             AnunciarModal) -- nunca dentro da Loja, que usa roxo como accent
             proprio; se isso mudar, revisar a cor. */}
+        {/* ★ O rotulo e o valor ficavam lado a lado num space-between, os dois
+            com nowrap e nenhum podendo cortar: a caixa do rotulo encolhia, o
+            texto continuava desenhado inteiro, e o numero caia POR CIMA da
+            palavra. Medido em 375px: a faixa tem 141px, sobram 123 uteis, e o
+            rotulo com o icone pede 97 -- restavam 20px para o numero. So valor
+            abaixo de R$ 10 cabia; 33,4% das cartas com venda saiam quebradas
+            (de R$ 100 pra cima invadia de 9 a 26px, e a maior venda da base e
+            de R$ 26.000). Empilhado, o valor fica com a largura toda: cabe
+            qualquer numero e ainda sobe de 10 para 14px. */}
         {ultimoVendidoFmt && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: '6px 9px', borderRadius: 8, background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.18)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, padding: '6px 9px', borderRadius: 8, background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.18)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
               <span style={{ color: '#a855f7', display: 'flex', flexShrink: 0 }}><IconHistory size={11} /></span>
               <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>Último vendido</span>
             </span>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#a855f7', whiteSpace: 'nowrap' }}>{ultimoVendidoFmt}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#a855f7', letterSpacing: '-0.015em', lineHeight: 1.15, whiteSpace: 'nowrap' }}>R$ {ultimoVendidoFmt}</span>
           </div>
         )}
 

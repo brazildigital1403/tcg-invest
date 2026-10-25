@@ -6,6 +6,7 @@ import { trackFirstCardAdded } from '@/lib/analytics'
 import { limiteCartasDoErro, textoLimiteCartas } from '@/lib/checkCardLimit'
 import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
 import { promoveuOrigem } from '@/lib/origemCarta'
+import { aplicarPilha } from '@/lib/pilhaDaCarta'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 } as const
@@ -22,6 +23,7 @@ interface ScannedCard {
   _fonte?: 'BRL' | 'USD' | null
   _matched?: boolean
   _matchedId?: string | null
+  _idioma?: string | null
 }
 
 interface Props {
@@ -299,6 +301,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           _fonte: fonte,
           _matched: !!matched,
           _matchedId: matched?.id || null,
+          _idioma: matched?.idioma || null,
         }
       })
 
@@ -368,15 +371,25 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         ? `${card.name} (${card.number})`
         : card.name
 
-      // Busca imagem na TCG API em paralelo com o check de existência
+      // ★ #522. Era o unico dos sete caminhos de escrita que achava a carta
+      //   por NOME (ilike em card_name), sem graduada, variante nem idioma --
+      //   e com o id do catalogo ja em maos (_matchedId do enrich). Medido:
+      //   109 pares usuario x nome apontam para pokemon_api_id diferentes em
+      //   25 usuarios; para qualquer um deles o ilike achava a carta errada e
+      //   somava nela. Com id, casa pela mesma chave do indice (pilha); so sem
+      //   id cai no nome, e ai pelo menos fora das graduadas.
+      const buscaExistente = card._matchedId
+        ? aplicarPilha(
+            supabase.from('user_cards').select('id, quantity, origem')
+              .eq('user_id', user.id).eq('pokemon_api_id', card._matchedId).eq('graduada', false),
+            'normal',
+            card._idioma,
+          ).limit(1)
+        : supabase.from('user_cards').select('id, quantity, origem')
+            .eq('user_id', user.id).eq('graduada', false).ilike('card_name', cardName).limit(1)
       const [imageUrl, existingResult] = await Promise.all([
         fetchCardImage(card.name, card.number, card.set),
-        supabase
-          .from('user_cards')
-          .select('id, quantity, origem')
-          .eq('user_id', user.id)
-          .ilike('card_name', cardName)
-          .limit(1)
+        buscaExistente,
       ])
 
       const existing = existingResult.data?.[0] || null
@@ -417,6 +430,9 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           pokemon_api_id: card._matchedId || null,
           set_name: card.set || null,
           variante: 'normal',
+          // Idioma da carta que o enrich casou; sem match fica o default do
+          // banco ('pt'), como antes. Desde 14/10 o idioma define a pilha.
+          ...(card._idioma ? { idioma: card._idioma } : {}),
           quantity: 1,
           card_image: imageUrl,
           card_link: null,
@@ -454,7 +470,8 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
       backdropFilter: 'blur(8px)', zIndex: 9999,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 24, fontFamily: "'DM Sans', system-ui, sans-serif",
+      padding: '24px 24px calc(24px + env(safe-area-inset-bottom, 0px))',
+      fontFamily: "'DM Sans', system-ui, sans-serif",
     }}>
       <div style={{
         width: '100%', maxWidth: 880, background: '#0d0f14',
@@ -480,7 +497,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
             </div>
           </div>
           <button onClick={() => { stopCamera(); onClose() }}
-            style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
         </div>
@@ -918,12 +935,12 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
             )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { stopCamera(); onClose() }}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '10px 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer' }}>
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', minHeight: 44, padding: '0 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer' }}>
                 Cancelar
               </button>
               {step === 'confirm' && (
                 <button onClick={handleAdd} disabled={selectedCount === 0}
-                  style={{ background: selectedCount > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCount > 0 ? '#000' : 'rgba(255,255,255,0.3)', padding: '10px 24px', borderRadius: 10, fontSize: 13, cursor: selectedCount > 0 ? 'pointer' : 'default', fontWeight: 700, transition: 'all 0.2s' }}>
+                  style={{ background: selectedCount > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCount > 0 ? '#000' : 'rgba(255,255,255,0.3)', minHeight: 44, padding: '0 24px', borderRadius: 10, fontSize: 13, cursor: selectedCount > 0 ? 'pointer' : 'default', fontWeight: 700, transition: 'all 0.2s' }}>
                   Adicionar {selectedCount > 0 ? `(${selectedCount})` : ''} →
                 </button>
               )}

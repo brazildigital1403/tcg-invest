@@ -23,6 +23,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import TextoComLinks from '@/components/ui/TextoComLinks'
 
 interface Props {
   aberto: boolean
@@ -284,6 +285,22 @@ export default function NovaConversaModal({
             {mensagem.trim().length} / 10.000 · mínimo 10
           </p>
         </div>
+
+        {/* Previa: o mesmo render da tela do usuario. URL vira link aqui, no
+            e-mail e no app -- quem escreve enxerga antes de enviar (12/10/2026). */}
+        {mensagem.trim().length >= 10 && (
+          <div style={{ marginBottom: 6 }}>
+            <label style={label}>Como a pessoa vai ver</label>
+            <div style={{
+              padding: '14px 16px', borderRadius: 10,
+              background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.22)',
+              fontSize: 13.5, lineHeight: 1.6, color: 'rgba(255,255,255,0.85)',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>
+              <TextoComLinks texto={mensagem} />
+            </div>
+          </div>
+        )}
 
         {erro && (
           <p style={{ margin: '10px 0 0', fontSize: 12.5, color: '#ef4444', lineHeight: 1.5 }}>{erro}</p>

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
+import { sendParceriaAprovadaEmail } from '@/lib/email'
 
 function supabaseAdmin() {
   return createClient(
@@ -206,6 +207,14 @@ export async function POST(req: NextRequest) {
         ? 'Já existe parceiro com esse user, código ou promotion code'
         : `Insert falhou (migration aplicada?): ${error.message}`
       return NextResponse.json({ error: msg }, { status: 400 })
+    }
+
+    // Cupom pronto: avisa o parceiro com o link da Central e a apresentacao
+    // para repassar. Falha de e-mail nunca desfaz o parceiro ja criado.
+    try {
+      await sendParceriaAprovadaEmail({ to: email, nome: users[0].name, cupom: cupomCode, descontoPct, userId })
+    } catch (e) {
+      console.error('[admin/parceiros] e-mail de aprovacao falhou:', e instanceof Error ? e.message : e)
     }
 
     // Detalhes do promo pro admin conferir na tela (duration, percent_off).

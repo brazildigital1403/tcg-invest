@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/ui/AppLayout'
 import { supabase } from '@/lib/supabaseClient'
 import FicharioVirtual from '@/components/master-sets/FicharioVirtual'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 interface Detail {
   set_id: string
@@ -355,7 +356,7 @@ function leadNum(numero: string): string {
 }
 
 function fmtNum(numero: string, total: number): string {
-  return /^\d+$/.test(numero) ? `${numero.padStart(3, '0')}/${total}` : numero
+  return /^\d+$/.test(numero) ? numeroSobreTotal(numero.padStart(3, '0'), total) : numero
 }
 
 function MSPocket({ card, modo, total }: { card: Card; modo: 'imagem' | 'economia'; total: number }) {

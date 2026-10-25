@@ -12,11 +12,14 @@ import CardRequestBox from './CardRequestBox'
 import ImportarCartasModal from './ImportarCartasModal'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
 import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
+import { aplicarPilha } from '@/lib/pilhaDaCarta'
 
 interface Props {
   userId: string | null
   onClose: () => void
-  onAdded: () => void
+  /** Recebe as linhas gravadas (com `__price` do catalogo) pra tela fazer
+   *  append local em vez de recarregar. Sem argumento = chamador recarrega. */
+  onAdded: (linhas?: any[]) => void
 }
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -100,6 +103,12 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const searchTimeout = useRef<any>(null)
+  // ★ Item 4: cadastro em serie. 92,8% das cartas da base entraram em sessoes de
+  //   5 ou mais, com mediana de 22 s entre uma carta e a seguinte -- o fluxo de
+  //   4 toques + fechar o modal estava cobrando pedagio por carta. O contador
+  //   conta o que ESTA SESSAO do modal gravou, nao a colecao inteira.
+  const [gravadasNaSessao, setGravadasNaSessao] = useState(0)
+  const buscaRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -171,7 +180,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         // 72ms no pior multi-token, contra um teto de 8.000ms. Em troca,
         // maçarico 0->2, martelo esmagador 2->11, bola rapida 7->10.
         // v1 a v4 continuam no banco — reverter e trocar este nome.
-        const { data, error } = await supabase.rpc('smart_search_cards_v6', {
+        const { data, error } = await supabase.rpc('smart_search_cards_v8', {
           q: value,
           limit_n: PAGE_SIZE,
           offset_n: 0,
@@ -201,7 +210,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (loadingMore || !hasMore || !searchTerm.trim()) return
     setLoadingMore(true)
     try {
-      const { data, error } = await supabase.rpc('smart_search_cards_v6', {
+      const { data, error } = await supabase.rpc('smart_search_cards_v8', {
         q: searchTerm,
         limit_n: PAGE_SIZE,
         offset_n: offset,
@@ -224,13 +233,20 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) loadMore()
   }
 
+  // ★ Item 4, alvos separados. Tocar na carta era um toggle: a segunda vez
+  //   DESMARCAVA -- entao quem voltava pra conferir variante, idioma ou preco
+  //   de uma carta ja escolhida perdia a escolha sem perceber, e nao havia
+  //   como revisitar. Agora tocar na carta marca (se ainda nao estava) e abre
+  //   o preview; desmarcar e acao propria, no selo de check do cartao ou no X
+  //   do chip la em cima.
   function handleCardClick(card: any) {
     setPreview(card)
-    setSelectedCards(prev =>
-      prev.find(c => c.id === card.id)
-        ? prev.filter(c => c.id !== card.id)
-        : [...prev, card]
-    )
+    setSelectedCards(prev => prev.find(c => c.id === card.id) ? prev : [...prev, card])
+  }
+
+  function desmarcar(card: { id: string }) {
+    setSelectedCards(prev => prev.filter(c => c.id !== card.id))
+    if (preview?.id === card.id) setPreview(null)
   }
 
   function toggleSplit(id: string) {
@@ -264,12 +280,31 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     return out
   }
 
-  async function handleAdd() {
+  async function handleAdd(continuar = false) {
     if (!userId || !selectedCards.length) return
     setAdding(true)
 
     const { data: authData } = await supabase.auth.getUser()
     if (!authData?.user?.id) { setAdding(false); return }
+
+    // Linhas efetivamente gravadas, pra tela inserir na lista sem recarregar.
+    // `__price` e o registro do catalogo que a busca ja trouxe -- a tela usa
+    // pra montar valor e numero na hora, e reconcilia no fechamento do modal.
+    const gravadas: any[] = []
+
+    // ★ Qualquer saida no meio do laco (limite do plano, recusa do gatilho,
+    //   erro de insert) precisa ENTREGAR o que ja entrou. Antes dava `return`
+    //   seco: as cartas gravadas sumiam da tela e a pessoa ficava sem saber o
+    //   que entrou e o que nao. Num lote isso era um lote perdido; numa serie
+    //   vira confusao, porque o modal segue aberto com a selecao intacta.
+    const entregarParcial = () => {
+      setAdding(false)
+      if (!gravadas.length) return
+      onAdded(gravadas)
+      setGravadasNaSessao(n => n + gravadas.length)
+      const ok = new Set(gravadas.map(g => g.__price?.id).filter(Boolean))
+      setSelectedCards(prev => prev.filter(c => !ok.has(c.id)))
+    }
 
     for (const card of selectedCards) {
       const number = card.number || ''
@@ -306,28 +341,35 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (c) condicoes = { [c]: quantity }
       }
 
-      // Ja existe na colecao? (mesma carta = mesmo pokemon_api_id) -> incrementa a quantidade
-      const { data: existente } = await supabase
-        .from('user_cards')
-        .select('id, quantity, condicoes')
-        .eq('user_id', authData.user.id)
-        .eq('pokemon_api_id', card.id)
-        .eq('graduada', false)
+      // ★ Ja existe ESTA PILHA na colecao? Ate 14/10 a pergunta era so pelo
+      //   pokemon_api_id, e o banco so aceitava uma linha por carta: a foil
+      //   somava na pilha da normal e nao havia como ser diferente. Agora a
+      //   chave inclui variante e idioma, igual ao indice unico.
+      const { data: existente } = await aplicarPilha(
+        supabase
+          .from('user_cards')
+          .select('id, quantity, condicoes')
+          .eq('user_id', authData.user.id)
+          .eq('pokemon_api_id', card.id)
+          .eq('graduada', false),
+        variante,
+        idioma,
+      )
         .limit(1)
         .maybeSingle()
 
       if (existente) {
+        const novaQty = (existente.quantity || 0) + quantity
+        const novasCond = mergeCondicoes(existente.condicoes as Record<string, number> | null, condicoes)
         const { error: incErr } = await supabase
           .from('user_cards')
-          .update({
-            quantity: (existente.quantity || 0) + quantity,
-            condicoes: mergeCondicoes(existente.condicoes as Record<string, number> | null, condicoes),
-          })
+          .update({ quantity: novaQty, condicoes: novasCond })
           .eq('id', existente.id)
+        if (!incErr) gravadas.push({ id: existente.id, quantity: novaQty, condicoes: novasCond, __price: card })
         if (incErr) {
           console.error('[AddCardModal] increment error:', incErr)
+          entregarParcial()
           await showAlert(`Erro ao atualizar "${card.name}". Tente novamente.`, 'error')
-          setAdding(false)
           return
         }
         trackFirstCardAdded(authData.user.id)
@@ -339,11 +381,11 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       if (Number.isFinite(limiteDoPlano)) setLimiteCartas(limiteDoPlano)
       if (bloqueado) {
         setShowLimite(true)
-        setAdding(false)
+        entregarParcial()
         return
       }
 
-      const { error: insertError } = await supabase.from('user_cards').insert({
+      const { data: linhaNova, error: insertError } = await supabase.from('user_cards').insert({
         user_id: authData.user.id,
         pokemon_api_id: card.id,
         card_name: cardName,
@@ -356,27 +398,33 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         quantity,
         condicoes,
         set_name: card.set_name || null,
-      })
+      }).select('*').single()
+
+      if (!insertError && linhaNova) gravadas.push({ ...linhaNova, __price: card })
 
       if (insertError) {
         // corrida concorrente (linha criada entre o SELECT e o INSERT) -> incrementa
         if (insertError.code === '23505') {
-          const { data: ex2 } = await supabase
-            .from('user_cards')
-            .select('id, quantity, condicoes')
-            .eq('user_id', authData.user.id)
-            .eq('pokemon_api_id', card.id)
-            .eq('graduada', false)
+          const { data: ex2 } = await aplicarPilha(
+            supabase
+              .from('user_cards')
+              .select('id, quantity, condicoes')
+              .eq('user_id', authData.user.id)
+              .eq('pokemon_api_id', card.id)
+              .eq('graduada', false),
+            variante,
+            idioma,
+          )
             .limit(1)
             .maybeSingle()
           if (ex2) {
+            const qty2 = (ex2.quantity || 0) + quantity
+            const cond2 = mergeCondicoes(ex2.condicoes as Record<string, number> | null, condicoes)
             await supabase
               .from('user_cards')
-              .update({
-                quantity: (ex2.quantity || 0) + quantity,
-                condicoes: mergeCondicoes(ex2.condicoes as Record<string, number> | null, condicoes),
-              })
+              .update({ quantity: qty2, condicoes: cond2 })
               .eq('id', ex2.id)
+            gravadas.push({ id: ex2.id, quantity: qty2, condicoes: cond2, __price: card })
             trackFirstCardAdded(authData.user.id)
             continue
           }
@@ -387,20 +435,44 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (limiteRecusado !== null) {
           setLimiteCartas(limiteRecusado)
           setShowLimite(true)
-          setAdding(false)
+          entregarParcial()
           return
         }
         console.error('[AddCardModal] insert error:', insertError)
-        await showAlert(`Erro ao adicionar "${card.name}". Tente novamente.`, 'error')
-        setAdding(false)
+        // ★ Entregar ANTES de avisar: showAlert e `await` e so volta quando a
+        //   pessoa fecha o aviso -- se a entrega viesse depois, a carta que JA
+        //   entrou ficaria fora da tela e ainda marcada na selecao enquanto o
+        //   aviso estivesse aberto. Medido no teste de falha simulada.
+        const entraram = gravadas.length
+        entregarParcial()
+        await showAlert(
+          entraram
+            ? `${entraram} carta${entraram !== 1 ? 's' : ''} entrou na coleção, mas "${card.name}" falhou. Tente de novo.`
+            : `Erro ao adicionar "${card.name}". Tente novamente.`,
+          'error',
+        )
         return
       }
       trackFirstCardAdded(authData.user.id)
     }
 
     setAdding(false)
-    onClose()
-    onAdded()
+    // onAdded ANTES de onClose: a tela marca que precisa reconciliar e so
+    // entao fecha -- invertido, o fechamento nao saberia que houve gravacao.
+    onAdded(gravadas)
+    if (!continuar) { onClose(); return }
+
+    // ★ Segue no modal: limpa o que era desta carta e devolve o foco a busca,
+    //   pra proxima carta comecar a ser digitada sem nenhum toque. No celular
+    //   o foco mantem o teclado aberto, que e o que faz a serie valer.
+    setGravadasNaSessao(n => n + gravadas.length)
+    setSelectedCards([])
+    setPreview(null)
+    setSearchTerm('')
+    setSearchResults([])
+    setOffset(0)
+    setHasMore(false)
+    buscaRef.current?.focus()
   }
 
   const filtered = searchResults
@@ -434,7 +506,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Importar lista
           </button>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
           </div>
@@ -445,16 +517,30 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <IconSearch size={16} color={TEXT_MUTED} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input
+              ref={buscaRef}
               autoFocus={!isMobile}
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
               placeholder="Ex: Charizard · 051/217 · Pikachu Ascended Heroes · Pikachu 2019..."
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: searchTerm ? '12px 46px 12px 42px' : '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
             {isSearching && (
-              <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#f59e0b' }}>Buscando...</span>
+              <span style={{ position: 'absolute', right: searchTerm ? 46 : 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#f59e0b' }}>Buscando...</span>
+            )}
+            {/* ★ Limpar a busca custava 9 backspaces na mediana dos termos --
+                pedagio por carta em quem cadastra em serie. Alvo de 36px e o
+                foco volta pro campo, entao a proxima carta ja pode ser
+                digitada. */}
+            {searchTerm && (
+              <button
+                onClick={() => { handleSearch(''); buscaRef.current?.focus() }}
+                aria-label="Limpar busca"
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: 'none', border: 'none', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              </button>
             )}
           </div>
 
@@ -475,7 +561,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '3px 6px 3px 10px', borderRadius: 100, fontWeight: 600, maxWidth: 140, flexShrink: 0 }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                     <button
-                      onClick={e => { e.stopPropagation(); setSelectedCards(prev => prev.filter(s => s.id !== c.id)); if (preview?.id === c.id) setPreview(null) }}
+                      onClick={e => { e.stopPropagation(); desmarcar(c) }}
                       style={{ background: 'rgba(245,158,11,0.2)', border: 'none', color: '#f59e0b', cursor: 'pointer', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, flexShrink: 0 }}
                     >
                       <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -542,10 +628,20 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.18)' }}
                       onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = isPreviewed ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)' }}
                     >
+                      {/* O selo de check e o alvo de DESMARCAR: 36px de area
+                          (o desenho segue com 22) e stopPropagation pra nao
+                          cair no toque da carta, que agora so marca e abre. */}
                       {isSelected && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); desmarcar(card) }}
+                          aria-label={`Desmarcar ${card.name}`}
+                          title="Desmarcar"
+                          style={{ position: 'absolute', top: 1, right: 1, zIndex: 2, width: 36, height: 36, borderRadius: '50%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <span style={{ width: 22, height: 22, borderRadius: '50%', background: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </span>
+                        </button>
                       )}
 
                       {(() => {
@@ -677,10 +773,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
                           <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
-                            style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
+                            style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
                           <span style={{ fontSize: 15, fontWeight: 700, color: '#f0f0f0', minWidth: 22, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
                           <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
-                            style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+                            style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
                         </div>
                       </div>
                     </div>
@@ -884,10 +980,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quantidade</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
-                          style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                          style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                         <span style={{ fontSize: 16, fontWeight: 700, color: '#f0f0f0', minWidth: 24, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
                         <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
-                          style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                          style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                       </div>
                     </div>
                   )}
@@ -904,22 +1000,46 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         </div>
 
         {/* FOOTER */}
-        <div style={{ padding: isMobile ? '10px 16px' : '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: isMobile ? 'stretch' : 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)', gap: isMobile ? 8 : 12 }}>
+        {/* ★ No mobile o modal tem 100dvh: sem a safe area, o rodape fica
+            embaixo da barra de gestos do iPhone e o "Adicionar" so responde
+            com a ponta do dedo. */}
+        <div style={{ padding: isMobile ? '10px 16px calc(10px + env(safe-area-inset-bottom, 0px))' : '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: isMobile ? 'stretch' : 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)', gap: isMobile ? 8 : 12 }}>
+          {/* ★ O contador da serie fica onde antes so havia "nenhuma carta
+              selecionada": enquanto a pessoa cadastra em sequencia, o que
+              importa saber e quantas JA entraram nesta sessao. */}
           {!isMobile && (
             <p style={{ fontSize: 13, color: selectedCards.length > 0 ? '#f59e0b' : TEXT_MUTED, fontWeight: selectedCards.length > 0 ? 600 : 400 }}>
-              {selectedCards.length === 0 ? 'Nenhuma carta selecionada' : `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`}
+              {selectedCards.length > 0
+                ? `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`
+                : gravadasNaSessao > 0
+                  ? `${gravadasNaSessao} carta${gravadasNaSessao !== 1 ? 's' : ''} adicionada${gravadasNaSessao !== 1 ? 's' : ''} agora`
+                  : 'Nenhuma carta selecionada'}
             </p>
           )}
           <div style={{ display: 'flex', gap: isMobile ? 8 : 10, flex: isMobile ? 1 : 'none' }}>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, padding: isMobile ? '11px 14px' : '10px 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none' }}>
-              Cancelar
+            {/* Fechar deixou de ser "Cancelar": com a serie, o que ja entrou
+                esta gravado -- chamar de cancelar sugeria desfazer. */}
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none', whiteSpace: 'nowrap' }}>
+              {gravadasNaSessao > 0 ? 'Concluir' : 'Cancelar'}
             </button>
+            {/* ★ O primario agora GRAVA E FICA. "Adicionar e fechar" continua
+                existindo como secundario pra quem veio por uma carta so -- o
+                caminho de quem cadastra em serie deixou de pagar o reabrir. */}
+            {selectedCards.length > 0 && (
+              <button
+                onClick={() => handleAdd(false)}
+                disabled={adding}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 12px' : '0 16px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, opacity: adding ? 0.7 : 1, whiteSpace: 'nowrap' }}
+              >
+                {isMobile ? 'E fechar' : 'Adicionar e fechar'}
+              </button>
+            )}
             <button
-              onClick={handleAdd}
+              onClick={() => handleAdd(true)}
               disabled={selectedCards.length === 0 || adding}
-              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, padding: isMobile ? '11px 14px' : '10px 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none' }}
+              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none', whiteSpace: 'nowrap' }}
             >
-              {adding ? 'Adicionando...' : `Adicionar ${selectedCards.length > 0 ? `(${selectedCards.length})` : ''} →`}
+              {adding ? 'Adicionando...' : `Adicionar e continuar${selectedCards.length > 0 ? ` (${selectedCards.length})` : ''}`}
             </button>
           </div>
         </div>

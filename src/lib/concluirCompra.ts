@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabaseClient'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { promoveuOrigem } from '@/lib/origemCarta'
+import { aplicarPilha } from '@/lib/pilhaDaCarta'
 
 /**
  * Transferencia da carta quando o comprador confirma o recebimento.
@@ -86,12 +87,19 @@ export async function transferirCartaAoComprador(
   // ── Entra na colecao do comprador ───────────────────────────────────────
   let somou = false
   if (catalogoId && !ehGraduada) {
-    const { data: ja } = await supabase
-      .from('user_cards')
-      .select('id, quantity, origem')
-      .eq('user_id', compradorId)
-      .eq('pokemon_api_id', catalogoId)
-      .eq('graduada', false)
+    // ★ A pilha e (carta, variante, idioma) desde 14/10. A compra traz a
+    //   variante e o idioma do anuncio: uma foil comprada nao soma na pilha da
+    //   normal que o comprador ja tinha.
+    const { data: ja } = await aplicarPilha(
+      supabase
+        .from('user_cards')
+        .select('id, quantity, origem')
+        .eq('user_id', compradorId)
+        .eq('pokemon_api_id', catalogoId)
+        .eq('graduada', false),
+      variante,
+      anuncio.idioma,
+    )
       .limit(1)
     const linha = ja?.[0] as any
     if (linha) {

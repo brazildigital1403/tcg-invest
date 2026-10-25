@@ -6,6 +6,7 @@
 // (brecha achada no teste do #S-0003, 02/10/2026).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { avisoRastreio } from '@/lib/servicos'
 import { sbAdmin, carregarAutorizado, erro, registrarEvento, pagamentosDoPedido, envioLiberado, avisarAdminNoSino } from '@/lib/servicosServer'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const codigo = String(body?.codigo || '').toUpperCase().replace(/[\s.-]/g, '')
     // Correios (AA123456789BR) ou transportadora: letras e numeros, 8 a 30.
     if (!/^[A-Z0-9]{8,30}$/.test(codigo)) return erro(400, 'Código de rastreio inválido')
+    const aviso = avisoRastreio(codigo)
+    if (aviso) return erro(400, aviso)
 
     const { data, error } = await sbAdmin().from('servico_solicitacoes')
       .update({ rastreio_ida: codigo }).eq('id', id).eq('status', 'aceito').select('id')

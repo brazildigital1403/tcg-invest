@@ -19,6 +19,7 @@ import {
 import { sendServicoClienteEmail, sendServicoProntaEmail, SERVICO_PRONTA_DETALHE, type ServicoProntaItem } from '@/lib/email'
 import { cotarFrete, pacoteServicoVolta } from '@/lib/melhor-envio'
 import { notify } from '@/lib/notify'
+import { sincronizarReceitaServico } from '@/lib/servicoFinanceiro'
 
 // O calculo do valor devido mora em servicos.ts (a lista /servicos, client-side,
 // usa a mesma conta). Reexportado para os importadores de sempre.
@@ -310,6 +311,8 @@ export async function aposConfirmarPagamento(solicitacaoId: string, statusAtual:
   if (etapa === 'servico') await notificarCliente(solicitacaoId, 'servico_pago')
   // Pix quem confirma e o proprio admin; cartao chega sozinho pelo webhook.
   if (metodo === 'stripe') await avisarAdminNoSino(solicitacaoId, 'Cartão pago', `${ROTULO_ETAPA[etapa]} confirmado pela Stripe${sufixoNota}.`)
+  // Financeiro: a etapa paga vira receita (23/10/2026). Nunca derruba o fluxo.
+  await sincronizarReceitaServico(solicitacaoId)
 }
 
 /**
@@ -325,6 +328,8 @@ export async function aposEstorno(
   const nota = metodo === 'stripe' ? `Estorno de ${reais(valorCents)} no cartão` : `Devolução de ${reais(valorCents)} por Pix`
   await registrarEvento(solicitacaoId, statusAtual, `${nota}${sufixoNota}`)
   await notificarCliente(solicitacaoId, 'estorno', { valorCents, metodo, em })
+  // Financeiro: o estorno reduz a receita da etapa (23/10/2026).
+  await sincronizarReceitaServico(solicitacaoId)
 }
 
 function blocoPix(valor: number, numero: string) {

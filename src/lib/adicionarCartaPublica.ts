@@ -11,6 +11,7 @@
 
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit } from '@/lib/checkCardLimit'
+import { aplicarPilha } from '@/lib/pilhaDaCarta'
 
 export type CartaPublica = {
   id: string
@@ -31,12 +32,18 @@ export type ResultadoAdicionar =
   | { ok: false; motivo: 'erro' }
 
 export async function adicionarCartaPublica(userId: string, c: CartaPublica): Promise<ResultadoAdicionar> {
-  const { data: existente } = await supabase
-    .from('user_cards')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('pokemon_api_id', c.id)
-    .eq('graduada', false)
+  // ★ "Ja tinha" passa a significar "ja tinha ESTA pilha": a mesma carta em
+  //   outra variante ou outro idioma e uma linha propria desde 14/10.
+  const { data: existente } = await aplicarPilha(
+    supabase
+      .from('user_cards')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('pokemon_api_id', c.id)
+      .eq('graduada', false),
+    c.variante,
+    c.idioma,
+  )
     .limit(1)
     .maybeSingle()
   if (existente) return { ok: true, jaTinha: true }

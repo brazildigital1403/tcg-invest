@@ -9,6 +9,7 @@ import TicketAnexos from '@/components/suporte/TicketAnexos'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconChat } from '@/components/ui/Icons'
+import TextoComLinks from '@/components/ui/TextoComLinks'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                   color: 'rgba(255,255,255,0.85)',
                   whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                 }}>
-                  {m.content}
+                  <TextoComLinks texto={m.content} />
                 </div>
               </div>
             )

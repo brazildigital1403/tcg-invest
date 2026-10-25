@@ -12,6 +12,7 @@ import AlbumMetas from '@/components/colecionadores/AlbumMetas'
 import CatalogarAbas from '@/components/colecionadores/CatalogarAbas'
 import QuantoVale, { type CartaPreco } from '@/components/colecionadores/QuantoVale'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 // ─── ISR ────────────────────────────────────────────────────────────────────
 // Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
@@ -142,7 +143,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Qual o melhor aplicativo para catalogar cartas Pokémon no Brasil?',
-    a: 'Para colecionador brasileiro, o que pesa é ter as coleções em português e o preço em reais. A Bynx tem as duas coisas, mais scan com IA, cartas graduadas e perfil público para mostrar a coleção. É grátis até 100 cartas diferentes.',
+    a: 'Para colecionador brasileiro, o que pesa é ter as coleções em português e o preço em reais. A Bynx tem as duas coisas, mais scan com IA, cartas graduadas e perfil público para mostrar a coleção. É grátis até 100 cartas, e cópias repetidas não contam no limite.',
   },
   {
     q: 'Como saber quanto vale minha carta Pokémon?',
@@ -221,7 +222,7 @@ const getVitrine = cache(async () => {
   const vitrine = (id: string): CartaVitrine | null => {
     const c = porId.get(id)
     if (!c?.image_small) return null
-    const numero = c.set_total ? `${String(c.number).padStart(3, '0')}/${c.set_total}` : String(c.number)
+    const numero = c.set_total ? numeroSobreTotal(String(c.number).padStart(3, '0'), c.set_total) : String(c.number)
     return { id: c.id, nome: c.name, numero, image: c.image_small, valor: num(c.preco_min) ?? 0 }
   }
   const lista = (ids: string[]) => ids.map(vitrine).filter((x): x is CartaVitrine => !!x)
@@ -600,7 +601,7 @@ export default async function ColecionadoresPage() {
             ) : (
               <p style={S.sectionSubtitle}>Busque pelo nome ou pelo número impresso, aponte a câmera para o Scan com IA ou cole uma lista pronta. Depois, marque variante, idioma, condição e graduação.</p>
             )}
-            <p className="col-metas-nota" style={{ marginTop: 12 }}>Grátis até 100 cartas diferentes, sem cartão. Repetidas não contam no limite.</p>
+            <p className="col-metas-nota" style={{ marginTop: 12 }}>Grátis até 100 cartas, sem cartão. Cópias repetidas não contam no limite.</p>
           </div>
         </section>
 

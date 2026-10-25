@@ -6,6 +6,7 @@
 // NUNCA entram neste objeto. Pode ser importado no cliente.
 
 import type { FichaCondicao, ServicoId } from '@/lib/servicos'
+import type { Escada } from '@/lib/centralizacao/graduadoras'
 
 export interface RelatorioFoto {
   tipo: string
@@ -28,9 +29,24 @@ export interface RelatorioProcedimento {
   decididoEm: string | null
 }
 
+/** Uma face medida na ferramenta de centralizacao (coerente com o texto do laudo). */
+export interface RelatorioCentralizacaoFace {
+  mm: { esq: number; dir: number; topo: number; base: number }
+  laterais: { texto: string; maior: number }
+  topoBase: { texto: string; maior: number }
+  /** Eixo mais descentralizado: e o que vale para a graduadora. */
+  vale: 'laterais' | 'topoBase'
+  semMoldura: boolean
+  medidoEm: string | null
+}
+
 export interface RelatorioLaudo {
   centralizacaoFrente: string | null
   centralizacaoVerso: string | null
+  /** Medidas por lado, quando a centralizacao veio da ferramenta. */
+  centralizacaoMedida: { frente: RelatorioCentralizacaoFace | null; verso: RelatorioCentralizacaoFace | null } | null
+  /** Escada da graduadora recomendada, montada no servidor (congela a tabela de limites). */
+  centralizacaoEscada: { base: 'duas' | 'frente' | 'verso'; escada: Escada; consulta: string } | null
   cantos: string | null
   bordas: string | null
   superficie: string | null
@@ -148,6 +164,7 @@ export const NOTA_PRONTA: Record<string, string> = {
 export const TITULO_TERMO: Record<string, string> = {
   'v1-2026-09': 'Termo de ciência de risco',
   'v2-2026-09': 'Termo de ciência de risco',
+  'v3-2026-10': 'Termo de ciência de risco',
   'pg-v1-2026-09': 'Termo do pré-grading',
   'proposta-v1-2026-09': 'Termo da proposta de tratamento',
 }

@@ -84,7 +84,12 @@ function montar(d: DadosE15, ctx: CtxRegua) {
   const total = d.valorHoje - d.valorInicio
   const dz = d.destaque
   const temOutras = d.outrasAltas.quantidade > 0
-  const assunto = `${d.nome}, sua coleção subiu ${brl(total)} sem você`
+  // A elegibilidade exige uma carta que subiu, nao a colecao inteira: o saldo
+  // dos 30 dias pode ser negativo. Nesse caso o assunto fala da carta de destaque.
+  const colecaoSubiu = total > 0
+  const assunto = colecaoSubiu
+    ? `${d.nome}, sua coleção subiu ${brl(total)} sem você`
+    : `${d.nome}, seu ${dz.nome} subiu ${brl(variacao(dz))} sem você`
   const preheader = `Só o ${dz.nome} somou ${brl(variacao(dz))} em 30 dias.${temOutras ? ' E ele não subiu sozinho.' : ''}`
   const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
 
@@ -168,7 +173,7 @@ function montar(d: DadosE15, ctx: CtxRegua) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr><td bgcolor="${COR.elevado}" style="background-color:${COR.elevado};">
         <a href="${attr(utmRegua(pasta, ID, 'hero'))}" target="_blank" style="text-decoration:none;">
-          <img src="${attr(urlImagemPessoal('e15-postal', ctx.tokenImagem))}" width="600" height="590" alt="Cartão-postal da Bynx para ${esc(d.nome)}, em ${esc(d.cidade)}: desde ${esc(d.desde)} sua coleção ficou ${rs(total)} mais valiosa. ${plural(d.subiram, 'carta subiu', 'cartas subiram')} e ${plural(d.cairam, 'caiu', 'caíram')}. Selo com o ${esc(dz.nome)}." style="display:block;width:100%;max-width:600px;height:auto;border:0;color:${COR.texto};${FONT}font-size:16px;font-weight:700;line-height:24px;background-color:${COR.elevado};"/>
+          <img src="${attr(urlImagemPessoal('e15-postal', ctx.tokenImagem))}" width="600" height="590" alt="Cartão-postal da Bynx para ${esc(d.nome)}, em ${esc(d.cidade)}: desde ${esc(d.desde)} sua coleção ${colecaoSubiu ? `ficou ${rs(total)} mais valiosa` : `variou ${sinal(total)}`}. ${plural(d.subiram, 'carta subiu', 'cartas subiram')} e ${plural(d.cairam, 'caiu', 'caíram')}. Selo com o ${esc(dz.nome)}." style="display:block;width:100%;max-width:600px;height:auto;border:0;color:${COR.texto};${FONT}font-size:16px;font-weight:700;line-height:24px;background-color:${COR.elevado};"/>
         </a>
       </td></tr>
     </table>

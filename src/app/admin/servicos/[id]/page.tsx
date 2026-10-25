@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
   STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, PRAZOS, CORREIOS_VD, taxaValorDeclaradoCents, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
-  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, fmtDataHoraAnoBRT, turnoServico, type FichaCondicao, type SlotFoto,
+  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, fmtDataHoraAnoBRT, turnoServico, type FichaCondicao, type SlotFoto, avisoRastreio,
 } from '@/lib/servicos'
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
 import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
@@ -157,6 +157,9 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
           {(STATUS_RELATORIO as readonly string[]).includes(s.status) && (
             <a className="ad-bt ad-bt-pri ad-relatorio" href={`/admin/servicos/${s.id}/relatorio`} target="_blank" rel="noopener">Gerar relatório</a>
           )}
+          {['orcado', 'aceito'].includes(s.status) && (
+            <a className="ad-bt ad-relatorio" href={`/admin/servicos/${s.id}/guia`} target="_blank" rel="noopener">Guia de envio (PDF)</a>
+          )}
         </div>
         <div className="ad-cliente">
           <b>{cliente?.name || 'Cliente'}</b>
@@ -182,6 +185,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
                 <CartaAdmin
                   key={it.id}
                   idx={i}
+                  pedidoId={s.id}
                   item={it}
                   status={s.status}
                   servico={s.servico}
@@ -497,7 +501,7 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
         {todasRecusadas ? 'Recusar o pedido' : sol.status === 'orcado' ? 'Atualizar orçamento' : 'Salvar orçamento'}
       </button>
       {sol.status === 'aguardando_orcamento' && (
-        <p className="ad-muted" style={{ margin: 0 }}>Depois de salvar, mande o orçamento para o cliente por e-mail ou WhatsApp. O e-mail automático ainda não existe.</p>
+        <p className="ad-muted" style={{ margin: 0 }}>Ao salvar, o cliente recebe o orçamento por e-mail e no sino. Se quiser, avise também pelo WhatsApp.</p>
       )}
     </section>
   )
@@ -605,6 +609,9 @@ function Acoes({ sol, ocupado, pendencias, procs, pagamentos, cobrancaEnviada, c
           <label><span>Lacre</span><input className="ad-in" value={lacre} onChange={e => setLacre(e.target.value)} placeholder="opcional" /></label>
         </div>
       )}
+      {opcoes.includes('enviada') && avisoRastreio(rastreio) && (
+        <p className="ad-aviso"><IconWarning size={14} /> {avisoRastreio(rastreio)}</p>
+      )}
       <input className="ad-in" value={nota} onChange={e => setNota(e.target.value)} placeholder="Nota para a linha do tempo (opcional)" maxLength={500} />
       <div className="ad-acoes">
         {opcoes.map(para => (
@@ -634,8 +641,8 @@ function Acoes({ sol, ocupado, pendencias, procs, pagamentos, cobrancaEnviada, c
 
 // ── Uma carta ───────────────────────────────────────────────────────────────
 
-function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir, enviarFoto, recarregar, salvarLaudo, salvarFicha, salvarProcs }: {
-  idx: number; item: Item; status: string; servico: string; midias: Midia[]; procs: Proc[]; ocupado: string
+function CartaAdmin({ idx, pedidoId, item, status, servico, midias, procs, ocupado, subir, enviarFoto, recarregar, salvarLaudo, salvarFicha, salvarProcs }: {
+  idx: number; pedidoId: string; item: Item; status: string; servico: string; midias: Midia[]; procs: Proc[]; ocupado: string
   subir: (tipo: string, f: File, posicao?: string | null) => void
   enviarFoto: (slot: SlotFoto, f: File) => Promise<void>
   recarregar: () => Promise<void>
@@ -699,7 +706,14 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
             ))}
           </div>
 
-          <button type="button" className="ad-link" onClick={() => setAbrirLaudo(v => !v)}>{abrirLaudo ? 'Fechar laudo' : item.laudo ? 'Ver laudo' : 'Escrever laudo'}</button>
+          <div className="ad-links-laudo">
+            <button type="button" className="ad-link" onClick={() => setAbrirLaudo(v => !v)}>{abrirLaudo ? 'Fechar laudo' : item.laudo ? 'Ver laudo' : 'Escrever laudo'}</button>
+            {servico !== 'restauracao' && chegou && (
+              <Link className="ad-link" href={`/admin/centralizacao?pedido=${pedidoId}&item=${item.id}`}>
+                {item.laudo?.centralizacao_frente ? 'Medir centralização de novo' : 'Medir centralização'}
+              </Link>
+            )}
+          </div>
           {abrirLaudo && (
             <div className="ad-laudo">
               {servico !== 'restauracao' && (
@@ -795,6 +809,7 @@ textarea.ad-in{resize:vertical}
 .ad-bt-pri{background:var(--ac-grad);color:var(--bx-brand-ink);border-color:transparent}
 .ad-bt-perigo{background:transparent;color:var(--bx-red);border-color:color-mix(in srgb,var(--bx-red) 40%,transparent)}
 .ad-bt-whats{min-height:34px;font-size:12.5px}
+.ad-links-laudo{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:center}
 .ad-link{justify-self:start;min-height:32px;padding:0;border:0;background:none;color:var(--bx-text-2);font:inherit;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .ad-acoes{display:flex;flex-wrap:wrap;gap:8px}
 .ad-ok{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--bx-green);margin:0 0 12px}
