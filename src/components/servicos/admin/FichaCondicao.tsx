@@ -6,6 +6,7 @@
 // preencher sem esquecer nada.
 
 import { useState } from 'react'
+import { useAvisoNaoSalvo } from './useAvisoNaoSalvo'
 import { ESCALA, PILARES, DANOS, IDENTIFICACAO, type FichaCondicao } from '@/lib/servicos'
 
 const vazia = (): FichaCondicao => ({ identificacao: {}, frente: {}, verso: {}, danos_frente: [], danos_verso: [] })
@@ -19,6 +20,7 @@ export default function FichaCondicaoForm({ titulo, valor, ocupado, onSalvar }: 
   const [f, setF] = useState<FichaCondicao>(() => valor || vazia())
   const [aberta, setAberta] = useState(!valor)
   const completa = PILARES.every(p => f.frente[p.id] && f.verso[p.id])
+  useAvisoNaoSalvo(JSON.stringify(f) !== JSON.stringify(valor || vazia()))
 
   function alternarDano(lado: 'danos_frente' | 'danos_verso', id: string) {
     setF(x => ({ ...x, [lado]: x[lado].includes(id) ? x[lado].filter(d => d !== id) : [...x[lado], id] }))

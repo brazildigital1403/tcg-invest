@@ -19,6 +19,7 @@ import {
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
 import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
 import PropostaEditor, { type Procedimento } from '@/components/servicos/admin/PropostaEditor'
+import { useAvisoNaoSalvo } from '@/components/servicos/admin/useAvisoNaoSalvo'
 import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning, IconHistory, IconTruck } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import Rastreio from '@/components/servicos/Rastreio'
@@ -654,6 +655,7 @@ function CartaAdmin({ idx, pedidoId, item, status, servico, midias, procs, ocupa
   const naBancada = ['em_bancada', 'descansando', 'pronta', 'enviada', 'entregue'].includes(status)
   const tratada = procs.some(p => p.decisao === 'aprovado')
   const [laudo, setLaudo] = useState<Record<string, string>>(item.laudo || {})
+  useAvisoNaoSalvo(CAMPOS_LAUDO.some(c => (laudo[c.k] || '') !== ((item.laudo?.[c.k] as string | undefined) || '')))
   const [abrirLaudo, setAbrirLaudo] = useState(!!item.laudo)
 
   return (
