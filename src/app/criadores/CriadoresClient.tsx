@@ -776,7 +776,9 @@ function TelaEncerrado({ invalido, motivo, vagas }: { invalido: boolean; motivo:
 }
 
 const CSS = `
-.cr{min-height:100vh;background:var(--bx-bg);color:var(--bx-text);padding-bottom:96px}
+/* O body do site e Arial: cada pagina aplica a DM Sans na propria raiz (a home
+   no .hm-root, o app no AppLayout). Sem isto a landing saiu em Arial de 23 a 26/10. */
+.cr{min-height:100vh;background:var(--bx-bg);color:var(--bx-text);padding-bottom:96px;font-family:var(--font-dm-sans),'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .cr-in{max-width:560px;margin:0 auto}
 .cr-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;height:56px;background:color-mix(in srgb,var(--bx-bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--bx-border)}
 .cr-logo-a{display:flex;align-items:center;min-height:44px}
