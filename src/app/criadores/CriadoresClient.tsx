@@ -58,7 +58,7 @@ const CONTRAPARTIDA = [
     texto: 'Organize e mostre o que faz sentido para você: sets, Master Sets, slabs ou a coleção inteira.' },
   { titulo: 'Compartilhe sua experiência', carta: `${IMG}30C-Pikachu-037.jpg`,
     texto: 'Mostre uma carta, uma meta, uma pasta ou uma descoberta real. Sem roteiro pronto.' },
-  { titulo: 'Compartilhe com a comunidade', carta: `${IMG}30C-Eevee-116.jpg`,
+  { titulo: 'Leve para a comunidade', carta: `${IMG}30C-Eevee-116.jpg`,
     texto: 'Seu cupom dá 20% de desconto na primeira cobrança. Indicações válidas podem gerar comissão para você.' },
 ]
 
