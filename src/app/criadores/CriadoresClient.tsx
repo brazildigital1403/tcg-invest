@@ -28,14 +28,13 @@ import {
 
 const IMG = 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/'
 
-// Leque do hero: 4 cartas em volta da slab do centro.
-const LEQUE = [
-  { nome: 'Umbreon ex', img: `${IMG}30C-Umbreon-ex-092.jpg` },
-  { nome: 'Zorua de Hisui', img: `${IMG}30C-Hisuian-Zorua-145.jpg` },
-  { nome: 'Drifloon', img: `${IMG}30C-Drifloon-136.jpg` },
-  { nome: 'Sylveon ex', img: `${IMG}30C-Sylveon-ex-071.jpg` },
-]
-const SLAB_HERO = { nome: 'Mew ex', img: `${IMG}30C-Mew-ex-158.jpg` }
+// Hero (26/10/2026): o trio do Base Set, com o Charizard numa slab PSA 10.
+// Imagens do catalogo (as mesmas da pagina da carta), via next/image.
+const TRIO = {
+  pikachu: 'https://images.pokemontcg.io/base1/58_hires.png',
+  mewtwo: 'https://images.pokemontcg.io/base1/10_hires.png',
+  charizard: 'https://images.pokemontcg.io/base1/4_hires.png',
+}
 const SLAB_BGS = { nome: 'Jirachi ex', img: `${IMG}30C-Jirachi-ex-102.jpg` }
 const SLAB_PSA = { nome: 'Pikachu', img: `${IMG}30C-Pikachu-036.jpg` }
 const MINIS = [`${IMG}30C-Lapras-131.jpg`, `${IMG}30C-Espeon-ex-070.jpg`, `${IMG}30C-Greninja-ex-021.jpg`]
@@ -297,18 +296,16 @@ export default function CriadoresClient() {
         <section className="cr-sec cr-hero bx-gutter">
           <div className="cr-in">
             <p className="cr-eyebrow">Convite para criadores de Pokémon TCG</p>
-            <h1 className="cr-h1">Sua coleção já faz parte do seu conteúdo. <em>Agora ela trabalha a seu favor.</em></h1>
-            <p className="cr-p">Ganhe 1 ano de Bynx Pro para organizar sua coleção, mostrar suas cartas em um perfil público e criar conteúdos melhores para a sua comunidade.</p>
+            <h1 className="cr-h1"><span className="cr-lockup">Creator <b>Bynx</b></span><span className="cr-bene">Sua coleção já faz parte do seu conteúdo. <em>Agora ela trabalha a seu favor.</em></span></h1>
+            <p className="cr-p cr-hero-sub">Ganhe 1 ano de Bynx Pro para organizar sua coleção, mostrar suas cartas em um perfil público e criar conteúdos melhores para a sua comunidade.</p>
 
-            <figure className="cr-fan" aria-hidden="true">
-              {LEQUE.map((c, i) => (
-                <div key={c.nome} className={`cr-fan-c cr-fan-${i}`}>
-                  <Image src={c.img} alt="" width={160} height={224} sizes="(min-width:1024px) 160px, (min-width:768px) 118px, 92px" />
-                </div>
-              ))}
-              <div className="cr-fan-slab">
-                <SlabArte graduadora="bgs" nota={10} blackLabel img={SLAB_HERO.img} nome={SLAB_HERO.nome} sizes="(min-width:1024px) 260px, (min-width:768px) 190px, 150px" priority altVazio />
+            <figure className="cr-trio" aria-hidden="true">
+              <div className="cr-trio-c cr-trio-l"><Image src={TRIO.pikachu} alt="" width={245} height={342} sizes="(min-width:1024px) 190px, (min-width:768px) 130px, 104px" /></div>
+              <div className="cr-trio-c cr-trio-r"><Image src={TRIO.mewtwo} alt="" width={245} height={342} sizes="(min-width:1024px) 190px, (min-width:768px) 130px, 104px" /></div>
+              <div className="cr-trio-slab">
+                <SlabArte graduadora="psa" nota={10} img={TRIO.charizard} nome="Charizard" sizes="(min-width:1024px) 250px, (min-width:768px) 180px, 140px" priority altVazio />
               </div>
+              <span className="cr-trio-tag"><b>sua coleção,</b> sua voz</span>
             </figure>
 
             <ul className="cr-oferta">
@@ -802,6 +799,28 @@ const CSS = `
 .cr-outline:hover{background:rgba(var(--ac-1-rgb),.08)}
 .cr-micro{text-align:center;font-size:12.5px;color:var(--bx-text-3);margin:8px 0 0}
 .cr-erro{font-size:13px;color:var(--bx-red);margin:12px 0 0}
+.cr-lockup{display:block;font-size:50px;line-height:.86;letter-spacing:-.05em}
+.cr-lockup b{display:block;font-weight:800;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cr-bene{display:block;margin-top:12px;font-size:20px;line-height:1.16;letter-spacing:-.02em;text-wrap:balance}
+.cr-hero .cr-in{display:flex;flex-direction:column}
+.cr-hero .cr-eyebrow{align-self:flex-start}
+.cr-hero .cr-chip-wrap{align-self:center}
+.cr-hero-sub{order:20;margin-top:16px}
+.cr-trio{position:relative;height:228px;margin:10px -16px 0;background:radial-gradient(55% 60% at 50% 50%,rgba(var(--ac-2-rgb),.22),rgba(var(--ac-1-rgb),.06) 50%,transparent 72%)}
+.cr-trio::before{content:"";position:absolute;left:50%;top:50%;width:300px;height:300px;border-radius:50%;border:1px solid rgba(var(--ac-1-rgb),.18);transform:translate(-50%,-50%) rotate(-18deg) scaleY(.8)}
+.cr-trio-c{position:absolute;width:104px;border-radius:7px;overflow:hidden;line-height:0;box-shadow:0 18px 34px rgba(0,0,0,.55);transition:transform .2s ease}
+.cr-trio-c img{display:block;width:100%;height:auto}
+.cr-trio-l{left:6%;top:24%;transform:rotate(-14deg)}
+.cr-trio-r{right:5%;top:12%;transform:rotate(13deg)}
+.cr-trio-slab{position:absolute;left:50%;top:3%;width:140px;transform:translateX(-46%) rotate(-5deg);z-index:2;transition:transform .2s ease}
+.cr-trio-slab .sa{padding:6px;border-radius:11px}
+.cr-trio-slab .sa-lab{padding:4px 7px;min-height:34px;margin-bottom:5px}
+.cr-trio-slab .sa-sig{font-size:11px}
+.cr-trio-slab .sa-nome{font-size:7.5px;max-width:none}
+.cr-trio-slab .sa-nota{font-size:18px}
+.cr-trio-slab .sa-tier{font-size:6.5px}
+.cr-trio-slab .sa-win{padding:4px}
+.cr-trio-tag{display:none}
 .cr-band{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.28);font-size:13px;font-weight:600}
 .cr-band svg{flex:none;margin-top:1px}
 .cr-chip-wrap{text-align:center;margin-top:14px}
@@ -845,14 +864,6 @@ const CSS = `
 .cr-esgotou .cr-outline{margin-top:12px}
 .cr-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);font-size:12px;font-weight:700;color:var(--bx-text-2);text-decoration:none}
 
-.cr-fan{position:relative;height:262px;margin:22px 0 0;background:radial-gradient(55% 60% at 50% 55%,rgba(var(--ac-1-rgb),0.16),transparent 70%)}
-.cr-fan-c{position:absolute;top:70px;left:50%;width:92px;border-radius:6px;overflow:hidden;box-shadow:0 12px 28px rgba(0,0,0,.55);line-height:0}
-.cr-fan-c img{display:block;width:100%;height:auto}
-.cr-fan-0{transform:translateX(calc(-50% - 118px)) translateY(22px) rotate(-12deg);z-index:1}
-.cr-fan-1{transform:translateX(calc(-50% - 66px)) translateY(6px) rotate(-6deg);z-index:2}
-.cr-fan-2{transform:translateX(calc(-50% + 66px)) translateY(6px) rotate(6deg);z-index:2}
-.cr-fan-3{transform:translateX(calc(-50% + 118px)) translateY(22px) rotate(12deg);z-index:1}
-.cr-fan-slab{position:absolute;left:50%;top:0;width:150px;transform:translateX(-50%);z-index:3}
 
 .cr-feat{display:flex;flex-direction:column;gap:24px;margin-top:22px}
 .cr-feat h3{font-size:16px;font-weight:800;margin:0}
@@ -1001,14 +1012,11 @@ const CSS = `
 .cr .sa-cert{font-family:inherit;font-variant-numeric:tabular-nums}
 @media (min-width:768px) and (max-width:1023px){
 .cr-sec .cr-in{max-width:680px}
-.cr-h1{font-size:44px}
-.cr-fan{height:330px}
-.cr-fan-c{width:118px;top:88px}
-.cr-fan-slab{width:190px}
-.cr-fan-0{transform:translateX(calc(-50% - 160px)) translateY(26px) rotate(-12deg)}
-.cr-fan-1{transform:translateX(calc(-50% - 90px)) translateY(8px) rotate(-6deg)}
-.cr-fan-2{transform:translateX(calc(-50% + 90px)) translateY(8px) rotate(6deg)}
-.cr-fan-3{transform:translateX(calc(-50% + 160px)) translateY(26px) rotate(12deg)}
+.cr-lockup{font-size:84px}
+.cr-bene{font-size:30px}
+.cr-trio{height:340px;margin:16px 0 0}
+.cr-trio-c{width:130px}
+.cr-trio-slab{width:180px}
 .cr-rail{overflow:visible;margin:22px 0 0;padding:0}
 .cr-vid{flex:1 1 0}
 }
@@ -1035,17 +1043,33 @@ const CSS = `
 .cr-hero{padding-top:0;padding-bottom:0;overflow:clip}
 .cr-hero .cr-in{position:relative;min-height:min(calc(100svh - 64px),780px);align-content:center;padding:48px 0}
 .cr-hero .cr-in>*{grid-column:1/7}
-.cr-hero .cr-in>.cr-fan{grid-column:auto;grid-row:auto}
+.cr-hero .cr-in{display:grid}
+.cr-hero-sub{order:0}
+.cr-hero .cr-chip-wrap{align-self:auto;justify-self:start}
+.cr-hero .cr-in>.cr-trio{grid-column:auto;grid-row:auto;position:absolute;top:0;bottom:0;right:0;width:calc(50% - 12px);height:auto;margin:0;background:radial-gradient(48% 52% at 52% 46%,rgba(var(--ac-2-rgb),.20),rgba(var(--ac-1-rgb),.06) 48%,transparent 72%)}
+.cr-trio::before{width:520px;height:520px}
+.cr-trio-c{width:190px}
+.cr-trio-l{left:4%;top:calc(50% - 150px)}
+.cr-trio-r{right:2%;top:calc(50% - 250px)}
+.cr-trio-c:hover{z-index:3}
+.cr-trio-l:hover{transform:rotate(-14deg) translateY(-6px)}
+.cr-trio-r:hover{transform:rotate(13deg) translateY(-6px)}
+.cr-trio-slab{width:250px;top:calc(50% - 250px)}
+.cr-trio-slab:hover{transform:translateX(-46%) rotate(-3deg) translateY(-6px)}
+.cr-trio-slab .sa{padding:9px;border-radius:15px}
+.cr-trio-slab .sa-lab{padding:6px 9px;min-height:46px;margin-bottom:7px}
+.cr-trio-slab .sa-sig{font-size:13px}
+.cr-trio-slab .sa-nome{font-size:9px}
+.cr-trio-slab .sa-nota{font-size:24px}
+.cr-trio-slab .sa-tier{font-size:8px}
+.cr-trio-slab .sa-win{padding:7px}
+.cr-trio-tag{display:inline-flex;align-items:center;gap:6px;position:absolute;right:6%;bottom:calc(50% - 300px);z-index:4;padding:8px 12px;border-radius:999px;border:1px solid var(--bx-border-2);background:color-mix(in srgb,var(--bx-bg) 80%,transparent);font-size:12px;font-weight:700;color:var(--bx-text-2)}
+.cr-trio-tag b{color:var(--bx-text);font-weight:700}
+.cr-lockup{font-size:clamp(72px,6.6vw,100px)}
+.cr-bene{margin-top:18px;font-size:clamp(26px,2.3vw,32px);max-width:560px}
 .cr-h1{font-size:clamp(40px,3.6vw,54px);line-height:1.04;letter-spacing:-.035em}
 .cr-hero .cr-p{max-width:46ch}
 .cr-band{justify-self:start;max-width:520px}
-.cr-fan{position:absolute;top:0;bottom:0;right:0;width:calc(50% - 12px);height:auto;margin:0;background:radial-gradient(45% 50% at 54% 42%,rgba(var(--ac-1-rgb),.16),transparent 70%)}
-.cr-fan-slab{width:260px;left:54%;top:calc(50% - 236px);transform:translateX(-50%) rotate(-2deg)}
-.cr-fan-c{width:160px;top:calc(50% - 40px)}
-.cr-fan-0{top:calc(100% - 150px);transform:translateX(calc(-50% - 170px)) rotate(-16deg);z-index:4}
-.cr-fan-1{transform:translateX(calc(-50% - 150px)) translateY(-70px) rotate(-8deg);z-index:1}
-.cr-fan-2{transform:translateX(calc(-50% + 170px)) translateY(-120px) rotate(9deg);z-index:1}
-.cr-fan-3{transform:translateX(calc(-50% + 210px)) translateY(130px) rotate(14deg);z-index:2}
 
 .cr-s-col{padding-top:112px;padding-bottom:112px}
 .cr-s-col .cr-head{grid-column:1/5;grid-row:1/span 2;position:sticky;top:104px}
@@ -1136,18 +1160,6 @@ const CSS = `
 .cr-hero{padding-top:18px}
 .cr-h1{font-size:28px;margin-top:10px}
 .cr-hero .cr-p{font-size:14.5px;margin-top:8px}
-.cr-fan{height:222px;margin-top:14px}
-.cr-fan-c{width:76px;top:54px}
-.cr-fan-slab{width:134px}
-.cr-fan-slab .sa{padding:7px}
-.cr-fan-slab .sa-lab{padding:5px 7px;gap:4px;min-height:40px}
-.cr-fan-slab .sa-nome{max-width:none}
-.cr-fan-slab .sa-nota{font-size:20px}
-.cr-fan-slab .sa-tier{font-size:7px;letter-spacing:.06em}
-.cr-fan-0{transform:translateX(calc(-50% - 104px)) translateY(18px) rotate(-12deg)}
-.cr-fan-1{transform:translateX(calc(-50% - 58px)) translateY(4px) rotate(-6deg)}
-.cr-fan-2{transform:translateX(calc(-50% + 58px)) translateY(4px) rotate(6deg)}
-.cr-fan-3{transform:translateX(calc(-50% + 104px)) translateY(18px) rotate(12deg)}
 .cr-oferta{margin-top:12px}
 .cr-oferta li{min-height:32px;font-size:12.5px}
 .cr-ct{margin-top:10px;padding:12px}
