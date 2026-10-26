@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       proAte: resgate.ok ? resgate.proAte : null,
       aviso: resgate.ok ? null
         : resgate.code === 'CONVITE_ENCERRADO'
-          ? 'As vagas acabaram segundos antes do seu cadastro. Sua conta foi criada no plano Grátis e você já pode usar a Bynx.'
+          ? 'Os convites acabaram segundos antes do seu cadastro. Sua conta foi criada no plano Grátis e você já pode usar a Bynx.'
           : MENSAGEM_RESGATE[resgate.code],
       tokenHash: tokenHash || null,
     })

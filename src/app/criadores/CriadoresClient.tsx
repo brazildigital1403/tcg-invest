@@ -23,7 +23,7 @@ import { SENHA_REGRA_MSG } from '@/lib/senha'
 import { APRESENTACAO_PARCERIA } from '@/lib/parceriaMaterial'
 import {
   IconCalendar, IconCheck, IconChevronDown, IconClock, IconClose, IconInstagram, IconLink, IconAccount, IconCollection,
-  IconCard, IconShare, IconDownload,
+  IconCard, IconShare, IconDownload, IconChart,
 } from '@/components/ui/Icons'
 
 const IMG = 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/'
@@ -79,17 +79,19 @@ function linhaPrazo(expiraEm: string): { texto: string; urgente: boolean } {
     const dia = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d)
     return { texto: `Termina ${dia(fim) === dia(new Date()) ? 'hoje' : 'amanhã'} às ${hora}`, urgente: true }
   }
-  return { texto: `Até ${dataCurta(expiraEm)}, ${hora}`, urgente: false }
+  return { texto: `Até ${dataCurta(expiraEm)}, às ${hora}, ou enquanto durarem os convites.`, urgente: false }
 }
 
 function fraseFechamento(restantes: number | null, vagas: number | null, expiraEm: string | null): string {
-  if (restantes === null || !vagas || !expiraEm) return 'Sem cartão. Sem cobrança no fim.'
-  if (restantes === 1) return `Última vaga para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
-  if (restantes <= 20) return `Restam ${restantes} vagas para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
-  return `${restantes} vagas disponíveis para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
+  const fim = 'Sem cartão e sem cobrança automática no fim.'
+  if (restantes === null || !vagas || !expiraEm) return fim
+  const ate = `até ${dataCurta(expiraEm)}. ${fim}`
+  if (restantes === 1) return `Último convite para creators de Pokémon TCG, ${ate}`
+  if (restantes <= 20) return `Restam ${restantes} de ${vagas} convites para creators de Pokémon TCG, ${ate}`
+  return `${restantes} convites disponíveis para creators de Pokémon TCG, ${ate}`
 }
 
-/** Bloco do hero: numero, regua de vagas e prazo. */
+/** Bloco do hero: numero, regua de convites e prazo. */
 function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & { carregando: boolean }) {
   const prazo = expiraEm ? linhaPrazo(expiraEm) : null
   if (restantes === null || !vagas) {
@@ -102,10 +104,10 @@ function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & 
   return (
     <div className={`cr-ct ${f}${prazo?.urgente ? ' cr-ct-urg' : ''}`}>
       <p className="cr-ct-l" aria-live="polite">
-        {restantes === 1 ? <span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>Última vaga</span>
-          : restantes <= 10 ? <><span className="cr-ct-pre">Últimas</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas</span></>
-          : restantes <= 20 ? <><span className="cr-ct-pre">Restam</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas</span></>
-          : <><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas disponíveis</span></>}
+        {restantes === 1 ? <span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>Último convite</span>
+          : restantes <= 10 ? <><span className="cr-ct-pre">Últimos</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">convites</span></>
+          : restantes <= 20 ? <><span className="cr-ct-pre">Restam</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">de {vagas} convites</span></>
+          : <><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">convites disponíveis</span></>}
       </p>
       {vagas <= 60 ? (
         <div className="cr-ct-regua" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${vagas}, minmax(0, 1fr))` }}>
@@ -116,7 +118,7 @@ function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & 
       )}
       {prazo && <p className="cr-ct-p"><IconClock size={14} />{prazo.texto}</p>}
       {restantes <= 10 && (
-        <p className="cr-ct-av"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Esta é a última vaga do convite.' : `Restam ${restantes} vagas. O convite fecha quando acabarem.`}</p>
+        <p className="cr-ct-av"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Este é o último convite do programa.' : `Restam ${restantes} convites. O programa fecha quando acabarem.`}</p>
       )}
     </div>
   )
@@ -128,10 +130,10 @@ function ContadorCurto({ restantes, vagas, expiraEm, classe }: VagasCtx & { clas
   const f = faixa(restantes)
   return (
     <p className={`${classe} ${f}`}>
-      {restantes === 1 ? <b>Última vaga</b>
-        : restantes <= 10 ? <>Últimas <b>{restantes}</b> vagas</>
-        : restantes <= 20 ? <>Restam <b>{restantes}</b> vagas{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>
-        : <><b>{restantes}</b> vagas disponíveis{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>}
+      {restantes === 1 ? <b>Último convite</b>
+        : restantes <= 10 ? <>Últimos <b>{restantes}</b> convites</>
+        : restantes <= 20 ? <>Restam <b>{restantes}</b> de {vagas} convites</>
+        : <><b>{restantes}</b> convites disponíveis{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>}
     </p>
   )
 }
@@ -285,7 +287,7 @@ export default function CriadoresClient() {
           <div className="cr-in">
             <p className="cr-eyebrow">Convite para criadores de Pokémon TCG</p>
             <h1 className="cr-h1">Sua coleção já faz parte do seu conteúdo. <em>Agora ela trabalha a seu favor.</em></h1>
-            <p className="cr-p">Ganhe 1 ano de Bynx Pro para organizar sua coleção, mostrar suas cartas em um perfil público e oferecer desconto para quem acompanha você.</p>
+            <p className="cr-p">Ganhe 1 ano de Bynx Pro para organizar sua coleção, mostrar suas cartas em um perfil público e criar conteúdos melhores para a sua comunidade.</p>
 
             <figure className="cr-fan" aria-hidden="true">
               {LEQUE.map((c, i) => (
@@ -315,8 +317,41 @@ export default function CriadoresClient() {
           <div className="cr-in">
             <p className="cr-eyebrow">Parceria</p>
             <h2 className="cr-h2">Sua comunidade ganha. Você também.</h2>
-            <p className="cr-p">Quem segue você assina com desconto, e cada assinatura pelo seu cupom vira comissão para você.</p>
+            <p className="cr-p">Quem acompanha você ganha desconto para conhecer a Bynx, enquanto você recebe comissão pelas indicações válidas feitas com o seu cupom.</p>
             <Parceria logado={logado} onPrecisaConta={() => setFolha(true)} />
+          </div>
+        </section>
+
+        {/* 2b. Contrapartida do Bynx Creator 100 (25/10/2026): 1 publicacao por
+            mes, visivel sem abrir o FAQ. */}
+        <section className="cr-sec cr-s-ctr bx-gutter">
+          <div className="cr-in">
+            <p className="cr-eyebrow">Contrapartida</p>
+            <h2 className="cr-h2">Uma parceria leve e contínua</h2>
+            <p className="cr-p">Para participar do Bynx Creator 100, você recebe 1 ano de Bynx Pro para testar na sua própria coleção. Em troca, pedimos apenas uma coisa:</p>
+            <div className="cr-ctr-destaque">
+              <span className="cr-ctr-num">1</span>
+              <div><b>publicação por mês</b><span>sobre a sua experiência com a Bynx</span></div>
+            </div>
+            <div className="cr-ctr-grid">
+              <div className="cr-ctr-card">
+                <h3>No formato que combina com você</h3>
+                <ul>{['Post no feed', 'Reel, Short ou TikTok', 'Carrossel', 'Até 3 Stories em sequência'].map(t => <li key={t}>{t}</li>)}</ul>
+              </div>
+              <div className="cr-ctr-card">
+                <h3>Mostrando o que você quiser</h3>
+                <ul>{['Sua coleção', 'Um Master Set', 'Cartas graduadas', 'Seu perfil público', 'Uma funcionalidade que você usou', 'O valor estimado da sua coleção'].map(t => <li key={t}>{t}</li>)}</ul>
+              </div>
+              <div className="cr-ctr-card">
+                <h3>Sem amarras</h3>
+                <p>Não existe roteiro engessado, exclusividade, meta de vendas ou número mínimo de seguidores. A ideia é que a Bynx apareça naturalmente no conteúdo que você já produz.</p>
+              </div>
+            </div>
+            <div className="cr-sugestao">
+              <p className="cr-sug-k">Sugestão de conteúdo</p>
+              <p className="cr-sug-t">“Minha coleção agora está organizada na Bynx. Dá para acompanhar minhas cartas, Master Sets, slabs e o valor estimado do acervo. Quem usar o meu cupom ganha 20% de desconto na primeira cobrança.”</p>
+              <p className="cr-sug-n">É só uma sugestão. Adapte para a sua linguagem.</p>
+            </div>
           </div>
         </section>
 
@@ -411,17 +446,24 @@ export default function CriadoresClient() {
           <div className="cr-in">
             <p className="cr-eyebrow">Como funciona</p>
             <ol className="cr-steps">
-              <li><span className="cr-node"><IconAccount size={16} color="var(--ac-1)" /></span><div><b>Cadastre</b><span>Seu nome, e-mail e uma senha.</span></div></li>
-              <li><span className="cr-node"><IconCheck size={16} color="var(--ac-1)" /></span><div><b>Ative</b><span>O ano de Pro é liberado na hora, sem esperar e-mail.</span></div></li>
-              <li><span className="cr-node"><IconCard size={16} color="var(--ac-1)" /></span><div><b>Monte</b><span>Adicione a primeira carta e publique o perfil.</span></div></li>
+              <li><span className="cr-node"><IconAccount size={16} color="var(--ac-1)" /></span><div><b>Cadastre</b><span>Seu nome, e-mail e senha.</span></div></li>
+              <li><span className="cr-node"><IconCheck size={16} color="var(--ac-1)" /></span><div><b>Ative</b><span>Seu ano de Bynx Pro, na hora.</span></div></li>
+              <li><span className="cr-node"><IconCard size={16} color="var(--ac-1)" /></span><div><b>Monte</b><span>Crie seu perfil público e adicione sua coleção.</span></div></li>
+              <li><span className="cr-node"><IconInstagram size={16} color="var(--ac-1)" /></span><div><b>Publique</b><span>Pelo menos 1 conteúdo por mês.</span></div></li>
+              <li><span className="cr-node"><IconChart size={16} color="var(--ac-1)" /></span><div><b>Acompanhe</b><span>Suas indicações e comissões na Central do Parceiro.</span></div></li>
             </ol>
             <div className="cr-faq">
               <Pergunta q="Preciso de cartão?" a="Não. Nada é cobrado, nem no fim do ano." aberta />
               <Pergunta q="E depois de 12 meses?" a="Sua conta passa para o plano Grátis. As cartas continuam salvas, mas recursos do Pro, como scan, Master Sets e pastas extras, ficam bloqueados até você assinar. Avisamos antes." />
               <Pergunta q="Já tenho conta." a="Toque em Já tenho conta, no topo da página. Depois de entrar, o botão Liberar meu 1 ano grátis aplica o ano na sua conta." />
               <Pergunta q="De onde vem o valor das cartas?" a="Do Mercado Brasileiro: preço em R$ de quem vende carta no Brasil, não dólar convertido. É uma estimativa de mercado para você acompanhar a coleção, não uma avaliação oficial nem garantia de venda." />
-              <Pergunta q="Posso falar da Bynx no meu conteúdo?" a="Pode e queremos. Se quiser ganhar com isso, peça a Parceria lá no começo da página." />
-              {expiraEm && <Pergunta q="O convite tem prazo?" a={`Sim. Ele vale até ${dataBR(expiraEm)} ou até as vagas acabarem.`} />}
+              <Pergunta q="O que preciso publicar?" a="Pelo menos 1 conteúdo público por mês relacionado à sua experiência com a Bynx. Pode ser um post, Reel, Short, TikTok, carrossel ou até 3 Stories em sequência." />
+              <Pergunta q="Preciso seguir um roteiro?" a="Não. Você pode falar da Bynx com a sua própria linguagem. O importante é mostrar uma experiência real com a plataforma." />
+              <Pergunta q="Preciso mostrar o valor total da minha coleção?" a="Não. Você decide quais informações da sua coleção ficam públicas." />
+              <Pergunta q="Preciso ter muitos seguidores?" a="Não. A Bynx valoriza afinidade com Pokémon TCG, qualidade do conteúdo e relação com a comunidade." />
+              <Pergunta q="Como funciona a comissão?" a="Você recebe 100% da primeira cobrança de cada indicação, limitado a R$ 100, mais 20% das 11 renovações mensais seguintes: até 12 cobranças pagas no total. As comissões valem para pagamentos aprovados e não estornados." />
+              <Pergunta q="Preciso publicar todos os dias?" a="Não. A contrapartida é de apenas 1 publicação por mês." />
+              {expiraEm && <Pergunta q="O convite tem prazo?" a={`Sim. Ele vale até ${dataBR(expiraEm)}, às 23h59, ou enquanto durarem os convites.`} />}
             </div>
           </div>
         </section>
@@ -532,9 +574,10 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
     <div className="cr-partner">
       <ul>
         <li><IconCheck size={18} color="var(--bx-green)" /><span>Seus seguidores têm <b>20% de desconto</b> na primeira cobrança com o seu cupom.</span></li>
-        <li><IconCheck size={18} color="var(--bx-green)" /><span>Você recebe <b>100% da primeira cobrança</b>, até R$ 100.</span></li>
-        <li><IconCheck size={18} color="var(--bx-green)" /><span>E <b>20% de cada renovação mensal</b>, por até 12 meses.</span></li>
+        <li><IconCheck size={18} color="var(--bx-green)" /><span>Você recebe <b>100% da primeira cobrança</b> de cada indicação, limitado a R$ 100.</span></li>
+        <li><IconCheck size={18} color="var(--bx-green)" /><span>Você recebe <b>20% das 11 renovações mensais</b> seguintes.</span></li>
       </ul>
+      <p className="cr-partner-nota">Até 12 cobranças pagas no total por indicação: a primeira mais 11 renovações.</p>
       <div className="cr-coupon">SEUNOME20 <small>seu cupom sai com o seu @</small></div>
       <form onSubmit={pedir} className="cr-partner-form">
           {logado && (
@@ -544,8 +587,9 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
             </label>
           )}
           {erro && <p className="cr-erro" role="alert">{erro}</p>}
-          <button type="submit" className="cr-outline" disabled={enviando}>{enviando ? 'Enviando...' : 'Quero ser parceiro da Bynx'}</button>
+          <button type="submit" className="cr-outline" disabled={enviando}>{enviando ? 'Enviando...' : 'Quero ser Creator Bynx'}</button>
           {!logado && <p className="cr-micro">Primeiro ative o seu ano de Pro. A parceria vem logo depois.</p>}
+          <p className="cr-micro">Ao participar, você concorda com a publicação de pelo menos 1 conteúdo mensal sobre sua experiência com a Bynx.</p>
           <a className="cr-doclink" href={APRESENTACAO_PARCERIA.url} target="_blank" rel="noopener noreferrer">
             <IconDownload size={14} />Ver a apresentação completa (PDF, {APRESENTACAO_PARCERIA.tamanho})
           </a>
@@ -626,12 +670,12 @@ function FolhaCadastro({ codigo, restantes, onFechar, onJaTemConta, onEncerrado,
         <h2 id="cr-sheet-t" className="cr-h2">Seu ano de Pro começa aqui</h2>
         {esgotou ? (
           <div className="cr-esgotou" role="alert">
-            <b>As vagas acabaram enquanto você preenchia.</b>
+            <b>Os convites acabaram enquanto você preenchia.</b>
             <p>Seus dados continuam aqui. Você pode criar a conta no plano Grátis.</p>
             <Link href="/planos" className="cr-outline">Conhecer o plano Grátis</Link>
           </div>
         ) : restantes !== null && restantes > 0 && restantes <= 10 && (
-          <p className="cr-ct-folha"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Resta 1 vaga' : `Restam ${restantes} vagas`}</p>
+          <p className="cr-ct-folha"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Resta 1 convite' : `Restam ${restantes} convites`}</p>
         )}
         <form onSubmit={enviar} noValidate>
           <label className="cr-field">
@@ -705,7 +749,7 @@ function TelaSucesso({ sucesso }: { sucesso: Sucesso }) {
 
 function TelaEncerrado({ invalido, motivo, vagas }: { invalido: boolean; motivo: Motivo; vagas: number | null }) {
   const titulo = invalido ? 'Este link de convite não existe.'
-    : motivo === 'vagas' ? (vagas ? `As ${vagas} vagas deste convite acabaram.` : 'As vagas deste convite acabaram.')
+    : motivo === 'vagas' ? (vagas ? `Os ${vagas} convites deste programa acabaram.` : 'Os convites deste programa acabaram.')
     : motivo === 'prazo' ? 'O prazo deste convite terminou.'
     : 'Este convite encerrou.'
   return (
@@ -846,6 +890,22 @@ const CSS = `
 .cr-partner ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .cr-partner li{display:flex;gap:10px;font-size:14px;color:var(--bx-text-2)}
 .cr-partner li svg{flex:none;margin-top:1px}
+.cr-partner li{padding:12px;border-radius:10px;background:var(--bx-surface);border:1px solid var(--bx-border);align-items:flex-start;line-height:1.45}
+.cr-partner-nota{margin:10px 0 0;font-size:12.5px;color:var(--bx-text-3)}
+.cr-ctr-destaque{display:flex;align-items:center;gap:14px;margin-top:18px;padding:16px;border-radius:12px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.35)}
+.cr-ctr-num{font-size:48px;font-weight:800;line-height:1;letter-spacing:-.03em;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent;flex:none}
+.cr-ctr-destaque b{display:block;font-size:18px;font-weight:800;color:var(--bx-text)}
+.cr-ctr-destaque div span{display:block;font-size:13.5px;color:var(--bx-text-2);margin-top:2px}
+.cr-ctr-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:14px}
+.cr-ctr-card{padding:14px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
+.cr-ctr-card h3{font-size:15px;font-weight:800;margin:0}
+.cr-ctr-card ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.cr-ctr-card li{font-size:12.5px;font-weight:600;color:var(--bx-text-2);padding:5px 10px;border-radius:999px;background:var(--bx-surface-2);border:1px solid var(--bx-border)}
+.cr-ctr-card p{font-size:13.5px;color:var(--bx-text-2);margin:8px 0 0}
+.cr-sugestao{margin-top:14px;padding:16px;border-radius:12px;border:1px dashed var(--bx-border-2);background:var(--bx-bg-elev)}
+.cr-sug-k{margin:0;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ac-1)}
+.cr-sug-t{margin:8px 0 0;font-size:14.5px;line-height:1.55;color:var(--bx-text)}
+.cr-sug-n{margin:8px 0 0;font-size:12px;color:var(--bx-text-3)}
 .cr-coupon{display:inline-flex;align-items:center;gap:8px;margin-top:14px;min-height:36px;padding:0 12px;border-radius:8px;background:var(--bx-bg-elev);border:1px dashed rgba(var(--ac-1-rgb),0.55);font-size:14px;font-weight:800;letter-spacing:.1em}
 .cr-coupon small{font-family:var(--font-dm-sans,"DM Sans"),system-ui,sans-serif;font-size:11px;color:var(--bx-text-3);letter-spacing:0}
 .cr-partner-form{margin-top:4px}
@@ -1006,6 +1066,16 @@ const CSS = `
 .cr-s-par .cr-partner{grid-column:1/7;grid-row:1/span 4;margin-top:0;padding:28px}
 .cr-coupon{font-size:24px;min-height:64px;padding:0 20px;border-radius:12px;letter-spacing:.12em}
 
+.cr-s-ctr{padding-top:96px;padding-bottom:96px}
+.cr-s-ctr .cr-in>*{grid-column:1/-1}
+.cr-s-ctr .cr-eyebrow,.cr-s-ctr .cr-h2,.cr-s-ctr .cr-p{grid-column:1/8}
+.cr-s-ctr .cr-ctr-destaque{grid-column:1/6;margin-top:28px;padding:20px 22px}
+.cr-s-ctr .cr-ctr-num{font-size:64px}
+.cr-s-ctr .cr-ctr-destaque b{font-size:22px}
+.cr-s-ctr .cr-ctr-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:20px}
+.cr-s-ctr .cr-ctr-card{padding:20px}
+.cr-s-ctr .cr-sugestao{grid-column:1/9;margin-top:20px;padding:20px 22px}
+.cr-partner ul{gap:12px}
 .cr-s-faq{padding-top:88px;padding-bottom:88px}
 .cr-s-faq .cr-in{grid-template-rows:auto auto 1fr}
 .cr-s-faq .cr-eyebrow,.cr-s-faq .cr-steps{grid-column:1/5}

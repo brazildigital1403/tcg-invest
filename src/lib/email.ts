@@ -3350,7 +3350,7 @@ export async function sendPedidoParceriaEmail(args: { to: string; nome?: string 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 0;border-top:1px solid #202227;">
       ${linhaParceria('Seus seguidores', '20% de desconto')}
       ${linhaParceria('1ª cobrança', '100% para você, até R$ 100')}
-      ${linhaParceria('Renovações mensais', '20% por até 12 meses')}
+      ${linhaParceria('Renovações mensais', '20% das 11 seguintes')}
     </table>
     ${btn('Ver a apresentação', APRESENTACAO_PARCERIA.url)}
     ${p(`PDF, ${APRESENTACAO_PARCERIA.tamanho}. Os valores da apresentação são exemplo de cálculo, não previsão de ganho.`, 'font-size:12px;color:rgba(255,255,255,0.4);margin-top:20px;text-align:center;')}
