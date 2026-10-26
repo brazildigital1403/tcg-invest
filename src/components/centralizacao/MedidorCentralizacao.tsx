@@ -29,6 +29,8 @@ import { IconCamera, IconUpload, IconWarning, IconCheck, IconDownload, IconCopy,
 
 export type Face = 'frente' | 'verso'
 export const FACES: Face[] = ['frente', 'verso']
+/** "da frente" / "do verso": verso e masculino. */
+const daFace = (f: Face) => (f === 'verso' ? 'do verso' : 'da frente')
 const ROTULO_FACE: Record<Face, string> = { frente: 'Frente', verso: 'Verso' }
 
 export type FotoOpcao = { rotulo: string; url: string; midiaId: string }
@@ -618,7 +620,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
           {e.etapa === 'vazio' && (
             <div className="mc-vazio">
               <IconCamera size={28} />
-              <b>Foto da {ROTULO_FACE[face].toLowerCase()} da carta</b>
+              <b>Foto {daFace(face)} da carta</b>
               <span>De cima, carta fora do sleeve, fundo liso que contraste com a borda, sem reflexo.</span>
               <div className="mc-bts">
                 <button type="button" className="mc-bt mc-bt-pri" onClick={() => inputArquivo.current?.click()}><IconUpload size={15} /> Enviar foto</button>
@@ -784,7 +786,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
                     {pendentesFace.some(moldurasNoPadrao)
                       ? 'No modo sem moldura, mova as 4 linhas azuis até a referência interna antes de salvar.'
                       : pendentesFace.length
-                      ? `Confira as 8 linhas ${pendentesFace.length === 2 ? 'das duas faces' : `da ${ROTULO_FACE[pendentesFace[0]].toLowerCase()}`} para salvar.`
+                      ? `Confira as 8 linhas ${pendentesFace.length === 2 ? 'das duas faces' : daFace(pendentesFace[0])} para salvar.`
                       : !prontas.length && !laudoMexido
                       ? 'Meça uma face ou preencha o laudo para salvar.'
                       : 'Nada mudou desde a última gravação.'}
@@ -794,7 +796,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
             ) : (
               <div className="mc-bts">
                 {FACES.filter(completa).map(f => (
-                  <button key={f} type="button" className="mc-bt" onClick={() => baixar(f)}><IconDownload size={14} /> Imagem da {ROTULO_FACE[f].toLowerCase()}</button>
+                  <button key={f} type="button" className="mc-bt" onClick={() => baixar(f)}><IconDownload size={14} /> Imagem {daFace(f)}</button>
                 ))}
                 {FACES.some(f => medidas[f]) && <button type="button" className="mc-bt" onClick={copiar}><IconCopy size={14} /> Copiar medida</button>}
               </div>
