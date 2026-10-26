@@ -23,7 +23,7 @@ import { SENHA_REGRA_MSG } from '@/lib/senha'
 import { APRESENTACAO_PARCERIA } from '@/lib/parceriaMaterial'
 import {
   IconCalendar, IconCheck, IconChevronDown, IconClock, IconClose, IconInstagram, IconLink, IconAccount, IconCollection,
-  IconCard, IconShare, IconDownload, IconChart,
+  IconCard, IconShare, IconDownload, IconChart, IconPokeball,
 } from '@/components/ui/Icons'
 
 const IMG = 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/'
@@ -49,6 +49,17 @@ const PROVA: Post[] = [
   { autor: '@oinstadodelimas', titulo: 'Pikachus de 30 anos para fechar o Master Set', capa: `${CAPA_POST}Det6WBgxp6o.jpg`, href: 'https://www.instagram.com/p/Det6WBgxp6o/' },
   { autor: '@poke.fatos', titulo: 'Quanto vale a sua coleção de cartas Pokémon?', capa: `${CAPA_POST}Deb-fJ7Rh2S.jpg`, href: 'https://www.instagram.com/p/Deb-fJ7Rh2S/' },
   { autor: '@weslleyverso', titulo: 'A coleção cadastrada, com o valor em reais', capa: `${CAPA_POST}DdUEqnjuE10.jpg`, href: 'https://www.instagram.com/p/DdUEqnjuE10/' },
+]
+
+// Contrapartida em 3 passos (perfil -> conteudo -> comunidade). A arte e
+// carta real do storage, a mesma regra do resto da pagina.
+const CONTRAPARTIDA = [
+  { titulo: 'Ative seu perfil', carta: 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/MEP-Bulbasaur.jpg',
+    texto: 'Monte um cantinho público para a sua coleção, seus Master Sets ou aquela slab que merece aparecer.', tags: ['Perfil público', 'Sua coleção'] },
+  { titulo: 'Mostre o que você vive', carta: `${IMG}30C-Pikachu-037.jpg`,
+    texto: 'Uma publicação por mês é o combinado. Pode ser um post, um vídeo, um carrossel ou até 3 Stories: escolha o seu formato.', tags: ['Post', 'Reel, Short ou TikTok', 'Carrossel', 'Stories'] },
+  { titulo: 'Evolua com a comunidade', carta: `${IMG}30C-Eevee-116.jpg`,
+    texto: 'Seu cupom aproxima a sua comunidade da Bynx, e cada indicação válida pode virar comissão para você.', tags: ['20% para a comunidade', 'Comissão'] },
 ]
 
 type Estado = 'carregando' | 'ativo' | 'encerrado' | 'invalido'
@@ -322,30 +333,42 @@ export default function CriadoresClient() {
           </div>
         </section>
 
-        {/* 2b. Contrapartida do Bynx Creator 100 (25/10/2026): 1 publicacao por
-            mes, visivel sem abrir o FAQ. */}
+        {/* 2b. Contrapartida do Bynx Creator 100 (25/10/2026). Base do prototipo
+            do Du (perfil -> conteudo -> comunidade), adaptada a bynx-ui: carta
+            real do storage no lugar de arte oficial, acento da casa, sem loop. */}
         <section className="cr-sec cr-s-ctr bx-gutter">
           <div className="cr-in">
-            <p className="cr-eyebrow">Contrapartida</p>
-            <h2 className="cr-h2">Uma parceria leve e contínua</h2>
-            <p className="cr-p">Para participar do Bynx Creator 100, você recebe 1 ano de Bynx Pro para testar na sua própria coleção. Em troca, pedimos apenas uma coisa:</p>
-            <div className="cr-ctr-destaque">
-              <span className="cr-ctr-num">1</span>
-              <div><b>publicação por mês</b><span>sobre a sua experiência com a Bynx</span></div>
+            <div className="cr-ctr-intro">
+              <div>
+                <p className="cr-eyebrow">Contrapartida · Bynx Creator 100</p>
+                <h2 className="cr-h2">Uma publicação por mês. <em>Do seu jeito.</em></h2>
+                <p className="cr-p">Você ganha 1 ano de Bynx Pro para testar na sua própria coleção. Em troca, compartilha uma experiência real com a sua comunidade, sem roteiro engessado e sem virar trabalho extra.</p>
+              </div>
+              <aside className="cr-ctr-promessa">
+                <span className="cr-ctr-marca" aria-hidden="true"><IconPokeball size={26} color="var(--bx-brand-ink)" /></span>
+                <b>Uma parceria que evolui junto.</b>
+                <p>Você mostra o que realmente usa. A Bynx ganha conteúdo, confiança e novos treinadores de coleção.</p>
+              </aside>
             </div>
-            <div className="cr-ctr-grid">
-              <div className="cr-ctr-card">
-                <h3>No formato que combina com você</h3>
-                <ul>{['Post no feed', 'Reel, Short ou TikTok', 'Carrossel', 'Até 3 Stories em sequência'].map(t => <li key={t}>{t}</li>)}</ul>
+            <div className="cr-ctr-passos">
+              {CONTRAPARTIDA.map((c, i) => (
+                <article key={c.titulo} className={`cr-ctr-passo cr-ctr-p${i + 1}`}>
+                  <div className="cr-ctr-arte" aria-hidden="true">
+                    <Image src={c.carta} alt="" width={245} height={342} sizes="(min-width:1024px) 150px, 128px" />
+                  </div>
+                  <span className="cr-ctr-n">{String(i + 1).padStart(2, '0')}</span>
+                  <h3>{c.titulo}</h3>
+                  <p>{c.texto}</p>
+                  <ul>{c.tags.map(t => <li key={t}>{t}</li>)}</ul>
+                </article>
+              ))}
+            </div>
+            <div className="cr-ctr-rodape">
+              <div>
+                <b>Sem amarras. Sem roteiro engessado.</b>
+                <span>Você cria do seu jeito. A Bynx só precisa aparecer de verdade na sua jornada.</span>
               </div>
-              <div className="cr-ctr-card">
-                <h3>Mostrando o que você quiser</h3>
-                <ul>{['Sua coleção', 'Um Master Set', 'Cartas graduadas', 'Seu perfil público', 'Uma funcionalidade que você usou', 'O valor estimado da sua coleção'].map(t => <li key={t}>{t}</li>)}</ul>
-              </div>
-              <div className="cr-ctr-card">
-                <h3>Sem amarras</h3>
-                <p>Não existe roteiro engessado, exclusividade, meta de vendas ou número mínimo de seguidores. A ideia é que a Bynx apareça naturalmente no conteúdo que você já produz.</p>
-              </div>
+              <span className="cr-ctr-selo">1 publicação por mês</span>
             </div>
             <div className="cr-sugestao">
               <p className="cr-sug-k">Sugestão de conteúdo</p>
@@ -892,16 +915,32 @@ const CSS = `
 .cr-partner li svg{flex:none;margin-top:1px}
 .cr-partner li{padding:12px;border-radius:10px;background:var(--bx-surface);border:1px solid var(--bx-border);align-items:flex-start;line-height:1.45}
 .cr-partner-nota{margin:10px 0 0;font-size:12.5px;color:var(--bx-text-3)}
-.cr-ctr-destaque{display:flex;align-items:center;gap:14px;margin-top:18px;padding:16px;border-radius:12px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.35)}
-.cr-ctr-num{font-size:48px;font-weight:800;line-height:1;letter-spacing:-.03em;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent;flex:none}
-.cr-ctr-destaque b{display:block;font-size:18px;font-weight:800;color:var(--bx-text)}
-.cr-ctr-destaque div span{display:block;font-size:13.5px;color:var(--bx-text-2);margin-top:2px}
-.cr-ctr-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:14px}
-.cr-ctr-card{padding:14px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
-.cr-ctr-card h3{font-size:15px;font-weight:800;margin:0}
-.cr-ctr-card ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-.cr-ctr-card li{font-size:12.5px;font-weight:600;color:var(--bx-text-2);padding:5px 10px;border-radius:999px;background:var(--bx-surface-2);border:1px solid var(--bx-border)}
-.cr-ctr-card p{font-size:13.5px;color:var(--bx-text-2);margin:8px 0 0}
+.cr-ctr-intro{display:grid;gap:18px}
+.cr-ctr-intro .cr-h2 em{font-style:normal;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cr-ctr-promessa{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:16px;border:1px solid rgba(var(--ac-1-rgb),.35);background:linear-gradient(145deg,rgba(var(--ac-1-rgb),.12),var(--bx-surface))}
+.cr-ctr-promessa b{font-size:18px;font-weight:800;letter-spacing:-.02em}
+.cr-ctr-promessa p{margin:0;font-size:14px;color:var(--bx-text-2)}
+.cr-ctr-marca{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--ac-grad);box-shadow:0 0 28px rgba(var(--ac-1-rgb),.25)}
+.cr-ctr-passos{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:22px;position:relative}
+.cr-ctr-passo{--tint:var(--ac-1-rgb);position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;justify-content:flex-end;min-height:400px;padding:22px;border-radius:18px;border:1px solid var(--bx-border);background:linear-gradient(160deg,var(--bx-surface-3),var(--bx-surface));transition:transform .2s ease,border-color .2s ease}
+.cr-ctr-p2{--tint:var(--ac-2-rgb)}
+.cr-ctr-passo::before{content:"";position:absolute;z-index:-1;top:-90px;right:-90px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(var(--tint),.22),transparent 70%)}
+.cr-ctr-passo:hover{transform:translateY(-2px);border-color:rgba(var(--tint),.4)}
+.cr-ctr-arte{position:absolute;z-index:-1;top:18px;left:0;right:0;height:210px;display:grid;place-items:center}
+.cr-ctr-arte::before,.cr-ctr-arte::after{content:"";position:absolute;border-radius:12px;border:1px solid rgba(var(--tint),.45);background:rgba(var(--tint),.10)}
+.cr-ctr-arte::before{width:70px;height:96px;transform:translate(-92px,22px) rotate(-12deg)}
+.cr-ctr-arte::after{width:58px;height:80px;transform:translate(96px,-4px) rotate(14deg);opacity:.7}
+.cr-ctr-arte img{position:relative;width:128px;height:auto;border-radius:8px;transform:rotate(-4deg);box-shadow:0 18px 34px rgba(0,0,0,.5);transition:transform .2s ease}
+.cr-ctr-passo:hover .cr-ctr-arte img{transform:rotate(0) translateY(-4px)}
+.cr-ctr-n{display:grid;place-items:center;width:36px;height:36px;margin-bottom:14px;border-radius:50%;border:1px solid rgba(var(--tint),.6);background:rgba(var(--tint),.14);color:var(--bx-text);font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.cr-ctr-passo h3{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1.08;margin:0}
+.cr-ctr-passo p{font-size:14px;color:var(--bx-text-2);margin:8px 0 0}
+.cr-ctr-passo ul{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.cr-ctr-passo li{font-size:12px;font-weight:700;color:var(--bx-text);padding:6px 10px;border-radius:999px;border:1px solid rgba(var(--tint),.45);background:rgba(var(--tint),.10)}
+.cr-ctr-rodape{display:flex;flex-direction:column;align-items:flex-start;gap:14px;margin-top:14px;padding:18px;border-radius:16px;border:1px solid rgba(var(--ac-1-rgb),.3);background:linear-gradient(90deg,rgba(var(--ac-1-rgb),.10),var(--bx-surface))}
+.cr-ctr-rodape b{display:block;font-size:17px;font-weight:800}
+.cr-ctr-rodape span:not(.cr-ctr-selo){display:block;font-size:14px;color:var(--bx-text-2);margin-top:4px}
+.cr-ctr-selo{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid rgba(var(--ac-1-rgb),.5);color:var(--ac-1);font-size:13px;font-weight:800;white-space:nowrap}
 .cr-sugestao{margin-top:14px;padding:16px;border-radius:12px;border:1px dashed var(--bx-border-2);background:var(--bx-bg-elev)}
 .cr-sug-k{margin:0;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ac-1)}
 .cr-sug-t{margin:8px 0 0;font-size:14.5px;line-height:1.55;color:var(--bx-text)}
@@ -1066,16 +1105,21 @@ const CSS = `
 .cr-s-par .cr-partner{grid-column:1/7;grid-row:1/span 4;margin-top:0;padding:28px}
 .cr-coupon{font-size:24px;min-height:64px;padding:0 20px;border-radius:12px;letter-spacing:.12em}
 
-.cr-s-ctr{padding-top:96px;padding-bottom:96px}
-.cr-s-ctr .cr-in>*{grid-column:1/-1}
-.cr-s-ctr .cr-eyebrow,.cr-s-ctr .cr-h2,.cr-s-ctr .cr-p{grid-column:1/8}
-.cr-s-ctr .cr-ctr-destaque{grid-column:1/6;margin-top:28px;padding:20px 22px}
-.cr-s-ctr .cr-ctr-num{font-size:64px}
-.cr-s-ctr .cr-ctr-destaque b{font-size:22px}
-.cr-s-ctr .cr-ctr-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:20px}
-.cr-s-ctr .cr-ctr-card{padding:20px}
-.cr-s-ctr .cr-sugestao{grid-column:1/9;margin-top:20px;padding:20px 22px}
 .cr-partner ul{gap:12px}
+.cr-s-ctr{padding-top:104px;padding-bottom:104px}
+.cr-s-ctr .cr-in>*{grid-column:1/-1}
+.cr-ctr-intro{grid-template-columns:minmax(0,1fr) minmax(280px,.62fr);align-items:end;gap:48px}
+.cr-ctr-intro .cr-h2{font-size:clamp(38px,4vw,56px);line-height:1}
+.cr-ctr-promessa{padding:24px}
+.cr-ctr-passos{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:44px}
+.cr-ctr-passos::before{content:"";position:absolute;top:50%;left:9%;right:9%;height:1px;background:linear-gradient(90deg,rgba(var(--ac-1-rgb),.4),rgba(var(--ac-2-rgb),.35),rgba(var(--ac-1-rgb),.4));z-index:-1}
+.cr-ctr-passo{min-height:500px;padding:28px}
+.cr-ctr-arte{height:280px}
+.cr-ctr-arte img{width:150px}
+.cr-ctr-passo h3{font-size:26px}
+.cr-ctr-passo p{min-height:66px}
+.cr-ctr-rodape{flex-direction:row;align-items:center;justify-content:space-between;padding:24px 28px;margin-top:22px}
+.cr-s-ctr .cr-sugestao{max-width:760px}
 .cr-s-faq{padding-top:88px;padding-bottom:88px}
 .cr-s-faq .cr-in{grid-template-rows:auto auto 1fr}
 .cr-s-faq .cr-eyebrow,.cr-s-faq .cr-steps{grid-column:1/5}
@@ -1127,6 +1171,9 @@ const CSS = `
 .cr-ct-regua,.cr-ct-barra-cont{margin-top:10px}
 .cr-ct-p{margin-top:8px}
 .cr-hero .cr-cta{margin-top:14px}
+.cr-ctr-passo{min-height:350px;padding:20px}
+.cr-ctr-arte{height:180px;top:14px}
+.cr-ctr-arte img{width:112px}
 }
 @media (prefers-reduced-motion: reduce){.cr *{transition:none!important}.cr-ct-pulso{animation:none}}
 `
