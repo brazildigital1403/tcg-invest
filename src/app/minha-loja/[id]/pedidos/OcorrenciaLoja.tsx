@@ -54,7 +54,7 @@ export interface Recl {
   contestada_em: string | null
   contestacao_video_url: string | null
   contestacao_tipo: TipoContestacao | null
-  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | null
+  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | 'cancelada' | null
   etiqueta_custo_cents: number | null
   destino_carta: keyof typeof DESTINOS_CARTA | null
 }

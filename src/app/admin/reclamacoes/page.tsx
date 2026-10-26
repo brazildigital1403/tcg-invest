@@ -55,7 +55,7 @@ type Linha = {
   contestada_em: string | null
   contestacao_video_url: string | null
   contestacao_tipo: TipoContestacao | null
-  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | null
+  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | 'cancelada' | null
   etiqueta_codigo: string | null
   etiqueta_protocolo: string | null
   etiqueta_custo_cents: number | null

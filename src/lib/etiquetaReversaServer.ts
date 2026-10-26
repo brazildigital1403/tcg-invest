@@ -290,3 +290,43 @@ export async function sincronizarEtiqueta(sb: SupabaseClient, rid: string): Prom
   }
   return res
 }
+
+/**
+ * URL do PDF da declaracao de conteudo (DACE) da etiqueta. O Melhor Envio
+ * prepara o arquivo em segundo plano: antes disso responde 422 "Dace pdf nao
+ * processada" (visto em producao em 26/10) -> { pendente: true }.
+ * GET /api/v2/me/imprimir/dace/pdf/{order_id} -> JSON com a URL.
+ */
+export async function urlDeclaracao(meId: string): Promise<{ url: string } | { pendente: true } | { erro: string }> {
+  const r = await me(`/api/v2/me/imprimir/dace/pdf/${encodeURIComponent(meId)}`, 'GET')
+  if (r.status === 422 && /processad/i.test(r.texto)) return { pendente: true }
+  if (!r.ok) return { erro: erroCurto('declaracao', r) }
+  const j = (r.json || {}) as Record<string, unknown>
+  const url = [j.pdf, j.url, ...Object.values(j)].find(v => typeof v === 'string' && /^https:\/\//.test(v as string)) as string | undefined
+  return url ? { url } : { erro: 'declaracao: resposta sem URL' }
+}
+
+/**
+ * Cancela a etiqueta reversa ainda nao postada (desistencia expirada, teste):
+ * o Melhor Envio devolve o valor a carteira em ate 12 h. Idempotente: etiqueta
+ * ja cancelada nao chama a rede. POST /api/v2/me/shipment/cancel.
+ */
+export async function cancelarEtiqueta(sb: SupabaseClient, rid: string, descricao: string): Promise<{ ok: boolean; erro?: string }> {
+  const { data: recs } = await sb.from('pedido_reclamacoes').select(COLS).eq('id', rid).limit(1)
+  const rec = recs?.[0] as unknown as Rec | undefined
+  if (!rec?.etiqueta_me_id) return { ok: false, erro: 'sem etiqueta' }
+  if (rec.etiqueta_status === 'cancelada') return { ok: true }
+  if (rec.devolucao_postada_em) return { ok: false, erro: 'devolucao ja postada' }
+  const r = await me('/api/v2/me/shipment/cancel', 'POST', {
+    order: { id: rec.etiqueta_me_id, reason_id: '2', description: descricao.slice(0, 200) },
+  })
+  const j = (r.json || {}) as Record<string, { canceled?: boolean }>
+  if (!r.ok || j[rec.etiqueta_me_id]?.canceled !== true) {
+    const erro = erroCurto('cancelamento', r)
+    console.error(`[etiqueta] ${rid} nao cancelada: ${erro}`)
+    return { ok: false, erro }
+  }
+  await gravar(sb, rid, { etiqueta_status: 'cancelada', etiqueta_erro: null })
+  console.log(`[etiqueta] ${rid} cancelada no Melhor Envio (${rec.etiqueta_custo_cents ?? '?'} centavos voltam a carteira)`)
+  return { ok: true }
+}

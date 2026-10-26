@@ -24,6 +24,8 @@
 --   pronta    codigo de postagem disponivel
 --   falhou    o Melhor Envio recusou; etiqueta_erro diz por que. O cron tenta
 --             de novo ate 5 vezes; depois disso so o admin.
+--   cancelada etiqueta nao postada cancelada no Melhor Envio (desistencia
+--             expirada): o valor volta a carteira em ate 12 h.
 -- etiqueta_resposta guarda a ultima resposta do Melhor Envio: a documentacao
 -- nao diz em que campo o codigo de postagem vem, e o sandbox nao gera o codigo.
 --
@@ -39,7 +41,7 @@
 
 alter table public.pedido_reclamacoes
   add column if not exists etiqueta_status text
-    check (etiqueta_status is null or etiqueta_status in ('gerando', 'pronta', 'falhou')),
+    check (etiqueta_status is null or etiqueta_status in ('gerando', 'pronta', 'falhou', 'cancelada')),
   add column if not exists etiqueta_me_id text check (etiqueta_me_id is null or char_length(etiqueta_me_id) <= 64),
   add column if not exists etiqueta_protocolo text check (etiqueta_protocolo is null or char_length(etiqueta_protocolo) <= 64),
   add column if not exists etiqueta_codigo text check (etiqueta_codigo is null or char_length(etiqueta_codigo) <= 64),

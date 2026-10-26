@@ -5,7 +5,7 @@ import {
   acaoRecebimento, acaoDevolucao, somarDias, fmtPrazo, DIAS_FECHAMENTO_AUTO, DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR,
 } from '@/lib/leilao-reclamacao'
 import { sbServico, sino, carregarPedido, concluirDevolucao, emailSeguro, contato, nomeDaLoja } from '@/lib/reclamacaoServer'
-import { emitirEtiquetaReversa, sincronizarEtiqueta } from '@/lib/etiquetaReversaServer'
+import { emitirEtiquetaReversa, sincronizarEtiqueta, cancelarEtiqueta } from '@/lib/etiquetaReversaServer'
 import { MAX_TENTATIVAS_ETIQUETA } from '@/lib/etiquetaReversa'
 import { enviarLoteEmails, renderRecebimentoAvisoEmail, renderArrependimentoEmail, type EmailLoteItem } from '@/lib/email'
 
@@ -243,6 +243,11 @@ export async function GET(req: NextRequest) {
           })
           if (e) { console.error(`[cron-recebimento] expirar desistencia ${pedido.numero}:`, e.message); continue }
           expiradas++
+          // Etiqueta reversa nao usada: cancela no Melhor Envio para o valor
+          // voltar a carteira da Bynx (#500). Falha so vai para o log.
+          if (d.etiqueta_status === 'pronta') {
+            await cancelarEtiqueta(sb, d.id as string, `Desistencia do pedido ${pedido.numero} expirou sem postagem`)
+          }
           const prazo = fmtPrazo(d.postar_ate as string)
           await sino(sb, d.comprador_user_id as string, 'A desistência expirou',
             `A devolução do pedido #${pedido.numero} não foi postada até ${prazo}. A compra continua valendo.`, `/pedido/${pedido.id}`)

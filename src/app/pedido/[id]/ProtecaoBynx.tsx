@@ -68,7 +68,7 @@ interface Reclamacao {
   decisao_nota: string | null
   destino_carta: DestinoCarta | null
   /** Etiqueta reversa (#500): gerando | pronta | falhou; null = etapa 1. */
-  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | null
+  etiqueta_status: 'gerando' | 'pronta' | 'falhou' | 'cancelada' | null
   etiqueta_codigo: string | null
   valor_estornado_cents: number
   created_at: string
@@ -160,6 +160,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const [pedeCpf, setPedeCpf] = useState(false)
   const [cpf, setCpf] = useState('')
   const [codigoCopiado, setCodigoCopiado] = useState(false)
+  const [declaracao, setDeclaracao] = useState<string | null>(null)
   const [rastreio, setRastreio] = useState('')
   const [endereco, setEndereco] = useState<EnderecoLoja | null>(null)
   const [copiado, setCopiado] = useState(false)
@@ -285,6 +286,20 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
     }
   }
 
+  // Declaracao de conteudo (DACE) da etiqueta: o Melhor Envio prepara o PDF
+  // em segundo plano; enquanto isso a rota responde 202 com o aviso.
+  async function baixarDeclaracao() {
+    setDeclaracao('Buscando a declaração…')
+    try {
+      const r = await authFetch(`/api/pedidos/${pedido.id}/desistir/declaracao`)
+      const j = await r.json().catch(() => ({}))
+      if (r.status === 200 && j.url) { window.open(j.url, '_blank', 'noopener'); setDeclaracao(null); return }
+      setDeclaracao(j.error || 'Não deu para buscar a declaração agora. Tente de novo em instantes.')
+    } catch {
+      setDeclaracao('Não deu para buscar a declaração agora. Tente de novo em instantes.')
+    }
+  }
+
   async function informarPostagem() {
     setErro(null); setEnviando('Enviando')
     try {
@@ -380,6 +395,11 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
                   onClick={() => { navigator.clipboard?.writeText(codigo).then(() => { setCodigoCopiado(true); setTimeout(() => setCodigoCopiado(false), 1600) }).catch(() => {}) }}>
                   {codigoCopiado ? <><IconCheck size={16} color="var(--bx-green)" />Copiado</> : <><IconCopy size={16} color="currentColor" />Copiar código</>}
                 </button>
+                <span className="pb-txt pb-mut">Imprima também a declaração de conteúdo e coloque junto da carta. Ela já vem preenchida.</span>
+                <button type="button" className="pb-bt pb-bt-ghost pb-full" onClick={baixarDeclaracao} disabled={declaracao === 'Buscando a declaração…'}>
+                  Baixar declaração (PDF)
+                </button>
+                {declaracao && <span className="pb-txt pb-mut" role="status">{declaracao}</span>}
               </div>
             )}
 
