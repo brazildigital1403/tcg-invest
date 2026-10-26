@@ -55,11 +55,11 @@ const PROVA: Post[] = [
 // carta real do storage, a mesma regra do resto da pagina.
 const CONTRAPARTIDA = [
   { titulo: 'Ative seu perfil', carta: 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/MEP-Bulbasaur.jpg',
-    texto: 'Monte um cantinho público para a sua coleção, seus Master Sets ou aquela slab que merece aparecer.', tags: ['Perfil público', 'Sua coleção'] },
-  { titulo: 'Mostre o que você vive', carta: `${IMG}30C-Pikachu-037.jpg`,
-    texto: 'Uma publicação por mês é o combinado. Pode ser um post, um vídeo, um carrossel ou até 3 Stories: escolha o seu formato.', tags: ['Post', 'Reel, Short ou TikTok', 'Carrossel', 'Stories'] },
-  { titulo: 'Evolua com a comunidade', carta: `${IMG}30C-Eevee-116.jpg`,
-    texto: 'Seu cupom aproxima a sua comunidade da Bynx, e cada indicação válida pode virar comissão para você.', tags: ['20% para a comunidade', 'Comissão'] },
+    texto: 'Organize e mostre o que faz sentido para você: sets, Master Sets, slabs ou a coleção inteira.' },
+  { titulo: 'Compartilhe sua experiência', carta: `${IMG}30C-Pikachu-037.jpg`,
+    texto: 'Mostre uma carta, uma meta, uma pasta ou uma descoberta real. Sem roteiro pronto.' },
+  { titulo: 'Compartilhe com a comunidade', carta: `${IMG}30C-Eevee-116.jpg`,
+    texto: 'Seu cupom dá 20% de desconto na primeira cobrança. Indicações válidas podem gerar comissão para você.' },
 ]
 
 type Estado = 'carregando' | 'ativo' | 'encerrado' | 'invalido'
@@ -333,48 +333,35 @@ export default function CriadoresClient() {
           </div>
         </section>
 
-        {/* 2b. Contrapartida do Bynx Creator 100 (25/10/2026). Base do prototipo
-            do Du (perfil -> conteudo -> comunidade), adaptada a bynx-ui: carta
-            real do storage no lugar de arte oficial, acento da casa, sem loop. */}
+        {/* 2b. Contrapartida do Bynx Creator 100. Versao enxuta (25/10/2026,
+            revisao de texto do Du): o beneficio primeiro, o combinado uma vez so,
+            3 passos curtos e o exemplo escondido num acordeao. */}
         <section className="cr-sec cr-s-ctr bx-gutter">
           <div className="cr-in">
             <div className="cr-ctr-intro">
-              <div>
-                <p className="cr-eyebrow">Contrapartida · Bynx Creator 100</p>
-                <h2 className="cr-h2">Uma publicação por mês. <em>Do seu jeito.</em></h2>
-                <p className="cr-p">Você ganha 1 ano de Bynx Pro para testar na sua própria coleção. Em troca, compartilha uma experiência real com a sua comunidade, sem roteiro engessado e sem virar trabalho extra.</p>
-              </div>
-              <aside className="cr-ctr-promessa">
-                <span className="cr-ctr-marca" aria-hidden="true"><IconPokeball size={26} color="var(--bx-brand-ink)" /></span>
-                <b>Uma parceria que evolui junto.</b>
-                <p>Você mostra o que realmente usa. A Bynx ganha conteúdo, confiança e novos treinadores de coleção.</p>
-              </aside>
+              <p className="cr-eyebrow">Contrapartida · Bynx Creator 100</p>
+              <h2 className="cr-h2">Sua coleção. Seu conteúdo. <em>Seu jeito.</em></h2>
+              <p className="cr-p">Você recebe 1 ano de Bynx Pro para usar na sua coleção.</p>
+              <p className="cr-ctr-combinado"><IconPokeball size={18} color="var(--ac-1)" /><span>O combinado é simples: <b>1 conteúdo público por mês já basta.</b> Post, Reel, Short, TikTok, carrossel ou até 3 Stories.</span></p>
             </div>
             <div className="cr-ctr-passos">
               {CONTRAPARTIDA.map((c, i) => (
                 <article key={c.titulo} className={`cr-ctr-passo cr-ctr-p${i + 1}`}>
                   <div className="cr-ctr-arte" aria-hidden="true">
-                    <Image src={c.carta} alt="" width={245} height={342} sizes="(min-width:1024px) 150px, 128px" />
+                    <Image src={c.carta} alt="" width={245} height={342} sizes="(min-width:1024px) 150px, 104px" />
                   </div>
                   <span className="cr-ctr-n">{String(i + 1).padStart(2, '0')}</span>
                   <h3>{c.titulo}</h3>
                   <p>{c.texto}</p>
-                  <ul>{c.tags.map(t => <li key={t}>{t}</li>)}</ul>
                 </article>
               ))}
             </div>
-            <div className="cr-ctr-rodape">
-              <div>
-                <b>Sem amarras. Sem roteiro engessado.</b>
-                <span>Você cria do seu jeito. A Bynx só precisa aparecer de verdade na sua jornada.</span>
-              </div>
-              <span className="cr-ctr-selo">1 publicação por mês</span>
-            </div>
-            <div className="cr-sugestao">
-              <p className="cr-sug-k">Sugestão de conteúdo</p>
+            <p className="cr-ctr-fecho">Sem roteiro pronto. Só a sua coleção.</p>
+            <details className="cr-ctr-exemplo">
+              <summary>Ver exemplo de conteúdo<IconChevronDown size={16} /></summary>
+              <p className="cr-sug-n">Exemplo, não obrigação.</p>
               <p className="cr-sug-t">“Minha coleção agora está organizada na Bynx. Dá para acompanhar minhas cartas, Master Sets, slabs e o valor estimado do acervo. Quem usar o meu cupom ganha 20% de desconto na primeira cobrança.”</p>
-              <p className="cr-sug-n">É só uma sugestão. Adapte para a sua linguagem.</p>
-            </div>
+            </details>
           </div>
         </section>
 
@@ -472,7 +459,7 @@ export default function CriadoresClient() {
               <li><span className="cr-node"><IconAccount size={16} color="var(--ac-1)" /></span><div><b>Cadastre</b><span>Seu nome, e-mail e senha.</span></div></li>
               <li><span className="cr-node"><IconCheck size={16} color="var(--ac-1)" /></span><div><b>Ative</b><span>Seu ano de Bynx Pro, na hora.</span></div></li>
               <li><span className="cr-node"><IconCard size={16} color="var(--ac-1)" /></span><div><b>Monte</b><span>Crie seu perfil público e adicione sua coleção.</span></div></li>
-              <li><span className="cr-node"><IconInstagram size={16} color="var(--ac-1)" /></span><div><b>Publique</b><span>Pelo menos 1 conteúdo por mês.</span></div></li>
+              <li><span className="cr-node"><IconInstagram size={16} color="var(--ac-1)" /></span><div><b>Compartilhe</b><span>Sua experiência com a Bynx.</span></div></li>
               <li><span className="cr-node"><IconChart size={16} color="var(--ac-1)" /></span><div><b>Acompanhe</b><span>Suas indicações e comissões na Central do Parceiro.</span></div></li>
             </ol>
             <div className="cr-faq">
@@ -480,12 +467,11 @@ export default function CriadoresClient() {
               <Pergunta q="E depois de 12 meses?" a="Sua conta passa para o plano Grátis. As cartas continuam salvas, mas recursos do Pro, como scan, Master Sets e pastas extras, ficam bloqueados até você assinar. Avisamos antes." />
               <Pergunta q="Já tenho conta." a="Toque em Já tenho conta, no topo da página. Depois de entrar, o botão Liberar meu 1 ano grátis aplica o ano na sua conta." />
               <Pergunta q="De onde vem o valor das cartas?" a="Do Mercado Brasileiro: preço em R$ de quem vende carta no Brasil, não dólar convertido. É uma estimativa de mercado para você acompanhar a coleção, não uma avaliação oficial nem garantia de venda." />
-              <Pergunta q="O que preciso publicar?" a="Pelo menos 1 conteúdo público por mês relacionado à sua experiência com a Bynx. Pode ser um post, Reel, Short, TikTok, carrossel ou até 3 Stories em sequência." />
+              <Pergunta q="O que preciso publicar, e com que frequência?" a="1 conteúdo público por mês sobre a sua experiência com a Bynx já basta. Pode ser post, Reel, Short, TikTok, carrossel ou até 3 Stories em sequência. Não precisa publicar todo dia." />
               <Pergunta q="Preciso seguir um roteiro?" a="Não. Você pode falar da Bynx com a sua própria linguagem. O importante é mostrar uma experiência real com a plataforma." />
               <Pergunta q="Preciso mostrar o valor total da minha coleção?" a="Não. Você decide quais informações da sua coleção ficam públicas." />
               <Pergunta q="Preciso ter muitos seguidores?" a="Não. A Bynx valoriza afinidade com Pokémon TCG, qualidade do conteúdo e relação com a comunidade." />
               <Pergunta q="Como funciona a comissão?" a="Você recebe 100% da primeira cobrança de cada indicação, limitado a R$ 100, mais 20% das 11 renovações mensais seguintes: até 12 cobranças pagas no total. As comissões valem para pagamentos aprovados e não estornados." />
-              <Pergunta q="Preciso publicar todos os dias?" a="Não. A contrapartida é de apenas 1 publicação por mês." />
               {expiraEm && <Pergunta q="O convite tem prazo?" a={`Sim. Ele vale até ${dataBR(expiraEm)}, às 23h59, ou enquanto durarem os convites.`} />}
             </div>
           </div>
@@ -612,7 +598,6 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
           {erro && <p className="cr-erro" role="alert">{erro}</p>}
           <button type="submit" className="cr-outline" disabled={enviando}>{enviando ? 'Enviando...' : 'Quero ser Creator Bynx'}</button>
           {!logado && <p className="cr-micro">Primeiro ative o seu ano de Pro. A parceria vem logo depois.</p>}
-          <p className="cr-micro">Ao participar, você concorda com a publicação de pelo menos 1 conteúdo mensal sobre sua experiência com a Bynx.</p>
           <a className="cr-doclink" href={APRESENTACAO_PARCERIA.url} target="_blank" rel="noopener noreferrer">
             <IconDownload size={14} />Ver a apresentação completa (PDF, {APRESENTACAO_PARCERIA.tamanho})
           </a>
@@ -915,12 +900,19 @@ const CSS = `
 .cr-partner li svg{flex:none;margin-top:1px}
 .cr-partner li{padding:12px;border-radius:10px;background:var(--bx-surface);border:1px solid var(--bx-border);align-items:flex-start;line-height:1.45}
 .cr-partner-nota{margin:10px 0 0;font-size:12.5px;color:var(--bx-text-3)}
-.cr-ctr-intro{display:grid;gap:18px}
 .cr-ctr-intro .cr-h2 em{font-style:normal;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.cr-ctr-promessa{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:16px;border:1px solid rgba(var(--ac-1-rgb),.35);background:linear-gradient(145deg,rgba(var(--ac-1-rgb),.12),var(--bx-surface))}
-.cr-ctr-promessa b{font-size:18px;font-weight:800;letter-spacing:-.02em}
-.cr-ctr-promessa p{margin:0;font-size:14px;color:var(--bx-text-2)}
-.cr-ctr-marca{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--ac-grad);box-shadow:0 0 28px rgba(var(--ac-1-rgb),.25)}
+.cr-ctr-intro{max-width:720px}
+.cr-ctr-combinado{display:flex;align-items:flex-start;gap:10px;margin:14px 0 0;padding:14px 16px;border-radius:12px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.3);font-size:14.5px;line-height:1.5;color:var(--bx-text-2)}
+.cr-ctr-combinado svg{flex:none;margin-top:2px}
+.cr-ctr-combinado b{color:var(--bx-text);font-weight:800}
+.cr-ctr-fecho{margin:18px 0 0;text-align:center;font-size:15px;font-weight:800;color:var(--bx-text)}
+.cr-ctr-exemplo{margin-top:12px;border-top:1px solid var(--bx-border);border-bottom:1px solid var(--bx-border)}
+.cr-ctr-exemplo summary{list-style:none;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:700;color:var(--bx-text-2);cursor:pointer}
+.cr-ctr-exemplo summary::-webkit-details-marker{display:none}
+.cr-ctr-exemplo summary svg{transition:transform .2s ease;color:var(--bx-text-3)}
+.cr-ctr-exemplo[open] summary svg{transform:rotate(180deg)}
+.cr-ctr-exemplo .cr-sug-n{margin:0}
+.cr-ctr-exemplo .cr-sug-t{margin:6px 0 14px}
 .cr-ctr-passos{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:22px;position:relative}
 .cr-ctr-passo{--tint:var(--ac-1-rgb);position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;justify-content:flex-end;min-height:400px;padding:22px;border-radius:18px;border:1px solid var(--bx-border);background:linear-gradient(160deg,var(--bx-surface-3),var(--bx-surface));transition:transform .2s ease,border-color .2s ease}
 .cr-ctr-p2{--tint:var(--ac-2-rgb)}
@@ -935,13 +927,6 @@ const CSS = `
 .cr-ctr-n{display:grid;place-items:center;width:36px;height:36px;margin-bottom:14px;border-radius:50%;border:1px solid rgba(var(--tint),.6);background:rgba(var(--tint),.14);color:var(--bx-text);font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .cr-ctr-passo h3{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1.08;margin:0}
 .cr-ctr-passo p{font-size:14px;color:var(--bx-text-2);margin:8px 0 0}
-.cr-ctr-passo ul{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-.cr-ctr-passo li{font-size:12px;font-weight:700;color:var(--bx-text);padding:6px 10px;border-radius:999px;border:1px solid rgba(var(--tint),.45);background:rgba(var(--tint),.10)}
-.cr-ctr-rodape{display:flex;flex-direction:column;align-items:flex-start;gap:14px;margin-top:14px;padding:18px;border-radius:16px;border:1px solid rgba(var(--ac-1-rgb),.3);background:linear-gradient(90deg,rgba(var(--ac-1-rgb),.10),var(--bx-surface))}
-.cr-ctr-rodape b{display:block;font-size:17px;font-weight:800}
-.cr-ctr-rodape span:not(.cr-ctr-selo){display:block;font-size:14px;color:var(--bx-text-2);margin-top:4px}
-.cr-ctr-selo{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid rgba(var(--ac-1-rgb),.5);color:var(--ac-1);font-size:13px;font-weight:800;white-space:nowrap}
-.cr-sugestao{margin-top:14px;padding:16px;border-radius:12px;border:1px dashed var(--bx-border-2);background:var(--bx-bg-elev)}
 .cr-sug-k{margin:0;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ac-1)}
 .cr-sug-t{margin:8px 0 0;font-size:14.5px;line-height:1.55;color:var(--bx-text)}
 .cr-sug-n{margin:8px 0 0;font-size:12px;color:var(--bx-text-3)}
@@ -1108,18 +1093,16 @@ const CSS = `
 .cr-partner ul{gap:12px}
 .cr-s-ctr{padding-top:104px;padding-bottom:104px}
 .cr-s-ctr .cr-in>*{grid-column:1/-1}
-.cr-ctr-intro{grid-template-columns:minmax(0,1fr) minmax(280px,.62fr);align-items:end;gap:48px}
-.cr-ctr-intro .cr-h2{font-size:clamp(38px,4vw,56px);line-height:1}
-.cr-ctr-promessa{padding:24px}
+.cr-ctr-intro{grid-column:1/9}
+.cr-ctr-intro .cr-h2{font-size:clamp(36px,3.8vw,52px);line-height:1.02}
+.cr-ctr-exemplo{max-width:760px;margin-left:auto;margin-right:auto;width:100%}
 .cr-ctr-passos{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:44px}
 .cr-ctr-passos::before{content:"";position:absolute;top:50%;left:9%;right:9%;height:1px;background:linear-gradient(90deg,rgba(var(--ac-1-rgb),.4),rgba(var(--ac-2-rgb),.35),rgba(var(--ac-1-rgb),.4));z-index:-1}
-.cr-ctr-passo{min-height:500px;padding:28px}
-.cr-ctr-arte{height:280px}
+.cr-ctr-passo{min-height:440px;padding:28px}
+.cr-ctr-arte{height:250px}
 .cr-ctr-arte img{width:150px}
 .cr-ctr-passo h3{font-size:26px}
 .cr-ctr-passo p{min-height:66px}
-.cr-ctr-rodape{flex-direction:row;align-items:center;justify-content:space-between;padding:24px 28px;margin-top:22px}
-.cr-s-ctr .cr-sugestao{max-width:760px}
 .cr-s-faq{padding-top:88px;padding-bottom:88px}
 .cr-s-faq .cr-in{grid-template-rows:auto auto 1fr}
 .cr-s-faq .cr-eyebrow,.cr-s-faq .cr-steps{grid-column:1/5}
@@ -1171,9 +1154,11 @@ const CSS = `
 .cr-ct-regua,.cr-ct-barra-cont{margin-top:10px}
 .cr-ct-p{margin-top:8px}
 .cr-hero .cr-cta{margin-top:14px}
-.cr-ctr-passo{min-height:350px;padding:20px}
-.cr-ctr-arte{height:180px;top:14px}
-.cr-ctr-arte img{width:112px}
+.cr-ctr-passo{min-height:300px;padding:20px}
+.cr-ctr-arte{height:150px;top:12px}
+.cr-ctr-arte img{width:96px}
+.cr-ctr-arte::before{width:56px;height:76px;transform:translate(-76px,18px) rotate(-12deg)}
+.cr-ctr-arte::after{width:46px;height:64px;transform:translate(78px,-2px) rotate(14deg)}
 }
 @media (prefers-reduced-motion: reduce){.cr *{transition:none!important}.cr-ct-pulso{animation:none}}
 `
