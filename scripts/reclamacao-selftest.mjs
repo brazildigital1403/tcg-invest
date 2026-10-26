@@ -618,6 +618,11 @@ try {
     // Leitura do pedido do Melhor Envio
     let e = ET.lerPedidoME({ status: 'released', authorization_code: '123456789', tracking: null, price: 19.9 })
     assert.deepEqual(e, { status: 'released', codigo: '123456789', rastreio: null, postado: false, entregue: false, cancelado: false, precoCents: 1990 })
+    // Producao 26/10: reversa gerada traz o codigo de postagem em tracking.
+    e = ET.lerPedidoME({ status: 'released', reverse: 2, generated_at: '2026-10-26 05:08:46', authorization_code: null, tracking: 'AE069010603BR', self_tracking: 'ME262F7E3R0BR', price: 11.28 })
+    assert.equal(e.codigo, 'AE069010603BR'); assert.equal(e.rastreio, 'AE069010603BR'); assert.equal(e.postado, false)
+    // Antes de gerar, sem codigo (o rastreio interno do Melhor Envio nao serve).
+    assert.equal(ET.lerPedidoME({ status: 'released', reverse: 2, generated_at: null, tracking: null, self_tracking: 'ME1' }).codigo, null)
     e = ET.lerPedidoME({ status: 'posted', tracking: 'AA123456785BR', authorization_code: '123' })
     assert.equal(e.postado, true); assert.equal(e.entregue, false); assert.equal(e.rastreio, 'AA123456785BR')
     assert.equal(ET.lerPedidoME({ status: 'delivered' }).entregue, true)

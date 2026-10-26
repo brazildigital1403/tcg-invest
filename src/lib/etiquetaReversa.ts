@@ -151,9 +151,15 @@ export interface EstadoPedidoME {
 
 /**
  * Le o pedido do Melhor Envio (GET /api/v2/me/orders/{id} ou o item do
- * carrinho). Codigo de postagem: `authorization_code` primeiro; a
- * documentacao nao confirma o campo, entao aceita os nomes alternativos que
- * aparecem nos schemas. Rastreio: `tracking`, depois `self_tracking`.
+ * carrinho).
+ *
+ * ★ CODIGO DE POSTAGEM, provado em producao em 26/10 (ORD-202610146471463):
+ *   na logistica reversa dos Correios o `authorization_code` volta NULO e o
+ *   codigo que o painel do Melhor Envio mostra para postar e o proprio
+ *   rastreio dos Correios, em `tracking` (AE069010603BR), preenchido assim
+ *   que `generated_at` sai. `self_tracking` (ME...) e o rastreio interno do
+ *   Melhor Envio, nao serve no balcao. Validade vista no painel: ~7 dias
+ *   depois da geracao (gerada 26/10 02:08, expira 02/11 21h).
  */
 export function lerPedidoME(j: unknown): EstadoPedidoME {
   const o = (j && typeof j === 'object' ? j : {}) as Record<string, unknown>
@@ -162,8 +168,8 @@ export function lerPedidoME(j: unknown): EstadoPedidoME {
   const preco = Number(o.price)
   return {
     status,
-    codigo: txt(o.authorization_code) ?? txt(o.reverse_code) ?? txt(o.posting_code) ?? null,
-    rastreio: txt(o.tracking) ?? txt(o.self_tracking) ?? null,
+    codigo: txt(o.authorization_code) ?? (o.reverse && txt(o.generated_at) ? txt(o.tracking) : null),
+    rastreio: txt(o.tracking) ?? null,
     postado: status === 'posted' || status === 'delivered' || !!txt(o.posted_at),
     entregue: status === 'delivered' || !!txt(o.delivered_at),
     cancelado: status === 'canceled' || status === 'cancelled' || !!txt(o.canceled_at),
