@@ -12,7 +12,7 @@ import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import CardDetailModal from './CardDetailModal'
 import ModalUpgradePokedex from '@/components/ui/ModalUpgradePokedex'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
-import { IconCard, IconCheck, IconPlus, IconBell } from '@/components/ui/Icons'
+import { IconCard, IconCheck, IconPlus, IconBell, IconFilter, IconClose } from '@/components/ui/Icons'
 import FichaPokemon from '@/components/pokedex/FichaPokemon'
 import { useRouter } from 'next/navigation'
 import { criarMeta } from '@/lib/metas'
@@ -22,7 +22,13 @@ import { lerParametro, limparParametros } from '@/lib/deepLink'
 
 // A paleta mora em lib/pokedexTextos (a ficha e o modal importam de la, sem
 // ciclo com esta pagina). Reexportada aqui por compatibilidade.
-import { TYPE_COLOR, tipoTcgPt } from '@/lib/pokedexTextos'
+import { TYPE_COLOR, TIPO_ESPECIE } from '@/lib/pokedexTextos'
+import {
+  FILTROS_VAZIOS, REGIOES, TIPOS_JOGO, CATEGORIAS, EVOLUCOES, FAIXAS_CARTAS, ORDENS,
+  contarFiltros, passa, especie, lerDaUrl, gravarNaUrl,
+  type FiltrosPokedex, type Status, type Dimensao,
+} from '@/lib/pokedexFiltros'
+import FiltrosPokedexGaveta, { type ContagensFiltro } from '@/components/pokedex/FiltrosPokedexGaveta'
 import { aplicarPilha } from '@/lib/pilhaDaCarta'
 export { TYPE_COLOR }
 
@@ -117,9 +123,13 @@ export default function Pokedex() {
   const [selectedCardIndex, setSelectedCardIndex] = useState<number>(0)
   const [selectedVariante, setSelectedVariante] = useState<string>('normal')
 
-  // Filtros do grid
-  const [typeFilter, setTypeFilter] = useState('')
-  const [genFilter, setGenFilter]   = useState('')
+  // Filtros do grid (formato do Mercado, 27/10/2026): status Tenho/Faltam fora
+  // da gaveta, o resto dentro dela. Tudo espelhado na URL (lib/pokedexFiltros).
+  const [filtros, setFiltros]       = useState<FiltrosPokedex>(FILTROS_VAZIOS)
+  const [status, setStatus]         = useState<Status>('todos')
+  const [ordem, setOrdem]           = useState('numero')
+  const [gavetaAberta, setGavetaAberta] = useState(false)
+  const urlLida = useRef(false)
 
   // Paginação client-side da grade de Pokémon -- os 1.025 renderizavam de
   // uma vez (1.025 <button> + 1.025 requisições de sprite simultâneas,
@@ -487,23 +497,82 @@ export default function Pokedex() {
 
   // ── Filtros ──────────────────────────────────────────────────────────────────
 
-  const filteredPokemons = pokemons.filter(p => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
-    const matchType   = !typeFilter || (p.types || []).includes(typeFilter)
-    const matchGen    = !genFilter || p.generation === genFilter
-    return matchSearch && matchType && matchGen
-  })
+  // Le a URL uma vez (window, regra dos deep links) e depois so escreve nela.
+  useEffect(() => {
+    const u = lerDaUrl(window.location.search)
+    setFiltros(u.filtros); setStatus(u.status); setOrdem(u.ordem)
+    urlLida.current = true
+  }, [])
+  useEffect(() => {
+    if (urlLida.current) gravarNaUrl(filtros, status, ordem)
+  }, [filtros, status, ordem])
+
+  const filtrar = useCallback((ignorar: Dimensao = null, f: FiltrosPokedex = filtros) =>
+    pokemons.filter(p => passa(p, f, search, status, ownedNames.has(p.name), ignorar)),
+  [pokemons, filtros, search, status, ownedNames])
+
+  const filteredPokemons = useMemo(() => {
+    const lista = filtrar()
+    if (ordem === 'nome') lista.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    else if (ordem === 'cartas') lista.sort((a, b) => (b.card_count || 0) - (a.card_count || 0) || (a.dexId || 9999) - (b.dexId || 9999))
+    return lista
+  }, [filtrar, ordem])
+
+  // Contagem de cada opcao com os OUTROS filtros ligados (a da propria
+  // dimensao fica de fora, senao marcar Kanto zerava as outras regioes).
+  const contagens = useMemo<ContagensFiltro>(() => {
+    const conta = (dim: Dimensao, chaves: string[], aplica: (id: string) => FiltrosPokedex) => {
+      const base = filtrar(dim)
+      const out: Record<string, number> = {}
+      for (const id of chaves) {
+        const f = aplica(id)
+        out[id] = base.filter(p => passa(p, f, '', 'todos', false)).length
+      }
+      return out
+    }
+    return {
+      regiao: conta('regiao', REGIOES.map(r => r.id), id => ({ ...FILTROS_VAZIOS, regiao: id })),
+      tipos: conta('tipos', TIPOS_JOGO, id => ({ ...FILTROS_VAZIOS, tipos: [id] })),
+      categorias: conta('categorias', CATEGORIAS.map(c => c.id), id => ({ ...FILTROS_VAZIOS, categorias: [id] })),
+      evolucao: conta('evolucao', EVOLUCOES.map(e => e.id), id => ({ ...FILTROS_VAZIOS, evolucao: id })),
+      cartas: conta('cartas', FAIXAS_CARTAS.map(c => c.id), id => ({ ...FILTROS_VAZIOS, cartas: id })),
+    }
+  }, [filtrar])
+
+  // Contagem do seletor Todos / Tenho / Faltam com os demais filtros ligados.
+  const contStatus = useMemo(() => {
+    const base = filtrar('status')
+    const tenho = base.filter(p => ownedNames.has(p.name)).length
+    return { todos: base.length, tenho, faltam: base.length - tenho }
+  }, [filtrar, ownedNames])
+
+  const nFiltros = contarFiltros(filtros)
+  const limparTudo = () => { setFiltros(FILTROS_VAZIOS); setStatus('todos'); setSearch('') }
+  const fecharGaveta = useCallback(() => setGavetaAberta(false), [])
+
+  // Chips dos filtros ligados, cada um sai com um toque.
+  const filtrosAtivos: { chave: string; rotulo: string; cor?: { bg: string; text: string }; tirar: () => void }[] = [
+    ...filtros.tipos.map(t => ({
+      chave: 't-' + t, rotulo: TIPO_ESPECIE[t].pt, cor: TYPE_COLOR[TIPO_ESPECIE[t].cor],
+      tirar: () => setFiltros(f => ({ ...f, tipos: f.tipos.filter(x => x !== t) })),
+    })),
+    ...(filtros.regiao ? [{ chave: 'r', rotulo: REGIOES.find(r => r.id === filtros.regiao)!.nome, tirar: () => setFiltros(f => ({ ...f, regiao: '' })) }] : []),
+    ...filtros.categorias.map(c => ({
+      chave: 'c-' + c, rotulo: CATEGORIAS.find(x => x.id === c)!.nome,
+      tirar: () => setFiltros(f => ({ ...f, categorias: f.categorias.filter(x => x !== c) })),
+    })),
+    ...(filtros.evolucao ? [{ chave: 'e', rotulo: EVOLUCOES.find(e => e.id === filtros.evolucao)!.nome, tirar: () => setFiltros(f => ({ ...f, evolucao: '' })) }] : []),
+    ...(filtros.cartas ? [{ chave: 'n', rotulo: `${FAIXAS_CARTAS.find(x => x.id === filtros.cartas)!.nome} cartas`, tirar: () => setFiltros(f => ({ ...f, cartas: '' })) }] : []),
+  ]
 
   // ── Stat de capturados (reativa aos filtros) ───────────────────────────────
   // Usa a mesma lógica do badge "tenho" do grid: ownedNames.has(p.name).
   // useMemo evita recalcular a cada render quando filtros não mudaram.
 
-  const capturados = useMemo(
-    () => filteredPokemons.filter(p => ownedNames.has(p.name)).length,
-    [filteredPokemons, ownedNames]
-  )
-  const totalNoFiltro    = filteredPokemons.length
-  const temFiltroAtivo   = !!(search || typeFilter || genFilter)
+  // O seletor Tenho/Faltam nao entra na conta: com "Faltam" daria 0 / N.
+  const capturados       = contStatus.tenho
+  const totalNoFiltro    = contStatus.todos
+  const temFiltroAtivo   = !!(search || nFiltros || status !== 'todos')
   const completou        = totalNoFiltro > 0 && capturados === totalNoFiltro
   const stagiou          = userId !== null  // só mostra a stat se logou
 
@@ -526,7 +595,7 @@ export default function Pokedex() {
 
   // Filtro mudou → volta pro primeiro lote (senão "Squirtle" com 3 resultados
   // ficava escondido atrás de um visibleCount de 960 do scroll anterior).
-  useEffect(() => { setVisibleCount(120) }, [search, typeFilter, genFilter])
+  useEffect(() => { setVisibleCount(120) }, [search, filtros, status, ordem])
 
   const pokemonsVisiveis = filteredPokemons.slice(0, visibleCount)
   const temMaisPokemons  = visibleCount < filteredPokemons.length
@@ -787,45 +856,68 @@ export default function Pokedex() {
               )}
             />
 
-            {/* Filtros */}
+            {/* Filtros -- formato do Mercado (27/10/2026): busca, Tenho/Faltam,
+                botao Filtros com contador + ordenacao, chips dos filtros ligados.
+                O resto mora na gaveta (components/pokedex/FiltrosPokedexGaveta). */}
             <div className="pkdx-filtros">
-              {/* Busca */}
-              <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+              <div className="pkdx-busca">
                 <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--bx-text-3)' }}>
                   <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M15 15l-3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <input
                   value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar Pokémon..."
-                  style={{ width: '100%', background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px 11px 34px', minHeight: 44, color: 'var(--bx-text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  placeholder="Nome ou número (ex.: 94)"
+                  aria-label="Buscar Pokémon por nome ou número"
                 />
+                {search && (
+                  <button className="pkdx-busca-x" onClick={() => setSearch('')} aria-label="Limpar busca"><IconClose size={16} /></button>
+                )}
               </div>
 
-              {/* Geração */}
-              <select value={genFilter} onChange={e => setGenFilter(e.target.value)}
-                style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px', minHeight: 44, color: genFilter ? 'var(--bx-text)' : 'var(--bx-text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
-                <option value="">Geração</option>
-                {['I','II','III','IV','V','VI','VII','VIII','IX'].map(g => <option key={g} value={g}>Gen {g}</option>)}
-              </select>
+              {stagiou && (
+                <div className="pkdx-seg" role="group" aria-label="Mostrar">
+                  {([['todos', 'Todos'], ['tenho', 'Tenho'], ['faltam', 'Faltam']] as const).map(([id, rot]) => (
+                    <button key={id} aria-pressed={status === id} className={status === id ? 'on' : ''} onClick={() => setStatus(id)}>
+                      {rot}<span>{fmtNum(contStatus[id])}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              {/* Tipo */}
-              <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px', minHeight: 44, color: typeFilter ? 'var(--bx-text)' : 'var(--bx-text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
-                <option value="">Tipo</option>
-                {['Fire','Water','Grass','Lightning','Psychic','Fighting','Darkness','Metal','Dragon','Colorless','Fairy'].map(t => (
-                  <option key={t} value={t}>{tipoTcgPt(t)}</option>
-                ))}
-              </select>
-
-              {/* Limpa filtros */}
-              {(search || typeFilter || genFilter) && (
-                <button onClick={() => { setSearch(''); setTypeFilter(''); setGenFilter('') }}
-                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--bx-red)', padding: '11px 14px', minHeight: 44, borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
-                  Limpar
+              <div className="pkdx-linha">
+                <button className={`pkdx-btn-filtros${nFiltros ? ' ativo' : ''}`} onClick={() => setGavetaAberta(true)}>
+                  <IconFilter size={16} />
+                  Filtros
+                  {nFiltros > 0 && <span className="pkdx-cont">{nFiltros}</span>}
                 </button>
+                <select className="pkdx-ordem" value={ordem} onChange={e => setOrdem(e.target.value)} aria-label="Ordenar">
+                  {ORDENS.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                </select>
+              </div>
+
+              {!loading && (temFiltroAtivo || filtrosAtivos.length > 0) && (
+                <div className="pkdx-ativos">
+                  <span className="pkdx-res"><b>{fmtNum(filteredPokemons.length)}</b> Pokémon</span>
+                  {filtrosAtivos.map(a => (
+                    <button key={a.chave} className="pkdx-ativo" onClick={a.tirar} aria-label={`Tirar filtro ${a.rotulo}`}
+                      style={a.cor ? { background: a.cor.bg, color: a.cor.text, borderColor: 'transparent' } : undefined}>
+                      {a.rotulo}<IconClose size={12} />
+                    </button>
+                  ))}
+                  <button className="pkdx-limpar" onClick={limparTudo}>Limpar</button>
+                </div>
               )}
             </div>
+
+            <FiltrosPokedexGaveta
+              aberto={gavetaAberta}
+              onFechar={fecharGaveta}
+              filtros={filtros}
+              onMudar={setFiltros}
+              contagens={contagens}
+              total={filteredPokemons.length}
+            />
 
             {/* Grid de Pokémon */}
             {loading ? (
@@ -837,7 +929,7 @@ export default function Pokedex() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 10 }}>
                 {pokemonsVisiveis.map(pokemon => {
                   const owned = ownedNames.has(pokemon.name)
-                  const typeColor = TYPE_COLOR[pokemon.types?.[0]] || { bg: 'var(--bx-surface)', text: 'var(--bx-text-3)' }
+                  const tiposJogo = especie(pokemon.dexId)?.t || []
                   return (
                     <button
                       key={pokemon.name}
@@ -898,11 +990,18 @@ export default function Pokedex() {
                         {pokemon.name}
                       </p>
 
-                      {/* Tipo */}
-                      {pokemon.types?.[0] && (
-                        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 100, background: typeColor.bg, color: typeColor.text }}>
-                          {tipoTcgPt(pokemon.types[0])}
-                        </span>
+                      {/* Tipos do jogo (forma padrao). O tipo da carta fica nas cartas. */}
+                      {tiposJogo.length > 0 && (
+                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          {tiposJogo.map(t => {
+                            const cor = TYPE_COLOR[TIPO_ESPECIE[t]?.cor] || { bg: 'var(--bx-surface-2)', text: 'var(--bx-text-3)' }
+                            return (
+                              <span key={t} style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 100, background: cor.bg, color: cor.text }}>
+                                {TIPO_ESPECIE[t]?.pt || t}
+                              </span>
+                            )
+                          })}
+                        </div>
                       )}
 
                       {/* Gen badge + contagem */}
@@ -941,15 +1040,52 @@ export default function Pokedex() {
         @keyframes spin { to { transform: rotate(360deg); } }
         select option { background: var(--bx-bg-elev); color: var(--bx-text); }
 
-        /* Filtros (busca/geracao/tipo/limpar) -- em 375px o flex-wrap padrao
-           quebrava de forma assimetrica (Busca+Geracao numa linha, Tipo
-           sozinho na outra, achado #9). Empilha tudo em coluna abaixo de
-           480px pra ficar previsivel. */
-        .pkdx-filtros { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-        @media (max-width: 480px) {
-          .pkdx-filtros { flex-direction: column; }
-          .pkdx-filtros > * { width: 100%; box-sizing: border-box; }
+        /* Filtros (27/10/2026): uma coluna no celular; no desktop a busca
+           divide a linha com o seletor Tenho/Faltam. */
+        .pkdx-filtros { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 20px; }
+        @media (min-width: 768px) {
+          .pkdx-filtros { grid-template-columns: minmax(0, 1fr) auto; }
+          .pkdx-filtros .pkdx-linha { grid-column: 1 / -1; justify-content: flex-start; }
+          .pkdx-filtros .pkdx-ordem { flex: 0 0 220px; }
+          .pkdx-filtros .pkdx-ativos { grid-column: 1 / -1; }
         }
+        .pkdx-busca { position: relative; min-width: 0; }
+        .pkdx-busca input {
+          width: 100%; min-height: 44px; box-sizing: border-box; padding: 11px 44px 11px 34px;
+          background: var(--bx-surface-2); border: 1px solid var(--bx-border-2); border-radius: 12px;
+          color: var(--bx-text); font: inherit; font-size: 13px; outline: none; transition: border-color 0.15s ease;
+        }
+        .pkdx-busca input:focus { border-color: rgba(var(--ac-1-rgb), 0.45); }
+        .pkdx-busca-x { position: absolute; right: 0; top: 0; width: 44px; height: 44px; display: grid; place-items: center;
+          background: none; border: 0; color: var(--bx-text-3); cursor: pointer; }
+        .pkdx-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px;
+          background: var(--bx-surface-2); border: 1px solid var(--bx-border); border-radius: 12px; }
+        .pkdx-seg button { min-height: 38px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent; cursor: pointer;
+          color: var(--bx-text-2); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; transition: background 0.15s ease, color 0.15s ease; }
+        .pkdx-seg button span { margin-left: 5px; font-size: 12px; font-weight: 500; color: var(--bx-text-3); }
+        .pkdx-seg button.on { background: rgba(var(--ac-1-rgb), 0.14); color: var(--ac-1); }
+        .pkdx-seg button.on span { color: var(--ac-1); opacity: 0.8; }
+        .pkdx-linha { display: flex; gap: 8px; }
+        .pkdx-btn-filtros { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; cursor: pointer;
+          background: var(--bx-surface-2); border: 1px solid var(--bx-border-2); border-radius: 12px;
+          color: var(--bx-text); font: inherit; font-size: 13px; font-weight: 600; transition: background 0.15s ease, border-color 0.15s ease; }
+        .pkdx-btn-filtros.ativo { border-color: rgba(var(--ac-1-rgb), 0.45); background: rgba(var(--ac-1-rgb), 0.10); color: var(--ac-1); }
+        .pkdx-cont { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: grid; place-items: center;
+          background: var(--ac-1); color: var(--bx-brand-ink); font-size: 11px; font-weight: 800; }
+        .pkdx-ordem { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; cursor: pointer;
+          background: var(--bx-surface-2); border: 1px solid var(--bx-border-2); border-radius: 12px;
+          color: var(--bx-text-2); font: inherit; font-size: 13px; }
+        .pkdx-ativos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .pkdx-res { font-size: 12px; color: var(--bx-text-2); margin-right: 2px; }
+        .pkdx-res b { color: var(--bx-text); }
+        .pkdx-ativo { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; cursor: pointer;
+          background: var(--bx-surface-2); border: 1px solid var(--bx-border-2); border-radius: 100px;
+          color: var(--bx-text); font: inherit; font-size: 12px; font-weight: 600; }
+        .pkdx-limpar { min-height: 32px; padding: 0 6px; background: none; border: 0; cursor: pointer;
+          color: var(--bx-text-3); font: inherit; font-size: 12px; text-decoration: underline; }
+        /* Chips de 32px visiveis, alvo de toque de 44px. */
+        .pkdx-ativo, .pkdx-limpar { position: relative; }
+        .pkdx-ativo::after, .pkdx-limpar::after { content: ''; position: absolute; inset: -6px 0; }
 
         /* Skeleton de carregamento -- antes era so um spinner generico numa
            tela que carrega 1.025 itens + sprites externos (achado #10).
