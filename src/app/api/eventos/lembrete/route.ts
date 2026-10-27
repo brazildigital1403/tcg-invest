@@ -53,6 +53,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Oferta inválida.' }, { status: 400 })
     }
     const ofe = ofertaEvento(oferta)
+    // Oferta sem landing (modal de Halloween) e so para quem esta logado:
+    // mandar o codigo por e-mail para qualquer um vazaria o cupom.
+    if ('semLanding' in ofe && ofe.semLanding) {
+      return NextResponse.json({ error: 'Oferta inválida.' }, { status: 400 })
+    }
     if (!ofertaEventoAtiva(oferta)) {
       return NextResponse.json({ error: 'A oferta encerrou.', code: 'OFERTA_ENCERRADA' }, { status: 410 })
     }

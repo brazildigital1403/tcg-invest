@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/Icons'
 import { useMetasVisivel } from '@/components/metas/useMetasVisivel'
 import MuroPosTrial from '@/components/ui/MuroPosTrial'
+import OfertaHalloweenModal from '@/components/ui/OfertaHalloweenModal'
+import { ofertaEventoAtiva } from '@/lib/ofertasEvento'
 
 // ─── Ícones inline (Separador + 3 dos lojistas) ─────────────────────────────
 
@@ -132,6 +134,9 @@ function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapse
 
 import { marcarTodasLidas, marcarLida } from '@/lib/notificacoes'
 import LinkCarrinho from '@/components/ui/LinkCarrinho'
+
+// Onde o modal de oferta nao abre: compra, conta, login e paginas de pedido.
+const ROTAS_SEM_OFERTA = ['/planos', '/minha-conta', '/auth', '/pedido', '/checkout', '/carrinho', '/pro-ativado']
 
 const BRAND = 'var(--bx-brand)'
 const BG = 'var(--bx-bg)'
@@ -284,6 +289,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const notifScrollRef = useRef<HTMLDivElement>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
   const [muroCartas, setMuroCartas] = useState<number | null>(null)
+  const [ofertaHalloween, setOfertaHalloween] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
   // Detecção adaptativa do perfil
@@ -478,7 +484,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
 
       const { data: userData } = await supabase
-        .from('users').select('is_pro, trial_expires_at, plano, pro_expira_em').eq('id', authData.user.id).single()
+        .from('users').select('is_pro, trial_expires_at, plano, pro_expira_em, stripe_customer_id, convite_grupo_id, created_at').eq('id', authData.user.id).single()
       if (userData) {
         const { caps, tier } = resolvePlan(userData as any)
         setPodeDashboard(caps.podeDashboard)
@@ -490,6 +496,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           const { total } = await checkCardLimit(authData.user.id)
           if (total > LIMITE_FREE) setMuroCartas(total)
         }
+
+        // Modal de Halloween (ate 31/10/2026 23h59): so conta Gratis que nunca
+        // pagou (sem cliente na Stripe, que recusaria o cupom de 1o pedido),
+        // fora quem ganhou o ano de Pro do convite de criadores e conta criada
+        // ha menos de 10 min (o pos-cadastro ja faz a venda dele).
+        const contaMadura = !userData.created_at
+          || Date.now() - new Date(userData.created_at).getTime() > 10 * 60_000
+        setOfertaHalloween(
+          ofertaEventoAtiva('halloween') && !userData.is_pro
+          && (!userData.plano || userData.plano === 'free')
+          && !userData.stripe_customer_id && !userData.convite_grupo_id && contaMadura,
+        )
       }
       if (userData && !userData.is_pro && userData.trial_expires_at) {
         const expiry = new Date(userData.trial_expires_at)
@@ -537,6 +555,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {muroCartas !== null && !(pathname || '').startsWith('/minha-conta') && <MuroPosTrial cardCount={muroCartas} />}
+      {ofertaHalloween && muroCartas === null && !ROTAS_SEM_OFERTA.some(r => (pathname || '').startsWith(r)) && <OfertaHalloweenModal />}
 
       {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />}
 
