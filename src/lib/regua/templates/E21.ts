@@ -52,7 +52,30 @@ const CSS = `@media only screen and (max-width:480px){
   .item{padding:10px!important}
   .preco{font-size:18px!important;line-height:24px!important}
   .btn{min-width:0!important}
+  .hero-copy-cell{display:block!important;width:auto!important;padding:26px 20px 8px!important}
+  .hero-art-cell{display:block!important;width:auto!important;padding:10px 20px 24px!important;text-align:center!important}
+  .hero-title{font-size:32px!important;line-height:35px!important}
+  .hero-card{width:106px!important;height:auto!important}
+  .hero-lua{width:92px!important;height:92px!important}
 }`
+
+/** Arte do hero: anuncios fantasma da propria vitrine (so o que tem Comprar). */
+const FANTASMAS = /gengar|gastly|haunter|darkrai|mimikyu|banette|dusknoir|chandelure/i
+
+function heroCartas(itens: ItemE21[]): ItemE21[] {
+  const cartas = itens.filter((i) => i.tipo === 'carta' && i.imagem)
+  const vistos = new Set<string>()
+  const tematicas = cartas.filter((i) => {
+    const m = i.nome.match(FANTASMAS)?.[0].toLowerCase()
+    if (!m || vistos.has(m)) return false
+    vistos.add(m)
+    return true
+  })
+  return (tematicas.length >= 2 ? tematicas : cartas).slice(0, 2)
+}
+
+/** "Mega Gengar ex (230/193)" -> "Mega Gengar ex". */
+const semNumero = (n: string) => n.replace(/\s*\([^)]*\)\s*$/, '')
 
 /** Botao "Comprar" de largura cheia da celula (roxo->rosa, contexto do comprador). */
 function btnItem(href: string): string {
@@ -102,20 +125,36 @@ function montar(d: DadosE21, ctx: CtxRegua) {
 
   const topo = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td class="px" align="left" style="padding:18px 32px 0;${FONT}font-size:14px;line-height:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:${COR.texto2};">Halloween na Bynx</td>
+      <td class="px" align="left" style="padding:18px 32px 0;${FONT}font-size:14px;line-height:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:${COR.texto2};">Noite de Halloween</td>
       <td class="px" align="right" style="padding:18px 32px 0;${FONT}font-size:14px;line-height:20px;"><a href="${attr(mercado('topo'))}" target="_blank" style="${link}white-space:nowrap;">Ver Marketplace</a></td>
     </tr></table>`
 
-  const hero = linha(`
-        <h1 class="h1" style="margin:0 0 10px;font-size:34px;line-height:40px;font-weight:800;letter-spacing:-0.02em;color:${COR.texto};">Halloween na Bynx</h1>
-        <p style="margin:0 0 12px;font-size:20px;line-height:28px;font-weight:700;color:${COR.ambar};">Produtos para quem leva a coleção a sério.</p>
-        <p style="margin:0 0 22px;font-size:16px;line-height:25px;color:${COR.texto2};">Cartas, produtos selados e acessórios com opção de compra no Marketplace, selecionados para você encontrar o próximo item da sua coleção.</p>
-        ${btnCompra('Explorar produtos', mercado('hero'), { largura: 300 })}`, '24px 32px 0')
+  const arte = heroCartas(d.itens)
+  const nomes = arte.map((a) => esc(semNumero(a.nome)))
+  const chamada = nomes.length === 2 ? `${nomes[0]}, ${nomes[1]} e os próximos achados` : 'Os próximos achados'
+  const cartaHero = (a: ItemE21, i: number) => `<a href="${attr(utmE21(a.caminho, `hero-carta-${i + 1}`))}" target="_blank" style="text-decoration:none;"><img class="hero-card" src="${attr(a.imagem!)}" width="118" alt="${esc(`${a.nome}, à venda por ${a.vendedor}`)}" style="display:inline-block;width:118px;height:auto;border:2px solid ${i === 0 ? COR.borda2 : COR.ambar};border-radius:10px;${i ? 'margin-left:8px;' : ''}color:${COR.texto2};${FONT}font-size:12px;background-color:${COR.surface2};"/></a>`
+
+  const hero = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COR.elevado}" style="background-color:${COR.elevado};background-image:radial-gradient(circle at 84% 20%,rgba(245,158,11,.16),transparent 34%);"><tr>
+      <td class="hero-copy-cell" width="58%" valign="middle" style="padding:28px 12px 28px 32px;${FONT}">
+        <p style="margin:0 0 10px;font-size:12px;line-height:18px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:${COR.ambar};">Pitch Black &middot; Halloween na Bynx</p>
+        <h1 class="hero-title" style="margin:0 0 12px;font-size:36px;line-height:40px;font-weight:800;letter-spacing:-0.03em;color:${COR.texto};">O lado mais sombrio da sua coleção.</h1>
+        <p style="margin:0 0 18px;font-size:16px;line-height:24px;color:${COR.texto2};">A noite caiu. ${chamada} já estão esperando no Marketplace.</p>
+        <p style="margin:0 0 22px;"><span style="display:inline-block;border:1px solid ${COR.borda2};border-radius:999px;padding:8px 12px;font-size:12px;line-height:14px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:${COR.texto2};">Catálogo real &middot; preços atuais</span></p>
+        ${btnCompra('Entrar no Marketplace', mercado('hero'), { largura: 300 })}
+      </td>
+      <td class="hero-art-cell" width="42%" valign="middle" align="center" style="padding:28px 24px 28px 8px;${FONT}">
+        <!--[if !mso]><!-->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr><td class="hero-lua" width="104" height="104" bgcolor="${COR.ambar}" style="width:104px;height:104px;border-radius:52px;background-color:${COR.ambar};background-image:linear-gradient(135deg,#f59e0b,#ef4444);font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
+        <!--<![endif]-->
+        ${arte.length ? `<p style="margin:18px 0 0;white-space:nowrap;">${arte.map(cartaHero).join('')}</p>` : ''}
+      </td>
+    </tr></table>`
 
   const n = d.itens.length
   const secao = `
     ${linha(`
-        <p style="margin:0 0 2px;font-size:14px;line-height:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:${COR.ambar};">${n} ${n === 1 ? 'item' : 'itens'} à venda agora</p>
+        <p style="margin:0 0 2px;font-size:14px;line-height:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:${COR.ambar};">Picks de Pitch Black &middot; ${n} ${n === 1 ? 'item' : 'itens'} à venda agora</p>
         <p class="h2" style="margin:0 0 6px;font-size:24px;line-height:30px;font-weight:800;color:${COR.texto};">Produtos com opção de comprar</p>
         <p style="margin:0;font-size:14px;line-height:20px;color:${COR.texto2};">Preço de cada anúncio no momento do envio. Pagamento com cartão dentro da Bynx e frete calculado pelo seu CEP.</p>`, '36px 32px 8px')}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="px" style="padding:4px 26px 0;">${grade(d.itens)}</td></tr></table>`
