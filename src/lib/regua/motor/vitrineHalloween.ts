@@ -14,6 +14,9 @@ import { GRADUADORA_MAP, notaCurta } from '@/lib/graduadoras'
 import { SLUG_CAIXA_E21, type DadosE21, type ItemE21 } from '@/lib/regua/templates/E21'
 import type { Contexto } from './contexto'
 
+/** Fora do E21 por decisao do Du (27/10), mesmo com Comprar. */
+const FORA_DA_CAMPANHA = new Set(['clefairy-94-124-ags-9-5-bynx'])
+
 const TIPO_PRODUTO: Record<string, string> = { selado: 'Selado', acessorio: 'Acessório' }
 
 export async function carregarVitrineHalloween(ctx: Contexto): Promise<DadosE21> {
@@ -43,7 +46,7 @@ export async function carregarVitrineHalloween(ctx: Contexto): Promise<DadosE21>
   const vistos = new Set<string>()
   const cartas: ItemE21[] = []
   for (const a of anuncios || []) {
-    if (vistos.has(a.id)) continue
+    if (vistos.has(a.id) || FORA_DA_CAMPANHA.has(a.slug)) continue
     const loja = lojaDoDono.get(a.user_id)
     const p = vendePessoa.get(a.user_id)
     const vende = loja ? loja.connect_charges_enabled === true : !!p?.vende
