@@ -23,6 +23,8 @@ import type { DadosE17 } from '@/lib/regua/templates/E17'
 import type { DadosE17B, SegundoTrofeuE17B } from '@/lib/regua/templates/E17B'
 import type { DadosE18, OfertaE18, PessoalE18 } from '@/lib/regua/templates/E18'
 import type { DadosE19 } from '@/lib/regua/templates/E19'
+import { CAMPANHA_E21, type DadosE21 } from '@/lib/regua/templates/E21'
+import { carregarVitrineHalloween } from './vitrineHalloween'
 import { REGUA } from '@/lib/regua/registro'
 import type { BolsoE01, ImgE01 } from '@/lib/regua/img/e01'
 import type { ImgE12 } from '@/lib/regua/img/e12'
@@ -39,7 +41,7 @@ import { enviarCandidatos, type Candidato, type ResultadoEnvio } from './envio'
 import { DIA_MS, ddmm, diaDeMes, mesPorExtenso, somarDias } from './tempo'
 import { numeroSobreTotal } from '@/lib/numeroCarta'
 
-export const EDITORIAIS = ['E01', 'E10', 'E11', 'E12', 'E17', 'E18', 'E19'] as const
+export const EDITORIAIS = ['E01', 'E10', 'E11', 'E12', 'E17', 'E18', 'E19', 'E21'] as const
 export type IdEditorial = (typeof EDITORIAIS)[number]
 
 /**
@@ -61,6 +63,7 @@ export const PUBLICO_TEXTO: Record<IdEditorial, string> = {
   E17: 'Todos com 10+ cartas e ao menos 1 repetida; 1 a 9 cartas recebe o E17B (categoria Coleção).',
   E18: 'Aceitaram novidades com Mercado ligado.',
   E19: 'Aceitaram novidades, com carta de R$ 300+ ou graduada.',
+  E21: 'Aceitaram novidades com Mercado ligado, e-mail válido. Vitrine lida do banco na hora do disparo.',
 }
 
 export type Publico =
@@ -391,6 +394,18 @@ async function montarE19(ctx: Contexto, _u: Usuario, col: Colecao): Promise<Mont
   return { dados, img: { 'e19-bancada': img }, chave: 'e19', campanha: 'e19' }
 }
 
+// ─── E21 ────────────────────────────────────────────────────────────────────
+
+/** Dominios digitados errado que existem na base (o provedor devolve ou some calado). */
+const DOMINIO_ERRADO = /@(gmail\.(con|co|cm|om|comm|com\.br)|gmai\.com|gmial\.com|gamil\.com|hotmail\.con|hotmial\.com|outlook\.con|yahoo\.con)$/i
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i
+
+async function montarE21(_ctx: Contexto, u: Usuario, _col: Colecao, edicao: Record<string, unknown>): Promise<Montagem> {
+  if (!EMAIL_OK.test(u.email) || DOMINIO_ERRADO.test(u.email)) return 'email_invalido'
+  const dados = edicao.__vitrine as DadosE21
+  return { dados, img: null, chave: 'e21:halloween-2026', campanha: CAMPANHA_E21 }
+}
+
 // ─── definicoes ─────────────────────────────────────────────────────────────
 
 const DEFS: Record<IdEditorial, Def> = {
@@ -444,6 +459,13 @@ const DEFS: Record<IdEditorial, Def> = {
     dedup: () => ({ chave: 'e19' }),
     validar: () => null,
     montar: (ctx, u, col) => montarE19(ctx, u, col),
+  },
+  E21: {
+    categoria: 'mercado',
+    noSegmento: () => true,
+    dedup: () => ({ chave: 'e21:halloween-2026' }),
+    validar: () => null,
+    montar: montarE21,
   },
 }
 
@@ -530,6 +552,9 @@ export async function dispararEditorial(args: {
     }
     edicao.__olhos = olhos
   }
+
+  // Preco e estoque do momento do disparo, nunca da previa.
+  if (args.template === 'E21') edicao.__vitrine = await carregarVitrineHalloween(ctx)
 
   for (const u of pessoas) {
     if (semTempo(ctx)) { a.incompleto = true; break }

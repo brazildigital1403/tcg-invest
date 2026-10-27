@@ -9,7 +9,8 @@ import { E17 } from './E17'
 import { E18 } from './E18'
 import { E19 } from './E19'
 import { E20 } from './E20'
+import { E21 } from './E21'
 
-export const TEMPLATES_B = { E11, E12, E13, E14, E15, E16, E17, E18, E19, E20 } as const
+export const TEMPLATES_B = { E11, E12, E13, E14, E15, E16, E17, E18, E19, E20, E21 } as const
 
 export type IdTemplateB = keyof typeof TEMPLATES_B
