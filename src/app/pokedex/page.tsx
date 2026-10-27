@@ -25,7 +25,7 @@ import { lerParametro, limparParametros } from '@/lib/deepLink'
 import { TYPE_COLOR, TIPO_ESPECIE } from '@/lib/pokedexTextos'
 import {
   FILTROS_VAZIOS, REGIOES, TIPOS_JOGO, CATEGORIAS, EVOLUCOES, FAIXAS_CARTAS, ORDENS,
-  contarFiltros, passa, especie, lerDaUrl, gravarNaUrl,
+  contarFiltros, passa, especie, tiposSoPorForma, lerDaUrl, gravarNaUrl,
   type FiltrosPokedex, type Status, type Dimensao,
 } from '@/lib/pokedexFiltros'
 import FiltrosPokedexGaveta, { type ContagensFiltro } from '@/components/pokedex/FiltrosPokedexGaveta'
@@ -930,6 +930,7 @@ export default function Pokedex() {
                 {pokemonsVisiveis.map(pokemon => {
                   const owned = ownedNames.has(pokemon.name)
                   const tiposJogo = especie(pokemon.dexId)?.t || []
+                  const porForma = tiposSoPorForma(pokemon.dexId, filtros.tipos)
                   return (
                     <button
                       key={pokemon.name}
@@ -1003,6 +1004,15 @@ export default function Pokedex() {
                           })}
                         </div>
                       )}
+                      {/* Entrou no filtro so pela forma regional: diz qual. */}
+                      {porForma.map(({ tipo, forma }) => {
+                        const cor = TYPE_COLOR[TIPO_ESPECIE[tipo]?.cor] || { bg: 'var(--bx-surface-2)', text: 'var(--bx-text-3)' }
+                        return (
+                          <span key={tipo} style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 100, color: cor.text, border: `1px dashed ${cor.text}` }}>
+                            {TIPO_ESPECIE[tipo]?.pt || tipo} · {forma}
+                          </span>
+                        )
+                      })}
 
                       {/* Gen badge + contagem */}
                       <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>

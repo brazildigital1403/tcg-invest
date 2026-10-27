@@ -5,11 +5,12 @@
 //   node scripts/gerar-pokedex-especies.mjs
 //
 // Formato (indexado pelo numero da Pokedex, nunca por nome):
-//   { "37": { "t": ["fire"], "r": ["ice"], "c": "", "e": "b" }, ... }
+//   { "37": { "t": ["fire"], "r": [["ice","alola"]], "c": "", "e": "b" }, ... }
 //   t = tipos dos jogos da forma padrao (o selo da grade).
-//   r = tipos a mais das formas regionais (Alola, Galar, Hisui, Paldea). O
-//       filtro soma os dois, porque a grade junta todas as formas no nome base
-//       (Vulpix de Alola e Gelo). Omitido quando vazio.
+//   r = tipos a mais das formas regionais, com a regiao de cada um (Alola,
+//       Galar, Hisui, Paldea). O filtro soma os dois, porque a grade junta
+//       todas as formas no nome base (Vulpix de Alola e Gelo), e o card mostra
+//       "Gelo · Alola" quando entra so por ela. Omitido quando vazio.
 //   c = categorias: I inicial, L lendario, M mitico, U ultra besta, P paradoxo,
 //       B bebe.
 //   e = evolucao como no TCG: b basico, 1 estagio 1, 2 estagio 2, u nao evolui.
@@ -64,7 +65,7 @@ const tipos = await emLotes(especies, 20, async sp => {
     for (const t of [...p.types].sort((a, b) => a.slot - b.slot)) {
       const n = t.type.name
       if (v.is_default) { if (!padrao.includes(n)) padrao.push(n) }
-      else if (!padrao.includes(n) && !extra.includes(n)) extra.push(n)
+      else if (!padrao.includes(n) && !extra.some(x => x[0] === n)) extra.push([n, v.pokemon.name.match(REGIONAIS)[1]])
     }
   }
   return { padrao, extra }

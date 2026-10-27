@@ -10,8 +10,8 @@
 
 import ESPECIES from './pokedexEspecies.json'
 
-type Especie = { t: string[]; r?: string[]; c: string; e: string }
-const DADOS = ESPECIES as Record<string, Especie>
+type Especie = { t: string[]; r?: [string, string][]; c: string; e: string }
+const DADOS = ESPECIES as unknown as Record<string, Especie>
 
 export function especie(dex: number): Especie | null {
   return DADOS[String(dex)] || null
@@ -20,7 +20,20 @@ export function especie(dex: number): Especie | null {
 /** Tipos para o filtro: forma padrao mais as regionais. */
 export function tiposDoFiltro(dex: number): string[] {
   const e = especie(dex)
-  return e ? [...e.t, ...(e.r || [])] : []
+  return e ? [...e.t, ...(e.r || []).map(x => x[0])] : []
+}
+
+const NOME_FORMA: Record<string, string> = { alola: 'Alola', galar: 'Galar', hisui: 'Hisui', paldea: 'Paldea' }
+
+/**
+ * Tipos marcados no filtro que o Pokemon so tem por forma regional, com a
+ * regiao ("Fantasma · Hisui" no card). Vazio quando a forma padrao ja bate:
+ * sem isso o Corsola aparecia em Fantasma com selo de Agua e Pedra.
+ */
+export function tiposSoPorForma(dex: number, marcados: string[]): { tipo: string; forma: string }[] {
+  const e = especie(dex)
+  if (!e?.r || !marcados.length || marcados.some(t => e.t.includes(t))) return []
+  return e.r.filter(([t]) => marcados.includes(t)).map(([tipo, reg]) => ({ tipo, forma: NOME_FORMA[reg] || reg }))
 }
 
 export const REGIOES: { id: string; gen: string; nome: string }[] = [
