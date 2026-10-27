@@ -3,10 +3,9 @@
 // Modal de Halloween (27 a 31/10/2026): 50% OFF no primeiro ano do Pro Anual.
 // Mockup aprovado pelo Du em 27/10 (artifact Qx6faLpMmvcpMWC8vHFNtY).
 //
-// QUEM VE e decidido no AppLayout (conta Gratis que nunca pagou, sem convite
-// de criador). Aqui so cuida de QUANDO e de exibir:
-// - no maximo 2 vezes por aparelho: a 1a abertura da campanha e, no dia 31,
-//   mais uma para quem nao clicou no botao;
+// QUEM VE e decidido no AppLayout (toda conta Gratis). Aqui so cuida de
+// QUANDO e de exibir:
+// - uma vez por dia (data de Brasilia) por aparelho, ate o fim da oferta;
 // - some sozinho no fimISO da oferta, mesmo com a pagina aberta;
 // - o desconto e aplicado pelo servidor (/api/stripe/checkout com
 //   oferta:'halloween'), que tambem recusa depois do prazo.
@@ -25,7 +24,6 @@ import { IconCheck, IconClock, IconClose } from '@/components/ui/Icons'
 
 const O = OFERTAS_EVENTO.halloween
 const CHAVE = 'bynx_oferta_halloween26'
-const DIA_31 = Date.parse('2026-10-31T00:00:00-03:00')
 const FIM = Date.parse(O.fimISO)
 
 const ARTE = {
@@ -33,7 +31,7 @@ const ARTE = {
   darkrai: 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/PBL-Mega-Darkrai-ex--120-084--120.jpg',
 }
 
-type Registro = { vistoEm?: number; clicou?: boolean; lembrete?: boolean }
+type Registro = { dia?: string; clicou?: boolean }
 
 function ler(): Registro {
   try { return JSON.parse(localStorage.getItem(CHAVE) || '{}') || {} } catch { return {} }
@@ -42,12 +40,14 @@ function gravar(r: Registro) {
   try { localStorage.setItem(CHAVE, JSON.stringify(r)) } catch {}
 }
 
-/** Primeira vez na campanha, ou o lembrete do dia 31 para quem nao clicou. */
+/** Data de Brasilia (AAAA-MM-DD): o modal abre uma vez por dia. */
+function diaBrasilia(agora: number): string {
+  return new Date(agora - 3 * 3600_000).toISOString().slice(0, 10)
+}
+
 function deveAbrir(agora: number): boolean {
   if (!ofertaEventoAtiva('halloween', agora)) return false
-  const r = ler()
-  if (!r.vistoEm) return true
-  return agora >= DIA_31 && !r.clicou && !r.lembrete && r.vistoEm < DIA_31
+  return ler().dia !== diaBrasilia(agora)
 }
 
 export default function OfertaHalloweenModal() {
@@ -58,8 +58,7 @@ export default function OfertaHalloweenModal() {
   useEffect(() => {
     const agora = Date.now()
     if (!deveAbrir(agora)) return
-    const r = ler()
-    gravar(r.vistoEm ? { ...r, lembrete: true } : { vistoEm: agora })
+    gravar({ ...ler(), dia: diaBrasilia(agora) })
     setAberto(true)
   }, [])
 

@@ -484,7 +484,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
 
       const { data: userData } = await supabase
-        .from('users').select('is_pro, trial_expires_at, plano, pro_expira_em, stripe_customer_id, convite_grupo_id, created_at').eq('id', authData.user.id).single()
+        .from('users').select('is_pro, trial_expires_at, plano, pro_expira_em, created_at').eq('id', authData.user.id).single()
       if (userData) {
         const { caps, tier } = resolvePlan(userData as any)
         setPodeDashboard(caps.podeDashboard)
@@ -497,16 +497,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           if (total > LIMITE_FREE) setMuroCartas(total)
         }
 
-        // Modal de Halloween (ate 31/10/2026 23h59): so conta Gratis que nunca
-        // pagou (sem cliente na Stripe, que recusaria o cupom de 1o pedido),
-        // fora quem ganhou o ano de Pro do convite de criadores e conta criada
-        // ha menos de 10 min (o pos-cadastro ja faz a venda dele).
+        // Modal de Halloween (ate 31/10/2026 23h59): toda conta Gratis (decisao
+        // do Du em 27/10; quem ja teve assinatura recebe a recusa do cupom de
+        // 1o pedido no proprio modal), fora conta criada ha menos de 10 min
+        // (o pos-cadastro ja faz a venda dele).
         const contaMadura = !userData.created_at
           || Date.now() - new Date(userData.created_at).getTime() > 10 * 60_000
         setOfertaHalloween(
           ofertaEventoAtiva('halloween') && !userData.is_pro
           && (!userData.plano || userData.plano === 'free')
-          && !userData.stripe_customer_id && !userData.convite_grupo_id && contaMadura,
+          && contaMadura,
         )
       }
       if (userData && !userData.is_pro && userData.trial_expires_at) {
