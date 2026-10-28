@@ -63,6 +63,8 @@ export interface PessoaReversa {
   email: string | null | undefined
   telefone: string | null | undefined
   cpf: string | null | undefined
+  /** So a loja: CNPJ quando cadastrado (#470). Vai em `company_document`. */
+  cnpj?: string | null
   rua: string | null | undefined
   numero: string | null | undefined
   complemento?: string | null
@@ -76,6 +78,13 @@ export type CampoFaltando =
   | 'cpf_comprador' | 'endereco_comprador' | 'telefone_comprador' | 'email_comprador'
   | 'documento_loja' | 'endereco_loja'
 
+// Os digitos ja foram conferidos ao salvar (vendedorIdentificado.cnpjValido,
+// na rota da loja) e o banco so aceita 14 digitos. Sem import aqui: o
+// autoteste transpila este arquivo sozinho.
+function temCnpj(v: string | null | undefined): boolean {
+  return soDigitos(v).length === 14
+}
+
 function enderecoOk(p: PessoaReversa): boolean {
   return !!(p.rua && p.cidade && p.uf && soDigitos(p.cep).length === 8)
 }
@@ -86,7 +95,7 @@ function pessoaME(p: PessoaReversa) {
     phone: soDigitos(p.telefone).replace(/^55(?=\d{10,11}$)/, ''),
     email: String(p.email || ''),
     document: soDigitos(p.cpf),
-    company_document: '',
+    company_document: temCnpj(p.cnpj) ? soDigitos(p.cnpj) : '',
     address: String(p.rua || '').slice(0, 100),
     complement: String(p.complemento || '').slice(0, 60),
     number: String(p.numero || 'S/N').slice(0, 10),
@@ -102,8 +111,10 @@ function pessoaME(p: PessoaReversa) {
  * Corpo do POST /api/v2/me/cart/reverse. `from` = quem devolve (comprador),
  * `to` = a loja. Recusa (sem chamar a rede) quando falta o que o Melhor Envio
  * exige: CPF valido e endereco completo dos dois lados, telefone e e-mail do
- * comprador. A loja ainda nao tem CNPJ cadastrado (#470): o documento dela e
- * o CPF do dono.
+ * comprador. Documento da loja (#470): o CNPJ vai em `company_document` quando
+ * ela cadastrou; o CPF do dono segue em `document` quando existe. Basta um dos
+ * dois valido. ★ So o caminho com CPF foi provado no Melhor Envio (25/10); o
+ * com CNPJ ainda precisa de uma etiqueta real para conferir a declaracao.
  */
 export function montarReversa(a: {
   comprador: PessoaReversa
@@ -117,7 +128,7 @@ export function montarReversa(a: {
   if (!enderecoOk(a.comprador)) faltando.push('endereco_comprador')
   if (soDigitos(a.comprador.telefone).length < 10) faltando.push('telefone_comprador')
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(a.comprador.email || ''))) faltando.push('email_comprador')
-  if (!cpfValido(a.loja.cpf)) faltando.push('documento_loja')
+  if (!cpfValido(a.loja.cpf) && !temCnpj(a.loja.cnpj)) faltando.push('documento_loja')
   if (!enderecoOk(a.loja)) faltando.push('endereco_loja')
   if (faltando.length) return { ok: false, faltando }
 

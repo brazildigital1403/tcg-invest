@@ -82,7 +82,7 @@ async function pessoas(sb: SupabaseClient, rec: Rec): Promise<{ comprador: Pesso
   const [{ data: peds }, { data: us }, { data: ljs }] = await Promise.all([
     sb.from('pedidos').select('endereco, valor_item_cents, item_nome').eq('id', rec.pedido_id).limit(1),
     sb.from('users').select('name, email, cpf, whatsapp, logradouro, numero, complemento, bairro, cep, uf').eq('id', rec.comprador_user_id).limit(1),
-    sb.from('lojas').select('nome, endereco, cidade, estado, cep, email, whatsapp, owner_user_id').eq('id', rec.loja_id).limit(1),
+    sb.from('lojas').select('nome, endereco, cidade, estado, cep, email, whatsapp, owner_user_id, cnpj').eq('id', rec.loja_id).limit(1),
   ])
   const ped = peds?.[0] as { endereco?: Record<string, string | null> | null; valor_item_cents?: number; item_nome?: string } | undefined
   const u = (us?.[0] || {}) as Record<string, string | null>
@@ -114,6 +114,7 @@ async function pessoas(sb: SupabaseClient, rec: Rec): Promise<{ comprador: Pesso
     email: l.email || dono.email,
     telefone: l.whatsapp || dono.whatsapp,
     cpf: dono.cpf,
+    cnpj: l.cnpj,
     rua: le.rua, numero: le.numero, bairro: le.bairro,
     cidade: l.cidade, uf: l.estado, cep: l.cep,
   }

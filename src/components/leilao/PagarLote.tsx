@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabaseClient'
 import { IconArrowRight, IconCard, IconClock, IconLoja, IconPokeball, IconShield, IconWarning } from '@/components/ui/Icons'
 import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
 import { calcularArremate } from '@/lib/leilao-taxas'
+import VendidoPor from '@/components/ui/VendidoPor'
+import type { Identificacao } from '@/lib/vendedorIdentificado'
 
 /**
  * Ilha da tela /leiloes/[slug]/pagar.
@@ -35,6 +37,8 @@ interface OpcaoFrete {
 interface DadosPagamento {
   lote: { id: string; slug: string; nome: string; imagem: string | null; condicao: string | null; preco_cents: number }
   pagar_ate: string | null
+  /** Quem vende (#470): razao social e CNPJ, ou nome e CPF mascarado. */
+  identificacao?: Identificacao | null
   vendedor: {
     tipo: 'loja' | 'pessoa'
     nome: string
@@ -316,13 +320,14 @@ export default function PagarLote({
         <div style={{ minWidth: 0 }}>
           <p style={S.itemNome}>{dados.lote.nome || nomeInicial}</p>
           <p style={S.itemMeta}>Você arrematou por {formatarBRL(precoCents)}</p>
-          {(dados.lote.condicao || v) && (
+          {(dados.lote.condicao || (v && !dados.identificacao)) && (
             <p style={S.itemFraco}>
-              {[dados.lote.condicao, v ? `Vendido por ${v.nome}` : null].filter(Boolean).join(' · ')}
+              {[dados.lote.condicao, v && !dados.identificacao ? `Vendido por ${v.nome}` : null].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>
       </div>
+      <VendidoPor ident={dados.identificacao ?? null} style={{ marginTop: 10 }} />
       {dados.pagar_ate && <p style={S.prazo}>Pague até {horarioBrasilia(dados.pagar_ate)}</p>}
 
       {!v || !v.pode_vender ? (

@@ -9,6 +9,7 @@ import { calcularArremate } from '@/lib/leilao-taxas'
 import { ehMetodoValido, normalizarPrazo, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { cotarFrete, pacoteDeCarta } from '@/lib/melhor-envio'
 import { resolverRecebedor, podeReceber, type Recebedor } from '@/lib/vendedorRecebimento'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 import { descontoNoCheckout, metadataDebito } from '@/lib/debitoVendedor'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 
@@ -315,6 +316,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
             slug: r.tipo === 'loja' ? r.slug : null,
           }
         : null,
+      // Quem vende (#470). Quem chega aqui ja venceu o lote; o CPF so sai
+      // inteiro no pedido, depois de pago.
+      identificacao: await identificarVendedor(lote.loja_id ?? r?.lojaId ?? null, lote.vendedor_user_id),
     })
   } catch (err) {
     console.error('[leilao/checkout GET] erro:', (err as Error)?.message)

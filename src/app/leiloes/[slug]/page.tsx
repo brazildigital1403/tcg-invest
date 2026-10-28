@@ -9,6 +9,8 @@ import LanceAoVivo from '@/components/leilao/LanceAoVivo'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { IconChevronRight } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
+import VendidoPor from '@/components/ui/VendidoPor'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 import { codigoDoSlug, dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
 import { tituloRodada } from '@/lib/leilao-rodada'
 import { urlHome, urlLote, urlRodada } from '@/lib/leilao-urls'
@@ -133,10 +135,12 @@ export default async function LotePage({ params }: Params) {
   if (!l) notFound()
   if (l.slug && l.slug !== slug) permanentRedirect(urlDoLote(l))
 
-  const [loja, referenciaMercadoCents, rodada] = await Promise.all([
+  const [loja, referenciaMercadoCents, rodada, vendedor] = await Promise.all([
     buscarLojaDoLote(l.lojaId),
     buscarReferenciaMercadoCents(l.cardId, l.graduadora),
     buscarRodadaPorId(l.rodadaId),
+    // Quem vende (#470): razao social e CNPJ, ou nome e CPF mascarado.
+    l.lojaId ? identificarVendedor(l.lojaId, null) : Promise.resolve(null),
   ])
   const serverNow = new Date().toISOString()
 
@@ -229,6 +233,8 @@ export default async function LotePage({ params }: Params) {
                 {loja.verificada && <span style={S.selo}>Verificada</span>}
               </Link>
             )}
+
+            <VendidoPor ident={vendedor} />
 
             {rodada && (
               <Link href={urlRodada(rodada.numero)} prefetch={false} className="lt-ghost" style={S.rodada}>
