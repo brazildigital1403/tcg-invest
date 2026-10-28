@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, type CSSProperties } from 'react'
 import { IconCalendar } from '@/components/ui/Icons'
 import { urlRodada } from '@/lib/leilao-urls'
 import { gerarIcsRodada, nomeArquivoIcs } from '@/lib/leilao-vitrine'
@@ -15,12 +15,15 @@ export default function BotaoAgenda({
   iniciaEm,
   descricao,
   variante = 'link',
+  estilo,
 }: {
   numero: number
   titulo: string
   iniciaEm: string
   descricao?: string | null
   variante?: 'link' | 'caixa'
+  /** Fora da vitrine (sem o CSS vt-agendar): estilo inline no lugar da classe. */
+  estilo?: CSSProperties
 }) {
   const baixar = useCallback(() => {
     const url = `${window.location.origin}${urlRodada(numero)}`
@@ -41,7 +44,8 @@ export default function BotaoAgenda({
     <button
       type="button"
       onClick={baixar}
-      className={variante === 'caixa' ? 'vt-agendar vt-agendar-caixa' : 'vt-agendar'}
+      className={estilo ? undefined : variante === 'caixa' ? 'vt-agendar vt-agendar-caixa' : 'vt-agendar'}
+      style={estilo}
       aria-label={`Adicionar à agenda: ${titulo}`}
     >
       <IconCalendar size={15} />

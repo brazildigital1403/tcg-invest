@@ -200,6 +200,10 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
 
   // Aba inicial: onde ha algo a fazer; senao a primeira com conteudo.
   const abaAtual: Aba = aba ?? (['sua_vez', 'comprador', 'bynx', 'concluidos'] as Aba[]).find(k => contagem[k] > 0) ?? 'sua_vez'
+  // Depois de uma acao, a pagina fica na aba em que a loja estava (antes, com
+  // a aba esvaziada, ela pulava sozinha para a proxima com pedido) e o aviso
+  // traz o atalho para onde o pedido foi parar.
+  const avisarNaAba = (a: Aviso) => { setAba(x => x ?? abaAtual); setAviso(a) }
   const meta = ABAS.find(a => a.k === abaAtual)!
 
   const visiveis = useMemo(() => {
@@ -320,7 +324,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
                 aberto={aberto === l.p.id} rascunho={rascunhos[l.p.id] || RASCUNHO_VAZIO}
                 onRascunho={m => mexerRascunho(l.p.id, m)}
                 onAbrir={abrir} onFechar={() => setAberto(null)}
-                onMudou={carregar} token={token} avisar={setAviso} />
+                onMudou={carregar} token={token} avisar={avisarNaAba} />
             ))
           )}
         </>
@@ -577,7 +581,7 @@ function CardPedido({ l, lojaId, agora, aberto, rascunho, onRascunho, onAbrir, o
           {p.enviado_em && <div className="lp-par"><span>Enviado</span><b>{fmtDia(p.enviado_em)}</b></div>}
           {p.entregue_em && <div className="lp-par"><span>Entregue</span><b>{fmtDia(p.entregue_em)}</b></div>}
 
-          {ocorrenciaVisivel && r && <OcorrenciaLoja r={r} lojaId={lojaId} onMudou={onMudou} />}
+          {ocorrenciaVisivel && r && <OcorrenciaLoja r={r} lojaId={lojaId} onMudou={onMudou} onAviso={avisar} />}
 
           <button type="button" className="lp-fechar" onClick={onFechar}>
             Fechar detalhes <span className="lp-gira"><IconChevronDown size={14} color="currentColor" /></span>

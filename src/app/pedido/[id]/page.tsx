@@ -325,7 +325,9 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     const prot = protecaoCompradorCents(pedido.valor_item_cents)
     return prot > 0 && prot <= pedido.acrescimo_cents ? prot : null
   })()
-  const podeAvaliar = souComprador && !cancelado && (pedido.status === 'enviado' || pedido.status === 'entregue') && jaAvaliou === false && !avalOk
+  // #465 (opcao a): avaliacao so com o pedido entregue -- a faixa diz que
+  // confirmar o recebimento e o que libera.
+  const podeAvaliar = souComprador && !cancelado && pedido.status === 'entregue' && jaAvaliou === false && !avalOk
   const avaliou = souComprador && !cancelado && (avalOk || jaAvaliou === true)
 
   // ─── Faixa do topo: de quem e a vez (casoComprador) ─────────────────
@@ -375,13 +377,18 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
               {PASSOS.map((pp, i) => {
                 const feito = passoAtual >= i
                 const atual = i === passoAtual + 1
+                // #554 (opcao a): o acento so marca a vez do comprador
+                // (confirmar o recebimento). A proxima etapa que depende da
+                // loja fica neutra, tracejada, dizendo o que falta acontecer.
+                const vezDoComprador = atual && pp.k === 'entregue' && souComprador
                 const Ic = feito ? IconCheck : pp.k === 'enviado' ? IcTruck : pp.k === 'entregue' ? IcHome : IconCard
                 const data = pp.k === 'pago' ? pedido.pago_em : pp.k === 'enviado' ? pedido.enviado_em : pedido.entregue_em ?? null
                 const rot = feito
                   ? `${pp.curto}${data ? ` · ${diaCurto(data)}` : ''}`
-                  : atual && pp.k === 'entregue' ? 'Você confirma' : pp.curto
+                  : atual && pp.k === 'entregue' ? 'Você confirma'
+                  : atual && pp.k === 'enviado' ? 'A loja envia' : pp.curto
                 return (
-                  <li key={pp.k} className={`pd-tl-p${feito ? ' pd-feito' : ''}${atual ? ' pd-atual' : ''}`} aria-current={atual ? 'step' : undefined}>
+                  <li key={pp.k} className={`pd-tl-p${feito ? ' pd-feito' : ''}${vezDoComprador ? ' pd-atual' : atual ? ' pd-espera' : ''}`} aria-current={atual ? 'step' : undefined}>
                     <span className="pd-tl-ic"><Ic size={17} color="currentColor" /></span>
                     <span className="pd-tl-rot">{rot}</span>
                   </li>
@@ -524,6 +531,8 @@ const CSS_PEDIDO = `
 .pd-feito .pd-tl-ic{color:var(--bx-green);border-color:color-mix(in srgb,var(--bx-green) 45%,transparent);background:color-mix(in srgb,var(--bx-green) 10%,var(--bx-surface-2))}
 .pd-atual .pd-tl-ic{color:var(--ac-1);border-color:rgba(var(--ac-1-rgb),.6);background:rgba(var(--ac-1-rgb),.12)}
 .pd-atual .pd-tl-rot{color:var(--bx-text)}
+.pd-espera .pd-tl-ic{border-style:dashed;border-color:var(--bx-text-3);background:var(--bx-surface)}
+.pd-espera .pd-tl-rot{color:var(--bx-text-2)}
 .pd-rastreio{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
 .pd-rastreio svg{flex-shrink:0}
 .pd-rastreio-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}

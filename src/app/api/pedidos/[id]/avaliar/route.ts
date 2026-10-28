@@ -5,7 +5,8 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
  * POST /api/pedidos/[id]/avaliar
  *
  * O comprador avalia a loja depois da compra. So o comprador do pedido pode
- * avaliar, e so quando o pedido ja saiu (enviado ou entregue). A avaliacao cai
+ * avaliar, e so com o pedido ENTREGUE (#465, 28/10: antes valia ja no enviado,
+ * e o comprador avaliava uma carta que ainda nao tinha visto). A avaliacao cai
  * na MESMA tabela `avaliacoes` do marketplace, com `avaliado_id = dono da loja`,
  * entao a nota entra automaticamente na reputacao ja existente (/lojas,
  * /perfil, ReputacaoCard). O `pedido_id` marca a review como "compra verificada".
@@ -49,8 +50,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (pedido.comprador_user_id !== userId) {
       return NextResponse.json({ error: 'Voce nao e o comprador deste pedido.' }, { status: 403 })
     }
-    if (pedido.status !== 'enviado' && pedido.status !== 'entregue') {
-      return NextResponse.json({ error: 'So da pra avaliar depois que o pedido e enviado.' }, { status: 409 })
+    if (pedido.status !== 'entregue') {
+      return NextResponse.json({ error: 'A avaliação libera depois que você confirmar o recebimento.' }, { status: 409 })
     }
 
     // ─── Insere a avaliacao (pedido_id => compra verificada) ─────
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await sb.from('notifications').insert({
         user_id: pedido.vendedor_user_id,
         type: 'avaliacao',
-        title: 'Voce recebeu uma avaliacao!',
+        title: 'Você recebeu uma avaliação',
         message: `${estrelas} estrela${estrelas > 1 ? 's' : ''} pela venda de "${pedido.item_nome}".`,
         data: { link: loja?.slug ? `/lojas/${loja.slug}` : (pedido.loja_id ? `/minha-loja/${pedido.loja_id}/pedidos` : '/vendas') },
       })

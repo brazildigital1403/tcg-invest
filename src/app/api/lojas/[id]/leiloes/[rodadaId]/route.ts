@@ -12,6 +12,8 @@ import {
  * POST  { acao: 'agendar' }                 -> RPC leilao_agendar_rodada
  *       { acao: 'reordenar', ids: uuid[] }  -> RPC leilao_reordenar_lotes
  *       { acao: 'cancelar', motivo? }       -> RPC leilao_cancelar_rodada
+ *       { acao: 'encerrar', motivo? }       -> RPC leilao_encerrar_rodada (ao vivo:
+ *         o lote ativo termina no tempo dele, os agendados sao cancelados; #416)
  *
  * As tres acoes sao atomicas no banco (migration 20260928120000_leilao_painel)
  * e recebem o `loja_id` da URL ja validado: rodada de outra loja nao e achada.
@@ -159,6 +161,21 @@ export async function POST(req: NextRequest, ctx: Params) {
       if (error) {
         const e = erroDoPainel(error.message)
         if (e.status === 500) console.error('[lojas/leiloes/cancelar]', error.code, error.message)
+        return json(e.status, { error: e.mensagem })
+      }
+      return json(200, { ok: true, resultado: data })
+    }
+
+    if (acao === 'encerrar') {
+      const motivo = typeof body?.motivo === 'string' ? body.motivo.trim().slice(0, 300) : null
+      const { data, error } = await c.sb.rpc('leilao_encerrar_rodada', {
+        p_rodada: rodadaId,
+        p_loja: lojaId,
+        p_motivo: motivo || null,
+      })
+      if (error) {
+        const e = erroDoPainel(error.message)
+        if (e.status === 500) console.error('[lojas/leiloes/encerrar]', error.code, error.message)
         return json(e.status, { error: e.mensagem })
       }
       return json(200, { ok: true, resultado: data })

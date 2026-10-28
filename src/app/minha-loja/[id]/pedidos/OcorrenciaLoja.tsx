@@ -64,7 +64,12 @@ async function bearer(): Promise<string> {
   return data.session?.access_token || ''
 }
 
-export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId: string; onMudou: () => void }) {
+/** Aviso na tela depois da acao (o card pode mudar de aba). irPara = aba do painel. */
+export interface AvisoOcorrencia { texto: string; irPara?: 'sua_vez' | 'comprador' | 'bynx' | 'concluidos' }
+
+export default function OcorrenciaLoja({ r, lojaId, onMudou, onAviso }: {
+  r: Recl; lojaId: string; onMudou: () => void; onAviso?: (a: AvisoOcorrencia) => void
+}) {
   const [tipo, setTipo] = useState<RespostaLoja | null>(null)
   const [devAcao, setDevAcao] = useState<'liberar' | 'contestar' | null>(null)
   const [texto, setTexto] = useState('')
@@ -74,7 +79,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  async function enviar(url: string, body: Record<string, unknown>) {
+  async function enviar(url: string, body: Record<string, unknown>, aviso?: AvisoOcorrencia) {
     setSalvando(true); setErro(null)
     try {
       const res = await fetch(url, {
@@ -85,6 +90,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j.error || 'Não foi possível registrar.')
       setTipo(null); setDevAcao(null); setTexto(''); setValor(''); setVideo(''); setContTipo(null)
+      if (aviso) onAviso?.(aviso)
       onMudou()
     } catch (e) {
       setErro((e as Error).message)
@@ -187,7 +193,10 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
               disabled={salvando || (devAcao === 'contestar' && (!contTipo || texto.trim().length < 10 || (contTipo === 'troca' && !video.trim())))}
               onClick={() => enviar(`/api/lojas/${lojaId}/reclamacoes/${r.id}/devolucao`, devAcao === 'liberar'
                 ? { acao: 'liberar' }
-                : { acao: 'contestar', tipo: contTipo, texto: texto.trim(), video_url: video.trim() || null })}>
+                : { acao: 'contestar', tipo: contTipo, texto: texto.trim(), video_url: video.trim() || null },
+              devAcao === 'liberar'
+                ? { texto: 'Devolução confirmada. O estorno saiu para o comprador.', irPara: 'concluidos' }
+                : { texto: 'Contestação enviada. A Bynx decide em até 2 dias úteis.', irPara: 'bynx' })}>
               {salvando ? 'Enviando…' : devAcao === 'liberar' ? 'Confirmar e estornar' : 'Enviar contestação'}
             </button>
             <button type="button" className="oc-bt oc-ghost" disabled={salvando} onClick={() => { setDevAcao(null); setErro(null) }}>Voltar</button>
@@ -252,7 +261,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
             onClick={() => enviar(`/api/lojas/${lojaId}/reclamacoes/${r.id}/responder`, {
               tipo, texto: texto.trim(),
               contraproposta_cents: tipo === 'contraproposta' ? Math.round(Number(valor.replace(/\./g, '').replace(',', '.')) * 100) : null,
-            })}>
+            }, { texto: 'Resposta enviada. O comprador já foi avisado.' })}>
             {salvando ? 'Enviando…' : 'Enviar resposta'}
           </button>
         </div>

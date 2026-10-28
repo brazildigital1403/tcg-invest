@@ -102,6 +102,26 @@ export default function PainelAoVivo({
 
   const aoVivo = statusRodada === 'ao_vivo'
 
+  // Encerrar a rodada ao vivo (#416, opcao a): o lote no ar termina no tempo
+  // dele; os proximos sao cancelados. Confirmacao dentro do painel.
+  const [encerrar, setEncerrar] = useState<'fechado' | 'confirmando' | 'enviando'>('fechado')
+  const [msgEncerrar, setMsgEncerrar] = useState<string | null>(null)
+  async function confirmarEncerrar() {
+    setEncerrar('enviando'); setMsgEncerrar(null)
+    try {
+      const j = await chamarPainel<{ resultado?: { cancelados?: number; lote_ativo_termina?: boolean } }>(
+        `/api/lojas/${lojaId}/leiloes/${rodadaId}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'encerrar' }) },
+      )
+      const n = j.resultado?.cancelados ?? 0
+      setMsgEncerrar(`${n} ${n === 1 ? 'lote cancelado' : 'lotes cancelados'}.${j.resultado?.lote_ativo_termina ? ' O lote no ar termina no tempo dele.' : ' Rodada encerrada.'}`)
+      setEncerrar('fechado')
+    } catch (e) {
+      setMsgEncerrar((e as Error).message || 'Não foi possível encerrar. Tente de novo.')
+      setEncerrar('confirmando')
+    }
+  }
+
   /** Uma busca; abortada por `signal` (desmonte) nao mexe no estado. */
   const buscar = useCallback(async (signal: AbortSignal): Promise<RespostaAoVivo | null> => {
     const t0 = Date.now()
@@ -253,6 +273,29 @@ export default function PainelAoVivo({
               ))}
             </ol>
           )}
+
+          <div style={S.encerrar}>
+            {encerrar === 'fechado' ? (
+              <button type="button" style={S.btPerigo} onClick={() => { setEncerrar('confirmando'); setMsgEncerrar(null) }}>
+                Encerrar a rodada agora
+              </button>
+            ) : (
+              <div style={S.confirma} role="alertdialog" aria-label="Encerrar a rodada">
+                <p style={{ margin: 0 }}>
+                  O lote no ar termina no tempo dele, com o vencedor que tiver. {fila.length > 0
+                    ? `Os ${fila.length} ${fila.length === 1 ? 'lote seguinte é cancelado' : 'lotes seguintes são cancelados'}; para leiloar essas cartas, cadastre de novo numa próxima rodada.`
+                    : 'Não há lotes na fila.'}
+                </p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" style={S.btPerigo} disabled={encerrar === 'enviando'} onClick={confirmarEncerrar}>
+                    {encerrar === 'enviando' ? 'Encerrando…' : 'Confirmar encerramento'}
+                  </button>
+                  <button type="button" style={S.btNeutro} disabled={encerrar === 'enviando'} onClick={() => setEncerrar('fechado')}>Voltar</button>
+                </div>
+              </div>
+            )}
+            {msgEncerrar && <p style={S.suave} role="status">{msgEncerrar}</p>}
+          </div>
         </section>
       )}
 
@@ -371,6 +414,10 @@ function LoteNoAr({ lote, total, agoraSrv }: { lote: LoteAoVivo; total: number; 
 }
 
 const S: Record<string, CSSProperties> = {
+  encerrar: { marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--bx-border)', display: 'flex', flexDirection: 'column', gap: 10 },
+  confirma: { display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 10, fontSize: 13.5, lineHeight: 1.5, color: 'var(--bx-text-2)', background: 'color-mix(in srgb, var(--bx-red) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--bx-red) 30%, transparent)' },
+  btPerigo: { minHeight: 44, padding: '0 16px', borderRadius: 10, border: '1px solid color-mix(in srgb, var(--bx-red) 45%, transparent)', background: 'color-mix(in srgb, var(--bx-red) 8%, transparent)', color: 'var(--bx-red)', font: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start' },
+  btNeutro: { minHeight: 44, padding: '0 16px', borderRadius: 10, border: '1px solid var(--bx-border)', background: 'transparent', color: 'var(--bx-text)', font: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
   topo: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 },
   ponto: { width: 8, height: 8, borderRadius: 999, background: 'var(--bx-red)', display: 'inline-block' },
   linkChip: {

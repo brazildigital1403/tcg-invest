@@ -16,6 +16,8 @@ import RegrasRodada from '@/components/leilao/rodada/RegrasRodada'
 import ResultadosRodada from '@/components/leilao/rodada/ResultadosRodada'
 import BlocoLojista from '@/components/leilao/rodada/BlocoLojista'
 import LogoLoja from '@/components/leilao/rodada/LogoLoja'
+import BotaoAgenda from '@/components/leilao/vitrine/BotaoAgenda'
+import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import type { LojaDaRodada, ReputacaoDaRodada } from '@/components/leilao/rodada/tipos'
 import { supabase } from '@/lib/supabaseClient'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia, type EstadoLote, type LotePublico } from '@/lib/leilao'
@@ -132,6 +134,16 @@ export default function RodadaAoVivo({
   compartilhar?: ReactNode
 }) {
   const [estado, setEstado] = useState<EstadoRodada>(estadoInicial)
+  // #416 (opcao a): quem chega deslogado pelo link da loja ve o convite para
+  // entrar ANTES do lote abrir. undefined = ainda lendo a sessao (nao pisca).
+  const [logado, setLogado] = useState<boolean | undefined>(undefined)
+  const { openLogin } = useAuthModal()
+  useEffect(() => {
+    let vivo = true
+    supabase.auth.getSession().then(({ data }) => { if (vivo) setLogado(!!data.session) })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setLogado(!!s))
+    return () => { vivo = false; sub.subscription.unsubscribe() }
+  }, [])
   /** Feed do lote no ar. Separado do estado: leitura sem `lances` nao apaga o que ja estava. */
   const [feed, setFeed] = useState<{ loteId: string | null; lances: LancePublico[] }>({
     loteId: estadoInicial.lancesLoteId ?? null,
@@ -702,6 +714,16 @@ export default function RodadaAoVivo({
                 {rodada.status === 'agendada' && rodada.iniciaEm && (
                   <p style={S.horaAbs}>Início em {horarioBrasilia(rodada.iniciaEm)}</p>
                 )}
+                {/* #416 (opcao a): salvar o horario e entrar antes do lote abrir. */}
+                {rodada.status === 'agendada' && rodada.iniciaEm && (
+                  <BotaoAgenda numero={rodada.numero} titulo={h1} iniciaEm={rodada.iniciaEm} descricao={rodada.descricao ?? null} estilo={S.btAgenda} />
+                )}
+                {rodada.status === 'agendada' && logado === false && (
+                  <div style={S.convite}>
+                    <p style={S.horaAbs}>Para dar lance você precisa de uma conta na Bynx. Leva 1 minuto.</p>
+                    <button type="button" style={S.btEntrar} onClick={() => openLogin({ next: urlRodada })}>Entrar ou criar conta</button>
+                  </div>
+                )}
                 {rodada.status === 'encerrada' && (
                   <p style={S.horaAbs}>
                     {arrematados === 0
@@ -801,6 +823,9 @@ const S: Record<string, CSSProperties> = {
     fontVariantNumeric: 'tabular-nums',
   },
   horaAbs: { fontSize: 13, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.5 },
+  btAgenda: { minHeight: 44, padding: '0 16px', borderRadius: 10, border: '1px solid var(--bx-border-2)', background: 'var(--bx-surface-2)', color: 'var(--bx-text)', font: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 8 },
+  convite: { display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 12, borderTop: '1px solid var(--bx-border)' },
+  btEntrar: { minHeight: 44, padding: '0 18px', borderRadius: 10, border: 'none', background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', font: 'inherit', fontSize: 14.5, fontWeight: 800, cursor: 'pointer', alignSelf: 'flex-start' },
   tiraBloco: { display: 'flex', flexDirection: 'column', gap: 6 },
   tira: { display: 'flex', gap: 4 },
   seg: { flex: 1, height: 5, borderRadius: 3 },
