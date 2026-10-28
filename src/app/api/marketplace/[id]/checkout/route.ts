@@ -6,6 +6,7 @@ import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type
 import { cotarFrete, pacoteDeCarta } from '@/lib/melhor-envio'
 import { resolverRecebedor, podeReceber, motivoSemCompra } from '@/lib/vendedorRecebimento'
 import { descontoNoCheckout, metadataDebito } from '@/lib/debitoVendedor'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 
 /**
  * POST /api/marketplace/[id]/checkout
@@ -67,6 +68,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     // Frete calculado sem CEP de origem nao fecha: melhor nao oferecer o botao
     // do que oferecer e quebrar na hora de cotar.
     const podeVender = podeReceber(r) && (r!.freteModo !== 'calculado' || !!r!.cepOrigem)
+    // Quem vende (#470): CPF ja mascarado, igual na pagina do anuncio.
+    const identificacao = await identificarVendedor(r?.lojaId ?? null, anuncio.user_id)
     const fotosVend: string[] = Array.isArray(anuncio.fotos)
       ? anuncio.fotos.filter((u: unknown): u is string => typeof u === 'string' && !!u)
       : []
@@ -108,6 +111,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
             pode_vender: podeVender,
           }
         : null,
+      identificacao,
     })
   } catch (err) {
     console.error('[checkout GET] erro:', (err as Error)?.message)

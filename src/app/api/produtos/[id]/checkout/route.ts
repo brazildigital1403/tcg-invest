@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { cotarFrete, pacoteDeProduto } from '@/lib/melhor-envio'
 import { descontoNoCheckout, metadataDebito } from '@/lib/debitoVendedor'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 
 /**
  * Checkout de PRODUTO da loja (selado/pelucia/funko/fichario/acessorio).
@@ -49,6 +50,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const { data: ls } = await db.from('lojas').select(SELECT_LOJA).eq('id', p.loja_id).eq('status', 'ativa').limit(1)
     const loja = ls?.[0] || null
+    // Quem vende (#470): CPF ja mascarado, igual na pagina do produto.
+    const identificacao = loja ? await identificarVendedor(loja.id, loja.owner_user_id) : null
 
     return NextResponse.json({
       item: {
@@ -76,6 +79,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
             pode_vender: !!loja.connect_charges_enabled,
           }
         : null,
+      identificacao,
     })
   } catch (err) {
     console.error('[produto checkout GET] erro:', (err as Error)?.message)

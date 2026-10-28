@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
+import { validarDadosEmpresa } from '@/lib/vendedorIdentificado'
 
 /**
  * Endpoints da loja individual (owner-only).
@@ -17,6 +18,7 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
  *   whatsapp, instagram, facebook, website, tiktok, youtube, twitter, discord,
  *   logo_url, banner_url, fotos, eventos,
  *   seo_title, seo_description,
+ *   cnpj, razao_social (#470: sempre os dois juntos; CNPJ vazio = pessoa fisica),
  *   status  (apenas transições específicas — ver abaixo)
  *
  * Campos que SOMENTE ADMIN pode alterar (não via essa API):
@@ -39,6 +41,7 @@ const EDITABLE_FIELDS = new Set([
   'tiktok', 'youtube', 'twitter', 'discord',
   'logo_url', 'banner_url', 'fotos', 'eventos',
   'seo_title', 'seo_description',
+  'cnpj', 'razao_social',
   'status', // transição controlada abaixo
 ])
 
@@ -122,6 +125,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           }, { status: 409 })
         }
       }
+    }
+
+    // Quem vende (#470): CNPJ e razao social andam juntos -- a constraint do
+    // banco recusa um sem o outro, entao a validacao exige o par.
+    if (payload.cnpj !== undefined || payload.razao_social !== undefined) {
+      // So um dos dois no body: o outro vem do que ja esta salvo, para editar a
+      // razao social sozinha nao apagar o CNPJ.
+      const v = validarDadosEmpresa(
+        'cnpj' in body ? body.cnpj : (loja as { cnpj?: string | null }).cnpj,
+        'razao_social' in body ? body.razao_social : (loja as { razao_social?: string | null }).razao_social,
+      )
+      if ('erro' in v) return NextResponse.json({ error: v.erro }, { status: 400 })
+      payload.cnpj = v.cnpj
+      payload.razao_social = v.razao_social
     }
 
     // Tipo

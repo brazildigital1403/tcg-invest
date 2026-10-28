@@ -8,6 +8,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import AnalyticsCard from '@/components/lojas/AnalyticsCard'
 import { IconWarning, IconEdit, IconCalendar } from '@/components/ui/Icons'
 import { NATUREZA_LABEL, NATUREZA_OPCOES, NaturezaLoja, normalizarNatureza } from '@/lib/naturezaLoja'
+import { formatarCnpj } from '@/lib/vendedorIdentificado'
 
 type Loja = {
   id: string
@@ -24,6 +25,8 @@ type Loja = {
   verificada: boolean
   natureza?: string | null
   natureza_declarada?: string | null
+  cnpj?: string | null
+  razao_social?: string | null
   suspensao_motivo: string | null
   suspensao_data: string | null
   aprovada_data: string | null
@@ -792,6 +795,30 @@ function LojasView() {
                   </button>
                 )
               })}
+            </div>
+
+            {/* Quem vende (#470): o que a loja declarou. A consulta na Receita
+                e manual (tem captcha), por isso so o atalho. */}
+            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, display: 'block' }}>
+              Quem vende
+            </label>
+            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.65)', margin: '0 0 18px', lineHeight: 1.5 }}>
+              {aprovandoLoja.cnpj ? (
+                <>
+                  Empresa · <strong style={{ color: '#f0f0f0' }}>CNPJ {formatarCnpj(aprovandoLoja.cnpj)}</strong>
+                  <span style={{ display: 'block' }}>{aprovandoLoja.razao_social}</span>
+                  <a
+                    href="https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, color: '#f59e0b', fontWeight: 700 }}
+                  >
+                    Conferir na Receita
+                  </a>
+                </>
+              ) : (
+                <>Pessoa física: aparece com o nome e o CPF mascarado do dono.</>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
