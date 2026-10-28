@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { comissaoVendedorCents, acrescimoCompradorCents, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { resolverRecebedor, type Recebedor } from '@/lib/vendedorRecebimento'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 import { cotarFrete, pacoteDeCartas, pacoteDeProduto, type ItemFrete, type DimsProduto } from '@/lib/melhor-envio'
 
 /**
@@ -329,6 +330,8 @@ export async function POST(req: NextRequest) {
           plano,
           rating,
         },
+        // Quem vende (#470): CPF ja mascarado.
+        identificacao: await identificarVendedor(recebedor.lojaId, recebedor.ownerUserId),
         itens,
         ...conta,
         validos: undefined,

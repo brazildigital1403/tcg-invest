@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { normalizarNatureza } from '@/lib/naturezaLoja'
+import { validarDadosEmpresa } from '@/lib/vendedorIdentificado'
 
 /**
  * POST /api/lojas
@@ -44,6 +45,8 @@ const ALLOWED_FIELDS = new Set([
   // Declaracao de quem esta cadastrando. O valor publico (`natureza`) nasce
   // igual, mas quem manda nele depois e o admin, na aprovacao.
   'natureza_declarada',
+  // #470: quem vende. Validado em par logo abaixo (validarDadosEmpresa).
+  'cnpj', 'razao_social',
 ])
 
 const REQUIRED_FIELDS = ['nome', 'slug', 'cidade', 'estado', 'whatsapp', 'tipo', 'especialidades'] as const
@@ -114,6 +117,12 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(filteredBody.especialidades) || filteredBody.especialidades.length === 0) {
       return NextResponse.json({ error: 'Especialidades deve ser um array com ao menos 1 jogo' }, { status: 400 })
     }
+
+    // Quem vende (#470): CNPJ vazio = pessoa fisica; preenchido exige o par.
+    const empresa = validarDadosEmpresa(filteredBody.cnpj, filteredBody.razao_social)
+    if ('erro' in empresa) return NextResponse.json({ error: empresa.erro }, { status: 400 })
+    filteredBody.cnpj = empresa.cnpj
+    filteredBody.razao_social = empresa.razao_social
 
     // ─── Verifica unicidade do slug ───────────────────────
     // OBS: User pode ter múltiplas lojas. NÃO bloqueamos por owner_user_id.

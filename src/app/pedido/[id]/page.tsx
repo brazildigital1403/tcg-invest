@@ -12,6 +12,8 @@ import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, Ic
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { canceladoSemCobranca } from '@/lib/pedidoStatus'
+import VendidoPor from '@/components/ui/VendidoPor'
+import type { Identificacao } from '@/lib/vendedorIdentificado'
 
 /**
  * /pedido/[id] — acompanhamento do pedido.
@@ -125,6 +127,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   // ─── Pos-venda (avaliacao + recebimento) ──────────────────────────────
   const [meuId, setMeuId] = useState<string | null>(null)
   const [lojaNome, setLojaNome] = useState('')
+  const [vendedor, setVendedor] = useState<Identificacao | null>(null)
   const [jaAvaliou, setJaAvaliou] = useState<boolean | null>(null)
   const [estrelas, setEstrelas] = useState(0)
   const [hoverEstrela, setHoverEstrela] = useState(0)
@@ -177,6 +180,17 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     ;(async () => {
       const { data: auth } = await supabase.auth.getUser()
       if (active) setMeuId(auth.user?.id ?? null)
+
+      // Quem vende (#470). Pela rota porque o CPF esta em `users`; para o
+      // comprador de um pedido pago ele vem inteiro.
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (token) {
+        fetch(`/api/pedidos/${pedido.id}/vendedor`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => (r.ok ? r.json() : null))
+          .then(j => { if (active) setVendedor(j?.identificacao ?? null) })
+          .catch(() => { /* sem o bloco, o resto do pedido segue */ })
+      }
 
       // Pedido de pessoa fisica nao tem loja: a consulta nao roda, e a tela
       // cai no nome do vendedor que ja vem no proprio pedido.
@@ -499,6 +513,8 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
               </div>
             </div>
           )}
+
+          <VendidoPor ident={vendedor} separado nota="Dados de quem vende, para nota fiscal e reclamação." style={{ margin: '0 16px 16px', paddingTop: 12 }} />
         </div>
       </div>
 

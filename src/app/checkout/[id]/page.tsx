@@ -10,6 +10,8 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { calcularCheckout, fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { IconShield, IconCard, IconBolt, IconArrowRight, IconCheck, IconBox, IconPokeball, IconPlus, IconMinus } from '@/components/ui/Icons'
 import SeloVerificado from '@/components/ui/SeloVerificado'
+import VendidoPor from '@/components/ui/VendidoPor'
+import type { Identificacao } from '@/lib/vendedorIdentificado'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 
@@ -117,6 +119,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const [item, setItem] = useState<ItemInfo | null>(null)
   const [fotoIdx, setFotoIdx] = useState(0)
   const [loja, setLoja] = useState<LojaInfo | null>(null)
+  const [ident, setIdent] = useState<Identificacao | null>(null)
   const [metodo, setMetodo] = useState<MetodoPagamento>(PIX_DISPONIVEL ? 'pix' : 'cartao')
   // Quantidade so existe pra PRODUTO (carta e peca unica). O teto real e o
   // estoque; o servidor revalida e recusa se a loja vender no meio do caminho.
@@ -148,6 +151,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
       setItem(j.item)
       // `vendedor` e o campo novo (carta); `loja` e o da rota de produto.
       setLoja(j.vendedor ?? j.loja)
+      setIdent(j.identificacao ?? null)
     } catch (e) {
       setErro((e as Error).message)
     } finally {
@@ -414,6 +418,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
               </Link>
             )}
           </div>
+          <VendidoPor ident={ident} style={{ marginTop: 10 }} />
 
           <div style={{ marginTop: 18 }}>
             <div style={S.howTit}>Como funciona sua compra</div>

@@ -18,6 +18,8 @@ import { buscarItensDaVitrine } from '@/lib/vitrineLoja'
 import ReputacaoCard from '@/components/ui/ReputacaoCard'
 import { IconLocation, IconInstagram, IconFacebook, IconGlobe, IconWhatsApp, IconPokeball,
   IconTikTok, IconYouTube, IconX, IconDiscord } from '@/components/ui/Icons'
+import VendidoPor from '@/components/ui/VendidoPor'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -370,10 +372,11 @@ export default async function LojaPage(
   // Em paralelo, nao em serie: a pagina e `force-dynamic`, entao cada await
   // sequencial soma no tempo de resposta de TODA visita. A vitrine entrou aqui
   // (antes era buscada no browser) e nao custou uma ida a mais.
-  const [eventos, rating, itensVitrine] = await Promise.all([
+  const [eventos, rating, itensVitrine, vendedor] = await Promise.all([
     buscarEventos(loja.id),
     buscarRating(loja.owner_user_id),
     buscarItensDaVitrine(loja.owner_user_id, loja.id),
+    identificarVendedor(loja.id, loja.owner_user_id),
   ])
   const cidade         = loja.cidade || ''
   const estado         = loja.estado || ''
@@ -635,6 +638,9 @@ export default async function LojaPage(
 
         {/* Anuncios do dono (marketplace) */}
         <AnunciosLoja ownerUserId={loja.owner_user_id} itens={itensVitrine} podeVender={!!loja.connect_charges_enabled} />
+
+        {/* Quem vende (#470): razao social e CNPJ, ou nome e CPF mascarado. */}
+        <VendidoPor ident={vendedor} style={{ marginTop: 16 }} />
 
         {temAvaliacoes && (
           <div id="avaliacoes" style={S.scrollAnchor}>
