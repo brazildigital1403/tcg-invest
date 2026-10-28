@@ -68,7 +68,11 @@ function pushConsentUpdate(granted: boolean) {
 // volta em qualquer outra rota do site.
 // 23/10/2026: idem na landing de criadores (/criadores), que pode ser filmada
 // pelo criador e tem a mesma barra fixa de CTA no celular.
-const ROTAS_SEM_BANNER = new Set<string>([...Object.values(OFERTAS_EVENTO).map(o => o.landing), '/criadores'])
+// Oferta sem landing propria (modal de Halloween) aponta para /planos: essa nao esconde o aviso.
+const ROTAS_SEM_BANNER = new Set<string>([
+  ...Object.values(OFERTAS_EVENTO).filter(o => !('semLanding' in o && o.semLanding)).map(o => o.landing),
+  '/criadores',
+])
 
 export default function CookieBanner() {
   const pathname = usePathname()

@@ -41,6 +41,14 @@ export interface OfertaEvento {
   planos: readonly PlanoOferta[]
   /** Como a oferta fecha, em texto, para modal e e-mail de confirmacao. */
   fechaTexto: string
+  /** Artigo antes do eventoCurto nas mensagens ("oferta do Halloween"). Padrao: 'da'. */
+  artigo?: 'do' | 'da'
+  /**
+   * Oferta sem landing propria (o modal de Halloween abre dentro do app): a
+   * `landing` e so a volta do checkout cancelado, e o aviso de cookies nao some
+   * dela.
+   */
+  semLanding?: boolean
 }
 
 export const OFERTAS_EVENTO = {
@@ -72,6 +80,25 @@ export const OFERTAS_EVENTO = {
     planos: ['anual', 'mensal', 'plus'],
     fechaTexto: 'domingo, 18/10, às 23h59',
   },
+  // Modal de Halloween dentro do app (27/10/2026), so para conta Gratis que
+  // nunca pagou. Quem ve e quando: src/components/ui/OfertaHalloweenModal.tsx.
+  // inicioContasISO = fimISO: ninguem perde o trial por abrir o checkout.
+  halloween: {
+    id: 'halloween',
+    codigo: 'HALLOWEEN50',
+    evento: 'Halloween na Bynx',
+    eventoCurto: 'Halloween',
+    local: 'bynx.gg',
+    cidade: '',
+    landing: '/planos',
+    fimISO: '2026-10-31T23:59:59-03:00',
+    inicioContasISO: '2026-10-31T23:59:59-03:00',
+    descontoPct: 50,
+    planos: ['anual'],
+    fechaTexto: 'sábado, 31/10, às 23h59',
+    artigo: 'do',
+    semLanding: true,
+  },
 } as const satisfies Record<string, OfertaEvento>
 
 export type OfertaEventoId = keyof typeof OFERTAS_EVENTO
@@ -82,6 +109,11 @@ export function ehOfertaEvento(v: unknown): v is OfertaEventoId {
 
 export function ofertaEvento(id: OfertaEventoId): OfertaEvento {
   return OFERTAS_EVENTO[id]
+}
+
+/** "da Poke Fan Fest" / "do Halloween". */
+export function deOferta(o: OfertaEvento): string {
+  return `${o.artigo ?? 'da'} ${o.eventoCurto}`
 }
 
 export function ofertaEventoAtiva(id: OfertaEventoId, agora: number = Date.now()): boolean {

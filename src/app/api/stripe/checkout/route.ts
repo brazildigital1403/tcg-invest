@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { ehOfertaEvento, ofertaEvento, ofertaEventoAtiva, ehPlanoDaOferta } from '@/lib/ofertasEvento'
+import { ehOfertaEvento, ofertaEvento, ofertaEventoAtiva, ehPlanoDaOferta, deOferta } from '@/lib/ofertasEvento'
 import { OFERTA_PRESENTE, ehPlanoPresente, ofertaPresenteAtiva } from '@/lib/ofertaPresente'
 import { buscarConvite, carimbarConvite } from '@/lib/campanhaConvites'
 import { fimDoGratisLoja } from '@/lib/planoLoja'
@@ -382,17 +382,17 @@ export async function POST(req: NextRequest) {
     if (ehOfertaEvento(oferta)) {
       const ofe = ofertaEvento(oferta)
       if (!ehPlanoDaOferta(oferta, plano)) {
-        return NextResponse.json({ error: `A oferta da ${ofe.eventoCurto} não vale para este plano.` }, { status: 400 })
+        return NextResponse.json({ error: `A oferta ${deOferta(ofe)} não vale para este plano.` }, { status: 400 })
       }
       if (!ofertaEventoAtiva(oferta)) {
-        return NextResponse.json({ error: `A oferta da ${ofe.eventoCurto} encerrou.`, code: 'OFERTA_ENCERRADA' }, { status: 410 })
+        return NextResponse.json({ error: `A oferta ${deOferta(ofe)} encerrou.`, code: 'OFERTA_ENCERRADA' }, { status: 410 })
       }
 
       const promos = await stripe.promotionCodes.list({ code: ofe.codigo, active: true, limit: 1 })
       const promo = promos.data[0]
       if (!promo) {
         console.warn(`[stripe/checkout] promotion code ${ofe.codigo} inativo ou inexistente`)
-        return NextResponse.json({ error: `A oferta da ${ofe.eventoCurto} encerrou.`, code: 'OFERTA_ENCERRADA' }, { status: 410 })
+        return NextResponse.json({ error: `A oferta ${deOferta(ofe)} encerrou.`, code: 'OFERTA_ENCERRADA' }, { status: 410 })
       }
 
       let ofertaSession: Stripe.Checkout.Session
@@ -412,7 +412,7 @@ export async function POST(req: NextRequest) {
         // Restricao do promotion code (primeiro pedido / valor minimo) recusada pela Stripe.
         console.warn(`[stripe/checkout] oferta ${ofe.id} recusada para ${userId}: ${err?.message}`)
         return NextResponse.json({
-          error: `O desconto da ${ofe.eventoCurto} vale só para a primeira assinatura da conta.`,
+          error: `O desconto ${deOferta(ofe)} vale só para a primeira assinatura da conta.`,
           code: 'OFERTA_INELEGIVEL',
         }, { status: 409 })
       }

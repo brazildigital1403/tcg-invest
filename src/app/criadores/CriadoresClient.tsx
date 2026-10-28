@@ -23,19 +23,18 @@ import { SENHA_REGRA_MSG } from '@/lib/senha'
 import { APRESENTACAO_PARCERIA } from '@/lib/parceriaMaterial'
 import {
   IconCalendar, IconCheck, IconChevronDown, IconClock, IconClose, IconInstagram, IconLink, IconAccount, IconCollection,
-  IconCard, IconShare, IconDownload,
+  IconCard, IconShare, IconDownload, IconChart, IconPokeball,
 } from '@/components/ui/Icons'
 
 const IMG = 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/'
 
-// Leque do hero: 4 cartas em volta da slab do centro.
-const LEQUE = [
-  { nome: 'Umbreon ex', img: `${IMG}30C-Umbreon-ex-092.jpg` },
-  { nome: 'Zorua de Hisui', img: `${IMG}30C-Hisuian-Zorua-145.jpg` },
-  { nome: 'Drifloon', img: `${IMG}30C-Drifloon-136.jpg` },
-  { nome: 'Sylveon ex', img: `${IMG}30C-Sylveon-ex-071.jpg` },
-]
-const SLAB_HERO = { nome: 'Mew ex', img: `${IMG}30C-Mew-ex-158.jpg` }
+// Hero (26/10/2026): o trio do Base Set, com o Charizard numa slab PSA 10.
+// Imagens do catalogo (as mesmas da pagina da carta), via next/image.
+const TRIO = {
+  pikachu: 'https://images.pokemontcg.io/base1/58_hires.png',
+  mewtwo: 'https://images.pokemontcg.io/base1/10_hires.png',
+  charizard: 'https://images.pokemontcg.io/base1/4_hires.png',
+}
 const SLAB_BGS = { nome: 'Jirachi ex', img: `${IMG}30C-Jirachi-ex-102.jpg` }
 const SLAB_PSA = { nome: 'Pikachu', img: `${IMG}30C-Pikachu-036.jpg` }
 const MINIS = [`${IMG}30C-Lapras-131.jpg`, `${IMG}30C-Espeon-ex-070.jpg`, `${IMG}30C-Greninja-ex-021.jpg`]
@@ -49,6 +48,17 @@ const PROVA: Post[] = [
   { autor: '@oinstadodelimas', titulo: 'Pikachus de 30 anos para fechar o Master Set', capa: `${CAPA_POST}Det6WBgxp6o.jpg`, href: 'https://www.instagram.com/p/Det6WBgxp6o/' },
   { autor: '@poke.fatos', titulo: 'Quanto vale a sua coleção de cartas Pokémon?', capa: `${CAPA_POST}Deb-fJ7Rh2S.jpg`, href: 'https://www.instagram.com/p/Deb-fJ7Rh2S/' },
   { autor: '@weslleyverso', titulo: 'A coleção cadastrada, com o valor em reais', capa: `${CAPA_POST}DdUEqnjuE10.jpg`, href: 'https://www.instagram.com/p/DdUEqnjuE10/' },
+]
+
+// Contrapartida em 3 passos (perfil -> conteudo -> comunidade). A arte e
+// carta real do storage, a mesma regra do resto da pagina.
+const CONTRAPARTIDA = [
+  { titulo: 'Ative seu perfil', carta: 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/MEP-Bulbasaur.jpg',
+    texto: 'Organize e mostre o que faz sentido para você: sets, Master Sets, slabs ou a coleção inteira.' },
+  { titulo: 'Compartilhe sua experiência', carta: `${IMG}30C-Pikachu-037.jpg`,
+    texto: 'Mostre uma carta, uma meta, uma pasta ou uma descoberta real. Sem roteiro pronto.' },
+  { titulo: 'Leve para a comunidade', carta: `${IMG}30C-Eevee-116.jpg`,
+    texto: 'Seu cupom dá 20% de desconto na primeira cobrança. Indicações válidas podem gerar comissão para você.' },
 ]
 
 type Estado = 'carregando' | 'ativo' | 'encerrado' | 'invalido'
@@ -79,17 +89,19 @@ function linhaPrazo(expiraEm: string): { texto: string; urgente: boolean } {
     const dia = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d)
     return { texto: `Termina ${dia(fim) === dia(new Date()) ? 'hoje' : 'amanhã'} às ${hora}`, urgente: true }
   }
-  return { texto: `Até ${dataCurta(expiraEm)}, ${hora}`, urgente: false }
+  return { texto: `Até ${dataCurta(expiraEm)}, às ${hora}, ou enquanto durarem os convites.`, urgente: false }
 }
 
 function fraseFechamento(restantes: number | null, vagas: number | null, expiraEm: string | null): string {
-  if (restantes === null || !vagas || !expiraEm) return 'Sem cartão. Sem cobrança no fim.'
-  if (restantes === 1) return `Última vaga para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
-  if (restantes <= 20) return `Restam ${restantes} vagas para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
-  return `${restantes} vagas disponíveis para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
+  const fim = 'Sem cartão e sem cobrança automática no fim.'
+  if (restantes === null || !vagas || !expiraEm) return fim
+  const ate = `até ${dataCurta(expiraEm)}. ${fim}`
+  if (restantes === 1) return `Último convite para creators de Pokémon TCG, ${ate}`
+  if (restantes <= 20) return `Restam ${restantes} de ${vagas} convites para creators de Pokémon TCG, ${ate}`
+  return `${restantes} convites disponíveis para creators de Pokémon TCG, ${ate}`
 }
 
-/** Bloco do hero: numero, regua de vagas e prazo. */
+/** Bloco do hero: numero, regua de convites e prazo. */
 function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & { carregando: boolean }) {
   const prazo = expiraEm ? linhaPrazo(expiraEm) : null
   if (restantes === null || !vagas) {
@@ -102,10 +114,10 @@ function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & 
   return (
     <div className={`cr-ct ${f}${prazo?.urgente ? ' cr-ct-urg' : ''}`}>
       <p className="cr-ct-l" aria-live="polite">
-        {restantes === 1 ? <span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>Última vaga</span>
-          : restantes <= 10 ? <><span className="cr-ct-pre">Últimas</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas</span></>
-          : restantes <= 20 ? <><span className="cr-ct-pre">Restam</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas</span></>
-          : <><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas disponíveis</span></>}
+        {restantes === 1 ? <span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>Último convite</span>
+          : restantes <= 10 ? <><span className="cr-ct-pre">Últimos</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">convites</span></>
+          : restantes <= 20 ? <><span className="cr-ct-pre">Restam</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">de {vagas} convites</span></>
+          : <><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">convites disponíveis</span></>}
       </p>
       {vagas <= 60 ? (
         <div className="cr-ct-regua" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${vagas}, minmax(0, 1fr))` }}>
@@ -116,7 +128,7 @@ function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & 
       )}
       {prazo && <p className="cr-ct-p"><IconClock size={14} />{prazo.texto}</p>}
       {restantes <= 10 && (
-        <p className="cr-ct-av"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Esta é a última vaga do convite.' : `Restam ${restantes} vagas. O convite fecha quando acabarem.`}</p>
+        <p className="cr-ct-av"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Este é o último convite do programa.' : `Restam ${restantes} convites. O programa fecha quando acabarem.`}</p>
       )}
     </div>
   )
@@ -128,10 +140,10 @@ function ContadorCurto({ restantes, vagas, expiraEm, classe }: VagasCtx & { clas
   const f = faixa(restantes)
   return (
     <p className={`${classe} ${f}`}>
-      {restantes === 1 ? <b>Última vaga</b>
-        : restantes <= 10 ? <>Últimas <b>{restantes}</b> vagas</>
-        : restantes <= 20 ? <>Restam <b>{restantes}</b> vagas{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>
-        : <><b>{restantes}</b> vagas disponíveis{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>}
+      {restantes === 1 ? <b>Último convite</b>
+        : restantes <= 10 ? <>Últimos <b>{restantes}</b> convites</>
+        : restantes <= 20 ? <>Restam <b>{restantes}</b> de {vagas} convites</>
+        : <><b>{restantes}</b> convites disponíveis{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>}
     </p>
   )
 }
@@ -284,18 +296,16 @@ export default function CriadoresClient() {
         <section className="cr-sec cr-hero bx-gutter">
           <div className="cr-in">
             <p className="cr-eyebrow">Convite para criadores de Pokémon TCG</p>
-            <h1 className="cr-h1">Sua coleção já faz parte do seu conteúdo. <em>Agora ela trabalha a seu favor.</em></h1>
-            <p className="cr-p">Ganhe 1 ano de Bynx Pro para organizar sua coleção, mostrar suas cartas em um perfil público e oferecer desconto para quem acompanha você.</p>
+            <h1 className="cr-h1"><span className="cr-lockup">Creator <b>Bynx</b></span><span className="cr-bene">Sua coleção já faz parte do seu conteúdo. <em>Agora ela trabalha a seu favor.</em></span></h1>
+            <p className="cr-p cr-hero-sub">Ganhe 1 ano de Bynx Pro para organizar sua coleção, mostrar suas cartas em um perfil público e criar conteúdos melhores para a sua comunidade.</p>
 
-            <figure className="cr-fan" aria-hidden="true">
-              {LEQUE.map((c, i) => (
-                <div key={c.nome} className={`cr-fan-c cr-fan-${i}`}>
-                  <Image src={c.img} alt="" width={160} height={224} sizes="(min-width:1024px) 160px, (min-width:768px) 118px, 92px" />
-                </div>
-              ))}
-              <div className="cr-fan-slab">
-                <SlabArte graduadora="bgs" nota={10} blackLabel img={SLAB_HERO.img} nome={SLAB_HERO.nome} sizes="(min-width:1024px) 260px, (min-width:768px) 190px, 150px" priority altVazio />
+            <figure className="cr-trio" aria-hidden="true">
+              <div className="cr-trio-c cr-trio-l"><Image src={TRIO.pikachu} alt="" width={245} height={342} sizes="(min-width:1024px) 190px, (min-width:768px) 130px, 104px" /></div>
+              <div className="cr-trio-c cr-trio-r"><Image src={TRIO.mewtwo} alt="" width={245} height={342} sizes="(min-width:1024px) 190px, (min-width:768px) 130px, 104px" /></div>
+              <div className="cr-trio-slab">
+                <SlabArte graduadora="psa" nota={10} img={TRIO.charizard} nome="Charizard" sizes="(min-width:1024px) 250px, (min-width:768px) 180px, 140px" priority altVazio />
               </div>
+              <span className="cr-trio-tag"><b>sua coleção,</b> sua voz</span>
             </figure>
 
             <ul className="cr-oferta">
@@ -315,8 +325,40 @@ export default function CriadoresClient() {
           <div className="cr-in">
             <p className="cr-eyebrow">Parceria</p>
             <h2 className="cr-h2">Sua comunidade ganha. Você também.</h2>
-            <p className="cr-p">Quem segue você assina com desconto, e cada assinatura pelo seu cupom vira comissão para você.</p>
+            <p className="cr-p">Quem acompanha você ganha desconto para conhecer a Bynx, enquanto você recebe comissão pelas indicações válidas feitas com o seu cupom.</p>
             <Parceria logado={logado} onPrecisaConta={() => setFolha(true)} />
+          </div>
+        </section>
+
+        {/* 2b. Contrapartida do Bynx Creator 100. Versao enxuta (25/10/2026,
+            revisao de texto do Du): o beneficio primeiro, o combinado uma vez so,
+            3 passos curtos e o exemplo escondido num acordeao. */}
+        <section className="cr-sec cr-s-ctr bx-gutter">
+          <div className="cr-in">
+            <div className="cr-ctr-intro">
+              <p className="cr-eyebrow">Contrapartida · Bynx Creator 100</p>
+              <h2 className="cr-h2">Sua coleção. Seu conteúdo. <em>Seu jeito.</em></h2>
+              <p className="cr-p">Você recebe 1 ano de Bynx Pro para usar na sua coleção.</p>
+              <p className="cr-ctr-combinado"><IconPokeball size={18} color="var(--ac-1)" /><span>O combinado é simples: <b>1 conteúdo público por mês já basta.</b> Post, Reel, Short, TikTok, carrossel ou até 3 Stories.</span></p>
+            </div>
+            <div className="cr-ctr-passos">
+              {CONTRAPARTIDA.map((c, i) => (
+                <article key={c.titulo} className={`cr-ctr-passo cr-ctr-p${i + 1}`}>
+                  <div className="cr-ctr-arte" aria-hidden="true">
+                    <Image src={c.carta} alt="" width={245} height={342} sizes="(min-width:1024px) 150px, 104px" />
+                  </div>
+                  <span className="cr-ctr-n">{String(i + 1).padStart(2, '0')}</span>
+                  <h3>{c.titulo}</h3>
+                  <p>{c.texto}</p>
+                </article>
+              ))}
+            </div>
+            <p className="cr-ctr-fecho">Sem roteiro pronto. Só a sua coleção.</p>
+            <details className="cr-ctr-exemplo">
+              <summary>Ver exemplo de conteúdo<IconChevronDown size={16} /></summary>
+              <p className="cr-sug-n">Exemplo, não obrigação.</p>
+              <p className="cr-sug-t">“Minha coleção agora está organizada na Bynx. Dá para acompanhar minhas cartas, Master Sets, slabs e o valor estimado do acervo. Quem usar o meu cupom ganha 20% de desconto na primeira cobrança.”</p>
+            </details>
           </div>
         </section>
 
@@ -411,17 +453,23 @@ export default function CriadoresClient() {
           <div className="cr-in">
             <p className="cr-eyebrow">Como funciona</p>
             <ol className="cr-steps">
-              <li><span className="cr-node"><IconAccount size={16} color="var(--ac-1)" /></span><div><b>Cadastre</b><span>Seu nome, e-mail e uma senha.</span></div></li>
-              <li><span className="cr-node"><IconCheck size={16} color="var(--ac-1)" /></span><div><b>Ative</b><span>O ano de Pro é liberado na hora, sem esperar e-mail.</span></div></li>
-              <li><span className="cr-node"><IconCard size={16} color="var(--ac-1)" /></span><div><b>Monte</b><span>Adicione a primeira carta e publique o perfil.</span></div></li>
+              <li><span className="cr-node"><IconAccount size={16} color="var(--ac-1)" /></span><div><b>Cadastre</b><span>Seu nome, e-mail e senha.</span></div></li>
+              <li><span className="cr-node"><IconCheck size={16} color="var(--ac-1)" /></span><div><b>Ative</b><span>Seu ano de Bynx Pro, na hora.</span></div></li>
+              <li><span className="cr-node"><IconCard size={16} color="var(--ac-1)" /></span><div><b>Monte</b><span>Crie seu perfil público e adicione sua coleção.</span></div></li>
+              <li><span className="cr-node"><IconInstagram size={16} color="var(--ac-1)" /></span><div><b>Compartilhe</b><span>Sua experiência com a Bynx.</span></div></li>
+              <li><span className="cr-node"><IconChart size={16} color="var(--ac-1)" /></span><div><b>Acompanhe</b><span>Suas indicações e comissões na Central do Parceiro.</span></div></li>
             </ol>
             <div className="cr-faq">
               <Pergunta q="Preciso de cartão?" a="Não. Nada é cobrado, nem no fim do ano." aberta />
               <Pergunta q="E depois de 12 meses?" a="Sua conta passa para o plano Grátis. As cartas continuam salvas, mas recursos do Pro, como scan, Master Sets e pastas extras, ficam bloqueados até você assinar. Avisamos antes." />
               <Pergunta q="Já tenho conta." a="Toque em Já tenho conta, no topo da página. Depois de entrar, o botão Liberar meu 1 ano grátis aplica o ano na sua conta." />
               <Pergunta q="De onde vem o valor das cartas?" a="Do Mercado Brasileiro: preço em R$ de quem vende carta no Brasil, não dólar convertido. É uma estimativa de mercado para você acompanhar a coleção, não uma avaliação oficial nem garantia de venda." />
-              <Pergunta q="Posso falar da Bynx no meu conteúdo?" a="Pode e queremos. Se quiser ganhar com isso, peça a Parceria lá no começo da página." />
-              {expiraEm && <Pergunta q="O convite tem prazo?" a={`Sim. Ele vale até ${dataBR(expiraEm)} ou até as vagas acabarem.`} />}
+              <Pergunta q="O que preciso publicar, e com que frequência?" a="1 conteúdo público por mês sobre a sua experiência com a Bynx já basta. Pode ser post, Reel, Short, TikTok, carrossel ou até 3 Stories em sequência. Não precisa publicar todo dia." />
+              <Pergunta q="Preciso seguir um roteiro?" a="Não. Você pode falar da Bynx com a sua própria linguagem. O importante é mostrar uma experiência real com a plataforma." />
+              <Pergunta q="Preciso mostrar o valor total da minha coleção?" a="Não. Você decide quais informações da sua coleção ficam públicas." />
+              <Pergunta q="Preciso ter muitos seguidores?" a="Não. A Bynx valoriza afinidade com Pokémon TCG, qualidade do conteúdo e relação com a comunidade." />
+              <Pergunta q="Como funciona a comissão?" a="Você recebe 100% da primeira cobrança de cada indicação, limitado a R$ 100, mais 20% das 11 renovações mensais seguintes: até 12 cobranças pagas no total. As comissões valem para pagamentos aprovados e não estornados." />
+              {expiraEm && <Pergunta q="O convite tem prazo?" a={`Sim. Ele vale até ${dataBR(expiraEm)}, às 23h59, ou enquanto durarem os convites.`} />}
             </div>
           </div>
         </section>
@@ -532,9 +580,10 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
     <div className="cr-partner">
       <ul>
         <li><IconCheck size={18} color="var(--bx-green)" /><span>Seus seguidores têm <b>20% de desconto</b> na primeira cobrança com o seu cupom.</span></li>
-        <li><IconCheck size={18} color="var(--bx-green)" /><span>Você recebe <b>100% da primeira cobrança</b>, até R$ 100.</span></li>
-        <li><IconCheck size={18} color="var(--bx-green)" /><span>E <b>20% de cada renovação mensal</b>, por até 12 meses.</span></li>
+        <li><IconCheck size={18} color="var(--bx-green)" /><span>Você recebe <b>100% da primeira cobrança</b> de cada indicação, limitado a R$ 100.</span></li>
+        <li><IconCheck size={18} color="var(--bx-green)" /><span>Você recebe <b>20% das 11 renovações mensais</b> seguintes.</span></li>
       </ul>
+      <p className="cr-partner-nota">Até 12 cobranças pagas no total por indicação: a primeira mais 11 renovações.</p>
       <div className="cr-coupon">SEUNOME20 <small>seu cupom sai com o seu @</small></div>
       <form onSubmit={pedir} className="cr-partner-form">
           {logado && (
@@ -544,7 +593,7 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
             </label>
           )}
           {erro && <p className="cr-erro" role="alert">{erro}</p>}
-          <button type="submit" className="cr-outline" disabled={enviando}>{enviando ? 'Enviando...' : 'Quero ser parceiro da Bynx'}</button>
+          <button type="submit" className="cr-outline" disabled={enviando}>{enviando ? 'Enviando...' : 'Quero ser Creator Bynx'}</button>
           {!logado && <p className="cr-micro">Primeiro ative o seu ano de Pro. A parceria vem logo depois.</p>}
           <a className="cr-doclink" href={APRESENTACAO_PARCERIA.url} target="_blank" rel="noopener noreferrer">
             <IconDownload size={14} />Ver a apresentação completa (PDF, {APRESENTACAO_PARCERIA.tamanho})
@@ -626,12 +675,12 @@ function FolhaCadastro({ codigo, restantes, onFechar, onJaTemConta, onEncerrado,
         <h2 id="cr-sheet-t" className="cr-h2">Seu ano de Pro começa aqui</h2>
         {esgotou ? (
           <div className="cr-esgotou" role="alert">
-            <b>As vagas acabaram enquanto você preenchia.</b>
+            <b>Os convites acabaram enquanto você preenchia.</b>
             <p>Seus dados continuam aqui. Você pode criar a conta no plano Grátis.</p>
             <Link href="/planos" className="cr-outline">Conhecer o plano Grátis</Link>
           </div>
         ) : restantes !== null && restantes > 0 && restantes <= 10 && (
-          <p className="cr-ct-folha"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Resta 1 vaga' : `Restam ${restantes} vagas`}</p>
+          <p className="cr-ct-folha"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Resta 1 convite' : `Restam ${restantes} convites`}</p>
         )}
         <form onSubmit={enviar} noValidate>
           <label className="cr-field">
@@ -705,7 +754,7 @@ function TelaSucesso({ sucesso }: { sucesso: Sucesso }) {
 
 function TelaEncerrado({ invalido, motivo, vagas }: { invalido: boolean; motivo: Motivo; vagas: number | null }) {
   const titulo = invalido ? 'Este link de convite não existe.'
-    : motivo === 'vagas' ? (vagas ? `As ${vagas} vagas deste convite acabaram.` : 'As vagas deste convite acabaram.')
+    : motivo === 'vagas' ? (vagas ? `Os ${vagas} convites deste programa acabaram.` : 'Os convites deste programa acabaram.')
     : motivo === 'prazo' ? 'O prazo deste convite terminou.'
     : 'Este convite encerrou.'
   return (
@@ -724,7 +773,9 @@ function TelaEncerrado({ invalido, motivo, vagas }: { invalido: boolean; motivo:
 }
 
 const CSS = `
-.cr{min-height:100vh;background:var(--bx-bg);color:var(--bx-text);padding-bottom:96px}
+/* O body do site e Arial: cada pagina aplica a DM Sans na propria raiz (a home
+   no .hm-root, o app no AppLayout). Sem isto a landing saiu em Arial de 23 a 26/10. */
+.cr{min-height:100vh;background:var(--bx-bg);color:var(--bx-text);padding-bottom:96px;font-family:var(--font-dm-sans),'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .cr-in{max-width:560px;margin:0 auto}
 .cr-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;height:56px;background:color-mix(in srgb,var(--bx-bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--bx-border)}
 .cr-logo-a{display:flex;align-items:center;min-height:44px}
@@ -748,6 +799,28 @@ const CSS = `
 .cr-outline:hover{background:rgba(var(--ac-1-rgb),.08)}
 .cr-micro{text-align:center;font-size:12.5px;color:var(--bx-text-3);margin:8px 0 0}
 .cr-erro{font-size:13px;color:var(--bx-red);margin:12px 0 0}
+.cr-lockup{display:block;font-size:50px;line-height:.86;letter-spacing:-.05em}
+.cr-lockup b{display:block;font-weight:800;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cr-bene{display:block;margin-top:12px;font-size:20px;line-height:1.16;letter-spacing:-.02em;text-wrap:balance}
+.cr-hero .cr-in{display:flex;flex-direction:column}
+.cr-hero .cr-eyebrow{align-self:flex-start}
+.cr-hero .cr-chip-wrap{align-self:center}
+.cr-hero-sub{order:20;margin-top:16px}
+.cr-trio{position:relative;height:228px;margin:10px -16px 0;background:radial-gradient(55% 60% at 50% 50%,rgba(var(--ac-2-rgb),.22),rgba(var(--ac-1-rgb),.06) 50%,transparent 72%)}
+.cr-trio::before{content:"";position:absolute;left:50%;top:50%;width:300px;height:300px;border-radius:50%;border:1px solid rgba(var(--ac-1-rgb),.18);transform:translate(-50%,-50%) rotate(-18deg) scaleY(.8)}
+.cr-trio-c{position:absolute;width:104px;border-radius:7px;overflow:hidden;line-height:0;box-shadow:0 18px 34px rgba(0,0,0,.55);transition:transform .2s ease}
+.cr-trio-c img{display:block;width:100%;height:auto}
+.cr-trio-l{left:6%;top:24%;transform:rotate(-14deg)}
+.cr-trio-r{right:5%;top:12%;transform:rotate(13deg)}
+.cr-trio-slab{position:absolute;left:50%;top:3%;width:140px;transform:translateX(-46%) rotate(-5deg);z-index:2;transition:transform .2s ease}
+.cr-trio-slab .sa{padding:6px;border-radius:11px}
+.cr-trio-slab .sa-lab{padding:4px 7px;min-height:34px;margin-bottom:5px}
+.cr-trio-slab .sa-sig{font-size:11px}
+.cr-trio-slab .sa-nome{font-size:7.5px;max-width:none}
+.cr-trio-slab .sa-nota{font-size:18px}
+.cr-trio-slab .sa-tier{font-size:6.5px}
+.cr-trio-slab .sa-win{padding:4px}
+.cr-trio-tag{display:none}
 .cr-band{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px 14px;border-radius:12px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.28);font-size:13px;font-weight:600}
 .cr-band svg{flex:none;margin-top:1px}
 .cr-chip-wrap{text-align:center;margin-top:14px}
@@ -791,14 +864,6 @@ const CSS = `
 .cr-esgotou .cr-outline{margin-top:12px}
 .cr-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);font-size:12px;font-weight:700;color:var(--bx-text-2);text-decoration:none}
 
-.cr-fan{position:relative;height:262px;margin:22px 0 0;background:radial-gradient(55% 60% at 50% 55%,rgba(var(--ac-1-rgb),0.16),transparent 70%)}
-.cr-fan-c{position:absolute;top:70px;left:50%;width:92px;border-radius:6px;overflow:hidden;box-shadow:0 12px 28px rgba(0,0,0,.55);line-height:0}
-.cr-fan-c img{display:block;width:100%;height:auto}
-.cr-fan-0{transform:translateX(calc(-50% - 118px)) translateY(22px) rotate(-12deg);z-index:1}
-.cr-fan-1{transform:translateX(calc(-50% - 66px)) translateY(6px) rotate(-6deg);z-index:2}
-.cr-fan-2{transform:translateX(calc(-50% + 66px)) translateY(6px) rotate(6deg);z-index:2}
-.cr-fan-3{transform:translateX(calc(-50% + 118px)) translateY(22px) rotate(12deg);z-index:1}
-.cr-fan-slab{position:absolute;left:50%;top:0;width:150px;transform:translateX(-50%);z-index:3}
 
 .cr-feat{display:flex;flex-direction:column;gap:24px;margin-top:22px}
 .cr-feat h3{font-size:16px;font-weight:800;margin:0}
@@ -846,6 +911,38 @@ const CSS = `
 .cr-partner ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .cr-partner li{display:flex;gap:10px;font-size:14px;color:var(--bx-text-2)}
 .cr-partner li svg{flex:none;margin-top:1px}
+.cr-partner li{padding:12px;border-radius:10px;background:var(--bx-surface);border:1px solid var(--bx-border);align-items:flex-start;line-height:1.45}
+.cr-partner-nota{margin:10px 0 0;font-size:12.5px;color:var(--bx-text-3)}
+.cr-ctr-intro .cr-h2 em{font-style:normal;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cr-ctr-intro{max-width:720px}
+.cr-ctr-combinado{display:flex;align-items:flex-start;gap:10px;margin:14px 0 0;padding:14px 16px;border-radius:12px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.3);font-size:14.5px;line-height:1.5;color:var(--bx-text-2)}
+.cr-ctr-combinado svg{flex:none;margin-top:2px}
+.cr-ctr-combinado b{color:var(--bx-text);font-weight:800}
+.cr-ctr-fecho{margin:18px 0 0;text-align:center;font-size:15px;font-weight:800;color:var(--bx-text)}
+.cr-ctr-exemplo{margin-top:12px;border-top:1px solid var(--bx-border);border-bottom:1px solid var(--bx-border)}
+.cr-ctr-exemplo summary{list-style:none;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:700;color:var(--bx-text-2);cursor:pointer}
+.cr-ctr-exemplo summary::-webkit-details-marker{display:none}
+.cr-ctr-exemplo summary svg{transition:transform .2s ease;color:var(--bx-text-3)}
+.cr-ctr-exemplo[open] summary svg{transform:rotate(180deg)}
+.cr-ctr-exemplo .cr-sug-n{margin:0}
+.cr-ctr-exemplo .cr-sug-t{margin:6px 0 14px}
+.cr-ctr-passos{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:22px;position:relative}
+.cr-ctr-passo{--tint:var(--ac-1-rgb);position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;justify-content:flex-end;min-height:400px;padding:22px;border-radius:18px;border:1px solid var(--bx-border);background:linear-gradient(160deg,var(--bx-surface-3),var(--bx-surface));transition:transform .2s ease,border-color .2s ease}
+.cr-ctr-p2{--tint:var(--ac-2-rgb)}
+.cr-ctr-passo::before{content:"";position:absolute;z-index:-1;top:-90px;right:-90px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(var(--tint),.22),transparent 70%)}
+.cr-ctr-passo:hover{transform:translateY(-2px);border-color:rgba(var(--tint),.4)}
+.cr-ctr-arte{position:absolute;z-index:-1;top:18px;left:0;right:0;height:210px;display:grid;place-items:center}
+.cr-ctr-arte::before,.cr-ctr-arte::after{content:"";position:absolute;border-radius:12px;border:1px solid rgba(var(--tint),.45);background:rgba(var(--tint),.10)}
+.cr-ctr-arte::before{width:70px;height:96px;transform:translate(-92px,22px) rotate(-12deg)}
+.cr-ctr-arte::after{width:58px;height:80px;transform:translate(96px,-4px) rotate(14deg);opacity:.7}
+.cr-ctr-arte img{position:relative;width:128px;height:auto;border-radius:8px;transform:rotate(-4deg);box-shadow:0 18px 34px rgba(0,0,0,.5);transition:transform .2s ease}
+.cr-ctr-passo:hover .cr-ctr-arte img{transform:rotate(0) translateY(-4px)}
+.cr-ctr-n{display:grid;place-items:center;width:36px;height:36px;margin-bottom:14px;border-radius:50%;border:1px solid rgba(var(--tint),.6);background:rgba(var(--tint),.14);color:var(--bx-text);font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.cr-ctr-passo h3{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1.08;margin:0}
+.cr-ctr-passo p{font-size:14px;color:var(--bx-text-2);margin:8px 0 0}
+.cr-sug-k{margin:0;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ac-1)}
+.cr-sug-t{margin:8px 0 0;font-size:14.5px;line-height:1.55;color:var(--bx-text)}
+.cr-sug-n{margin:8px 0 0;font-size:12px;color:var(--bx-text-3)}
 .cr-coupon{display:inline-flex;align-items:center;gap:8px;margin-top:14px;min-height:36px;padding:0 12px;border-radius:8px;background:var(--bx-bg-elev);border:1px dashed rgba(var(--ac-1-rgb),0.55);font-size:14px;font-weight:800;letter-spacing:.1em}
 .cr-coupon small{font-family:var(--font-dm-sans,"DM Sans"),system-ui,sans-serif;font-size:11px;color:var(--bx-text-3);letter-spacing:0}
 .cr-partner-form{margin-top:4px}
@@ -915,14 +1012,11 @@ const CSS = `
 .cr .sa-cert{font-family:inherit;font-variant-numeric:tabular-nums}
 @media (min-width:768px) and (max-width:1023px){
 .cr-sec .cr-in{max-width:680px}
-.cr-h1{font-size:44px}
-.cr-fan{height:330px}
-.cr-fan-c{width:118px;top:88px}
-.cr-fan-slab{width:190px}
-.cr-fan-0{transform:translateX(calc(-50% - 160px)) translateY(26px) rotate(-12deg)}
-.cr-fan-1{transform:translateX(calc(-50% - 90px)) translateY(8px) rotate(-6deg)}
-.cr-fan-2{transform:translateX(calc(-50% + 90px)) translateY(8px) rotate(6deg)}
-.cr-fan-3{transform:translateX(calc(-50% + 160px)) translateY(26px) rotate(12deg)}
+.cr-lockup{font-size:84px}
+.cr-bene{font-size:30px}
+.cr-trio{height:340px;margin:16px 0 0}
+.cr-trio-c{width:130px}
+.cr-trio-slab{width:180px}
 .cr-rail{overflow:visible;margin:22px 0 0;padding:0}
 .cr-vid{flex:1 1 0}
 }
@@ -949,17 +1043,33 @@ const CSS = `
 .cr-hero{padding-top:0;padding-bottom:0;overflow:clip}
 .cr-hero .cr-in{position:relative;min-height:min(calc(100svh - 64px),780px);align-content:center;padding:48px 0}
 .cr-hero .cr-in>*{grid-column:1/7}
-.cr-hero .cr-in>.cr-fan{grid-column:auto;grid-row:auto}
+.cr-hero .cr-in{display:grid}
+.cr-hero-sub{order:0}
+.cr-hero .cr-chip-wrap{align-self:auto;justify-self:start}
+.cr-hero .cr-in>.cr-trio{grid-column:auto;grid-row:auto;position:absolute;top:0;bottom:0;right:0;width:calc(50% - 12px);height:auto;margin:0;background:radial-gradient(48% 52% at 52% 46%,rgba(var(--ac-2-rgb),.20),rgba(var(--ac-1-rgb),.06) 48%,transparent 72%)}
+.cr-trio::before{width:520px;height:520px}
+.cr-trio-c{width:190px}
+.cr-trio-l{left:4%;top:calc(50% - 150px)}
+.cr-trio-r{right:2%;top:calc(50% - 250px)}
+.cr-trio-c:hover{z-index:3}
+.cr-trio-l:hover{transform:rotate(-14deg) translateY(-6px)}
+.cr-trio-r:hover{transform:rotate(13deg) translateY(-6px)}
+.cr-trio-slab{width:250px;top:calc(50% - 250px)}
+.cr-trio-slab:hover{transform:translateX(-46%) rotate(-3deg) translateY(-6px)}
+.cr-trio-slab .sa{padding:9px;border-radius:15px}
+.cr-trio-slab .sa-lab{padding:6px 9px;min-height:46px;margin-bottom:7px}
+.cr-trio-slab .sa-sig{font-size:13px}
+.cr-trio-slab .sa-nome{font-size:9px}
+.cr-trio-slab .sa-nota{font-size:24px}
+.cr-trio-slab .sa-tier{font-size:8px}
+.cr-trio-slab .sa-win{padding:7px}
+.cr-trio-tag{display:inline-flex;align-items:center;gap:6px;position:absolute;right:6%;bottom:calc(50% - 300px);z-index:4;padding:8px 12px;border-radius:999px;border:1px solid var(--bx-border-2);background:color-mix(in srgb,var(--bx-bg) 80%,transparent);font-size:12px;font-weight:700;color:var(--bx-text-2)}
+.cr-trio-tag b{color:var(--bx-text);font-weight:700}
+.cr-lockup{font-size:clamp(72px,6.6vw,100px)}
+.cr-bene{margin-top:18px;font-size:clamp(26px,2.3vw,32px);max-width:560px}
 .cr-h1{font-size:clamp(40px,3.6vw,54px);line-height:1.04;letter-spacing:-.035em}
 .cr-hero .cr-p{max-width:46ch}
 .cr-band{justify-self:start;max-width:520px}
-.cr-fan{position:absolute;top:0;bottom:0;right:0;width:calc(50% - 12px);height:auto;margin:0;background:radial-gradient(45% 50% at 54% 42%,rgba(var(--ac-1-rgb),.16),transparent 70%)}
-.cr-fan-slab{width:260px;left:54%;top:calc(50% - 236px);transform:translateX(-50%) rotate(-2deg)}
-.cr-fan-c{width:160px;top:calc(50% - 40px)}
-.cr-fan-0{top:calc(100% - 150px);transform:translateX(calc(-50% - 170px)) rotate(-16deg);z-index:4}
-.cr-fan-1{transform:translateX(calc(-50% - 150px)) translateY(-70px) rotate(-8deg);z-index:1}
-.cr-fan-2{transform:translateX(calc(-50% + 170px)) translateY(-120px) rotate(9deg);z-index:1}
-.cr-fan-3{transform:translateX(calc(-50% + 210px)) translateY(130px) rotate(14deg);z-index:2}
 
 .cr-s-col{padding-top:112px;padding-bottom:112px}
 .cr-s-col .cr-head{grid-column:1/5;grid-row:1/span 2;position:sticky;top:104px}
@@ -1006,6 +1116,19 @@ const CSS = `
 .cr-s-par .cr-partner{grid-column:1/7;grid-row:1/span 4;margin-top:0;padding:28px}
 .cr-coupon{font-size:24px;min-height:64px;padding:0 20px;border-radius:12px;letter-spacing:.12em}
 
+.cr-partner ul{gap:12px}
+.cr-s-ctr{padding-top:104px;padding-bottom:104px}
+.cr-s-ctr .cr-in>*{grid-column:1/-1}
+.cr-ctr-intro{grid-column:1/9}
+.cr-ctr-intro .cr-h2{font-size:clamp(36px,3.8vw,52px);line-height:1.02}
+.cr-ctr-exemplo{max-width:760px;margin-left:auto;margin-right:auto;width:100%}
+.cr-ctr-passos{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:44px}
+.cr-ctr-passos::before{content:"";position:absolute;top:50%;left:9%;right:9%;height:1px;background:linear-gradient(90deg,rgba(var(--ac-1-rgb),.4),rgba(var(--ac-2-rgb),.35),rgba(var(--ac-1-rgb),.4));z-index:-1}
+.cr-ctr-passo{min-height:440px;padding:28px}
+.cr-ctr-arte{height:250px}
+.cr-ctr-arte img{width:150px}
+.cr-ctr-passo h3{font-size:26px}
+.cr-ctr-passo p{min-height:66px}
 .cr-s-faq{padding-top:88px;padding-bottom:88px}
 .cr-s-faq .cr-in{grid-template-rows:auto auto 1fr}
 .cr-s-faq .cr-eyebrow,.cr-s-faq .cr-steps{grid-column:1/5}
@@ -1037,18 +1160,6 @@ const CSS = `
 .cr-hero{padding-top:18px}
 .cr-h1{font-size:28px;margin-top:10px}
 .cr-hero .cr-p{font-size:14.5px;margin-top:8px}
-.cr-fan{height:222px;margin-top:14px}
-.cr-fan-c{width:76px;top:54px}
-.cr-fan-slab{width:134px}
-.cr-fan-slab .sa{padding:7px}
-.cr-fan-slab .sa-lab{padding:5px 7px;gap:4px;min-height:40px}
-.cr-fan-slab .sa-nome{max-width:none}
-.cr-fan-slab .sa-nota{font-size:20px}
-.cr-fan-slab .sa-tier{font-size:7px;letter-spacing:.06em}
-.cr-fan-0{transform:translateX(calc(-50% - 104px)) translateY(18px) rotate(-12deg)}
-.cr-fan-1{transform:translateX(calc(-50% - 58px)) translateY(4px) rotate(-6deg)}
-.cr-fan-2{transform:translateX(calc(-50% + 58px)) translateY(4px) rotate(6deg)}
-.cr-fan-3{transform:translateX(calc(-50% + 104px)) translateY(18px) rotate(12deg)}
 .cr-oferta{margin-top:12px}
 .cr-oferta li{min-height:32px;font-size:12.5px}
 .cr-ct{margin-top:10px;padding:12px}
@@ -1057,6 +1168,11 @@ const CSS = `
 .cr-ct-regua,.cr-ct-barra-cont{margin-top:10px}
 .cr-ct-p{margin-top:8px}
 .cr-hero .cr-cta{margin-top:14px}
+.cr-ctr-passo{min-height:300px;padding:20px}
+.cr-ctr-arte{height:150px;top:12px}
+.cr-ctr-arte img{width:96px}
+.cr-ctr-arte::before{width:56px;height:76px;transform:translate(-76px,18px) rotate(-12deg)}
+.cr-ctr-arte::after{width:46px;height:64px;transform:translate(78px,-2px) rotate(14deg)}
 }
 @media (prefers-reduced-motion: reduce){.cr *{transition:none!important}.cr-ct-pulso{animation:none}}
 `

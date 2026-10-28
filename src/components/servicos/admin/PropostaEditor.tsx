@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { RISCOS } from '@/lib/servicos'
 import { IconPlus, IconClose, IconCheck } from '@/components/ui/Icons'
+import { useAvisoNaoSalvo } from './useAvisoNaoSalvo'
 
 export type Procedimento = {
   id?: string; problema: string; procedimento: string; objetivo: string | null; resultado_esperado: string | null
@@ -25,6 +26,7 @@ export default function PropostaEditor({ procs, editavel, ocupado, onSalvar }: {
 }) {
   const [lista, setLista] = useState<Procedimento[]>(() => (procs.length ? procs : editavel ? [novo()] : []))
   const [sujo, setSujo] = useState(false)
+  useAvisoNaoSalvo(sujo)
 
   if (!editavel) {
     if (!procs.length) return null
