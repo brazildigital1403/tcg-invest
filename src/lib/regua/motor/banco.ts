@@ -28,7 +28,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { COLUNAS_PRECO, valorCarta } from '@/lib/calcPatrimonio'
 import { imagemCarta } from '@/lib/regua/templates/blocos-a'
-import { LOJAS_TESTE_NOME, ehContaDeTeste } from './config'
+import { LOJAS_TESTE_NOME, ehContaDeTeste, IDA_E_VOLTA_PCT } from './config'
 import { DIA_MS, diaBR, diaDoBanco, msDoBanco, somarDias } from './tempo'
 
 export function db(): SupabaseClient {
@@ -363,24 +363,38 @@ export class Historico {
    * dia = nao sabemos a base: null (a carta fica fora da conta, nunca chuta).
    */
   precoEm(cat: CartaCatalogo, dia: string): number | null {
+    return this.snapshotEm(cat, dia)?.preco ?? null
+  }
+
+  /**
+   * O snapshot que vale no fim do `dia` e a posicao dele na serie (-1 quando
+   * a carta nao tem snapshot na janela e vale o preco atual).
+   */
+  private snapshotEm(cat: CartaCatalogo, dia: string): { preco: number; idx: number } | null {
     const l = this.porCarta.get(cat.id)
     if (!this.carregados.has(cat.id)) return null
-    if (!l || l.length === 0) return cat.precoMin > 0 ? cat.precoMin : null
-    let achado: number | null = null
-    for (const s of l) {
-      if (s.dia <= dia) achado = s.preco
+    if (!l || l.length === 0) return cat.precoMin > 0 ? { preco: cat.precoMin, idx: -1 } : null
+    let achado: { preco: number; idx: number } | null = null
+    for (let i = 0; i < l.length; i++) {
+      if (l[i].dia <= dia) achado = { preco: l[i].preco, idx: i }
       else break
     }
-    if (achado !== null) return achado
-    return null
+    return achado
   }
 
   /** Variacao do menor preco entre `dias` atras e hoje (preco atual do catalogo). */
   variacao(cat: CartaCatalogo | null, dias: number): { antes: number; agora: number; delta: number; pct: number } | null {
     if (!cat || !(cat.precoMin > 0)) return null
-    const antes = this.precoEm(cat, somarDias(this.hoje, -dias))
-    if (antes === null || !(antes > 0)) return null
+    const s = this.snapshotEm(cat, somarDias(this.hoje, -dias))
+    if (!s || !(s.preco > 0)) return null
+    const antes = s.preco
     const agora = cat.precoMin
+    // ★ Ida e volta: o "antes" e um pico isolado (o snapshot anterior a ele
+    // esta colado no preco de hoje). Variacao inventada pelo pico: fora.
+    if (s.idx > 0) {
+      const anterior = this.porCarta.get(cat.id)![s.idx - 1].preco
+      if (anterior > 0 && Math.abs(agora - anterior) / agora * 100 <= IDA_E_VOLTA_PCT) return null
+    }
     const delta = Math.round((agora - antes) * 100) / 100
     const pct = Math.round(((agora - antes) / antes) * 1000) / 10
     return { antes, agora, delta, pct }

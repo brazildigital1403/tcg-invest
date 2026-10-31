@@ -83,6 +83,14 @@ export const E09_MAX_SEMANA = 2
  */
 export const PCT_SUSPEITO = 80
 
+/**
+ * Ida e volta: o snapshot que serve de "antes" e um pico isolado quando o
+ * snapshot anterior a ele esta a menos disto (em %) do preco de hoje. Ex.:
+ * 150 -> 399 -> 150 viraria "caiu R$ 249"; com a guarda, a carta fica fora.
+ * Medido em 25/10: 1 em cada 5 cartas do digest E08 era esse caso.
+ */
+export const IDA_E_VOLTA_PCT = 10
+
 /** Status de `email_envios` que contam para teto e dedup (o envio saiu ou esta saindo). */
 export const STATUS_QUE_CONTAM = ['enviando', 'enviado', 'entregue', 'aberto', 'clicado', 'bounce', 'reclamacao']
 
