@@ -117,9 +117,38 @@ export default function CookieBanner() {
     window.dispatchEvent(new Event(CONSENT_EVENT))
   }
 
+  // ★ Leilao (#413/#416, opcao a do Du, 28/10): numa rodada ao vivo o botao de
+  // lance fica no fim da tela. O banner vira UMA linha (~52 px) e a pagina
+  // ganha o mesmo espaco embaixo enquanto ele aparece -- nada fica coberto.
+  // Mesma escolha e mesmo Consent Mode; so a forma muda.
+  const noLeilao = !!pathname && pathname.startsWith('/leiloes')
+  const mostra = mounted && visible && !(pathname && ROTAS_SEM_BANNER.has(pathname))
+  useEffect(() => {
+    if (!mostra || !noLeilao) return
+    const antes = document.body.style.paddingBottom
+    document.body.style.paddingBottom = 'calc(72px + env(safe-area-inset-bottom, 0px))'
+    return () => { document.body.style.paddingBottom = antes }
+  }, [mostra, noLeilao])
+
   // Não renderiza no SSR pra evitar hydration mismatch (localStorage é client-only)
-  if (!mounted || !visible) return null
-  if (pathname && ROTAS_SEM_BANNER.has(pathname)) return null
+  if (!mostra) return null
+
+  if (noLeilao) {
+    return (
+      <div style={S.wrapper} role="dialog" aria-live="polite" aria-label="Aviso de cookies">
+        <div style={S.linha}>
+          <p style={S.linhaTexto}>
+            Cookies para medir a Bynx.{' '}
+            <Link href="/privacidade" prefetch={false} style={S.link}>Saiba mais</Link>
+          </p>
+          <div style={S.linhaBotoes}>
+            <button type="button" style={S.btnLinha} onClick={rejectAll}>Só essenciais</button>
+            <button type="button" style={{ ...S.btnLinha, ...S.btnLinhaPri }} onClick={acceptAll}>Aceitar</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={S.wrapper} role="dialog" aria-live="polite" aria-label="Aviso de cookies">
@@ -167,6 +196,19 @@ export default function CookieBanner() {
 // ─── Estilos (alinhados com a paleta do useAppModal — DM Sans, #0f1117) ─────
 
 const S = {
+  linha: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    maxWidth: 960, margin: '0 auto', padding: '6px 8px 6px 12px', borderRadius: 12,
+    background: '#0f1117', border: '1px solid rgba(255,255,255,0.10)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.45)', pointerEvents: 'auto' as const,
+  },
+  linhaTexto: { margin: 0, fontSize: 12.5, lineHeight: 1.35, color: 'rgba(255,255,255,0.72)', minWidth: 0 },
+  linhaBotoes: { display: 'flex', gap: 6, flexShrink: 0 },
+  btnLinha: {
+    minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.14)',
+    background: 'transparent', color: '#f0f0f0', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+  },
+  btnLinhaPri: { background: 'rgba(255,255,255,0.10)' },
   wrapper: {
     position: 'fixed' as const,
     bottom: 0,

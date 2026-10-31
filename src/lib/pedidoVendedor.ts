@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { custosDaCobranca, devolverComissaoComCusto } from '@/lib/custoEstornoStripe'
+import { registrarFaltaComoDebito } from '@/lib/debitoVendedor'
 import { sendPedidoEnviadoEmail, sendReembolsoCompradorEmail } from '@/lib/email'
+import { exigeFotoEnvio, validarFotosEnvio, VALOR_FOTO_ENVIO_CENTS } from '@/lib/leilao-reclamacao'
+import { ehPedidoDeLeilao, pastaEnvio, arquivosNaPasta } from '@/lib/reclamacaoServer'
+import { validarRastreioEnvio } from '@/lib/rastreio'
 
 /**
  * O pos-venda de um pedido, do lado de quem VENDEU -- loja ou pessoa.
@@ -53,10 +58,12 @@ export type PedidoPosVenda = {
   marketplace_id: string | null
   total_comprador_cents: number
   stripe_payment_intent_id: string | null
+  leilao_id?: string | null
+  valor_item_cents?: number | null
 }
 
 export const SELECT_POS_VENDA =
-  'id, numero, status, loja_id, comprador_user_id, item_nome, produto_id, marketplace_id, total_comprador_cents, stripe_payment_intent_id'
+  'id, numero, status, loja_id, comprador_user_id, item_nome, produto_id, marketplace_id, total_comprador_cents, stripe_payment_intent_id, leilao_id, valor_item_cents'
 
 export type Resultado =
   | { ok: true; extra?: Record<string, unknown> }
@@ -65,22 +72,29 @@ export type Resultado =
 /**
  * Marca como enviado e avisa o comprador.
  *
- * O rastreio e OBRIGATORIO e tem minimo de 8 caracteres: o comprador precisa
- * dele para acompanhar a entrega, e sem isso a confirmacao de recebimento vira
- * palavra contra palavra.
+ * O rastreio e OBRIGATORIO: o comprador precisa dele para acompanhar a
+ * entrega, e sem isso a confirmacao de recebimento vira palavra contra
+ * palavra. Desde 11/10 vem com a TRANSPORTADORA e e validado por ela
+ * (validarRastreioEnvio em lib/rastreio: Correios com digito verificador,
+ * as demais pela forma). Antes bastavam 8 caracteres e qualquer numero passava.
+ *
+ * ★ FOTO DA CARTA NO ENVIO (arrependimento, 20260928170000): lote de LEILAO a
+ *   partir de VALOR_FOTO_ENVIO_CENTS exige frente e verso, ja enviadas ao
+ *   bucket privado pela URL de /api/lojas/[id]/pedidos/envio-upload-url. E a
+ *   prova da loja se a carta voltar trocada numa devolucao. O servidor confere
+ *   pasta, slot e que o arquivo existe. Marketplace nao muda.
  */
 export async function marcarEnviado(
   sb: SupabaseClient,
   pedido: PedidoPosVenda,
   rastreio: string,
-  ctx: ContextoVendedor
+  ctx: ContextoVendedor,
+  fotosEnvio?: unknown,
+  transportadora?: unknown
 ): Promise<Resultado> {
-  if (!rastreio || rastreio.length < 8) {
-    return {
-      ok: false, status: 400,
-      erro: 'Informe um código de rastreio válido (mínimo 8 caracteres) para marcar como enviado.',
-    }
-  }
+  const rv = validarRastreioEnvio(transportadora, rastreio)
+  if (!rv.ok) return { ok: false, status: 400, erro: rv.erro }
+  rastreio = rv.codigo
   if (pedido.status !== 'pago') {
     return {
       ok: false, status: 409,
@@ -88,14 +102,49 @@ export async function marcarEnviado(
     }
   }
 
-  const { error: upErr } = await sb
+  let fotos: string[] = []
+  const ehLeilao = await ehPedidoDeLeilao(sb, { id: pedido.id, leilao_id: pedido.leilao_id ?? null })
+  if (ehLeilao) {
+    const pasta = pastaEnvio(pedido.id)
+    const exigir = exigeFotoEnvio({ ehLeilao, valor_item_cents: pedido.valor_item_cents })
+    const v = validarFotosEnvio(fotosEnvio, pasta, exigir)
+    if (!v.ok) {
+      return {
+        ok: false, status: 400,
+        erro: exigir && v.erro.startsWith('Fotografe')
+          ? `${v.erro} Obrigatório em lotes a partir de R$ ${(VALOR_FOTO_ENVIO_CENTS / 100).toFixed(0)}.`
+          : v.erro,
+      }
+    }
+    if (v.fotos.length) {
+      const existem = await arquivosNaPasta(sb, pasta)
+      if (!v.fotos.every(f => existem.has(f))) {
+        return { ok: false, status: 400, erro: 'Alguma foto não terminou de enviar. Envie de novo.' }
+      }
+    }
+    fotos = v.fotos
+  }
+
+  // .eq('status','pago'): compare-and-set. A checagem acima leu o status
+  // antes; entre a leitura e o update o pedido pode ter virado
+  // 'cancelando'/'reembolsado' (cancelamento por atraso do leilao, webhook
+  // de estorno). So envia quem ainda esta pago.
+  const { data: enviou, error: upErr } = await sb
     .from('pedidos')
-    .update({ status: 'enviado', rastreio, enviado_em: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({
+      status: 'enviado', rastreio, enviado_em: new Date().toISOString(), updated_at: new Date().toISOString(),
+      ...(fotos.length ? { envio_fotos: fotos } : {}),
+    })
     .eq('id', pedido.id)
+    .eq('status', 'pago')
+    .select('id')
 
   if (upErr) {
     console.error('[posVenda enviar]', upErr.message)
     return { ok: false, status: 500, erro: 'Erro ao marcar como enviado.' }
+  }
+  if (!enviou?.length) {
+    return { ok: false, status: 409, erro: 'O pedido mudou de situação e não está mais aguardando envio. Atualize a página.' }
   }
 
   // Avisa o comprador (sino + email). Falha aqui nao desfaz o envio.
@@ -153,17 +202,35 @@ export async function cancelarEReembolsar(
     return { ok: false, status: 500, erro: 'Pagamentos indisponíveis no momento.' }
   }
 
-  // ── 1. A STRIPE MANDA. Um refund que devolve ao comprador, reverte o
-  //       transfer de quem vendeu e devolve a comissao da Bynx.
+  // ── 1. A STRIPE MANDA. Um refund que devolve ao comprador e reverte o
+  //       transfer de quem vendeu. A comissao volta para quem vendeu MENOS a
+  //       taxa da Stripe, que a Stripe nao devolve (regra de 25/10, ver
+  //       lib/custoEstorno): quem cancela a venda paga a taxa, nunca a Bynx.
+  //       Idempotente pela chave: clique duplo nao estorna duas vezes.
   const apiVersion = '2025-03-31.basil' as Stripe.StripeConfig['apiVersion']
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion })
+  const chave = `cancelamento-vendedor-${pedido.id}`
   let refundId: string
   try {
-    const refund = await stripe.refunds.create({
-      payment_intent: pedido.stripe_payment_intent_id,
-      reverse_transfer: true,
-      refund_application_fee: true,
+    const custos = await custosDaCobranca(stripe, pedido.stripe_payment_intent_id)
+    const com = await devolverComissaoComCusto(stripe, {
+      custos, chave, estornoCents: null, metadata: { pedido_id: pedido.id },
     })
+    if (com.faltaCobrirCents > 0) {
+      await registrarFaltaComoDebito(sb, {
+        custos, chave, faltaCents: com.faltaCobrirCents,
+        motivo: `Taxa do cartao acima da comissao no cancelamento do pedido ${pedido.id}`,
+      })
+    }
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: pedido.stripe_payment_intent_id,
+        reverse_transfer: true,
+        refund_application_fee: false,
+        metadata: { pedido_id: pedido.id, bynx_chave: chave },
+      },
+      { idempotencyKey: chave },
+    )
     refundId = refund.id
   } catch (e) {
     console.error('[posVenda cancelar] refund falhou:', (e as Error)?.message)

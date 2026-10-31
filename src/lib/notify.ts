@@ -26,6 +26,9 @@ export type NotifType =
   | 'boas_vindas'
   | 'mensagem'
   | 'aviso'
+  /** Leilao: superado, venceu, sem lances, calote. Gravado pelo banco
+   *  (leilao_eventos_concluir), junto com a marca do evento. */
+  | 'leilao'
 
 /** Cria uma notificacao para 1 usuario. Retorna true se gravou. */
 export async function notify(

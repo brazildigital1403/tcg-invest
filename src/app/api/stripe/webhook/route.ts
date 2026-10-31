@@ -30,6 +30,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
 import { registrarVendaParceiro, registrarRenovacaoParceiro, reverterComissaoParceiro } from '@/lib/parceiros'
 import { carimbarConvite } from '@/lib/campanhaConvites'
+import { valorLancamentoAposEstorno } from '@/lib/estornoLancamento'
+import { quitarDebitoDaVenda } from '@/lib/debitoVendedor'
 import {
   sbAdmin as sbServicos, confirmarPagamento as confirmarPagamentoServico, aposConfirmarPagamento,
   registrarEvento as registrarEventoServico, notificarAdmin as notificarAdminServico, ROTULO_ETAPA as ROTULO_ETAPA_SERVICO,
@@ -332,6 +334,30 @@ async function marcarEventoComoFinalizado(
     result,
     error_message: errorMessage || null,
   }).eq('event_id', eventId)
+}
+
+// ─── Helper: lotes de leilao de um pedido ────────────────────────────────────
+//
+// Le `leilao_id` em pedidos + pedido_itens numa consulta PROPRIA. Antes da
+// migration do motor a coluna nao existe: a consulta falha, o erro e ignorado
+// e a lista volta vazia -- a venda comum segue intocada. `extra` e o
+// bynx_leilao_id do metadata da sessao, quando houver.
+
+async function leiloesDoPedido(
+  supabase: SupabaseClient,
+  pedidoId: string,
+  extra: string | null | undefined
+): Promise<string[]> {
+  const ids = new Set<string>()
+  if (extra) ids.add(extra)
+  const [{ data: ped }, { data: itens }] = await Promise.all([
+    supabase.from('pedidos').select('leilao_id').eq('id', pedidoId).limit(1),
+    supabase.from('pedido_itens').select('leilao_id').eq('pedido_id', pedidoId).not('leilao_id', 'is', null),
+  ])
+  for (const r of [...(ped || []), ...(itens || [])] as { leilao_id: string | null }[]) {
+    if (r.leilao_id) ids.add(r.leilao_id)
+  }
+  return Array.from(ids)
 }
 
 // ─── Servico de bancada: pagamento de etapa por cartao (fatia 5) ────────────
@@ -732,6 +758,11 @@ export async function POST(req: NextRequest) {
   }
 
   let processError: string | null = null
+  // Falha do lado do LEILAO numa venda ja paga. Nao derruba o evento (a venda,
+  // a receita e os emails ja rodaram; re-entrega da Stripe reprocessaria tudo
+  // isso), mas marca o evento como 'error' em stripe_events_processed com o
+  // motivo -- fica rastreavel por `where result = 'error'`.
+  let erroLeilao: string | null = null
 
   try {
     switch (event.type) {
@@ -795,6 +826,22 @@ export async function POST(req: NextRequest) {
           if (upPedErr) {
             console.error(`[webhook] venda: falha atualizando pedido ${pedido.numero}:`, upPedErr.message)
             break
+          }
+
+          // ── Debito anterior do vendedor cobrado nesta venda ─────────────
+          // O checkout somou na comissao o debito em aberto (custo de estorno
+          // que a comissao do pedido de origem nao cobriu). Agora que pagou,
+          // da baixa (FIFO, idempotente por pedido); se outra venda ja tinha
+          // pago o mesmo debito, devolve o excesso ao vendedor. lib/debitoVendedor.
+          const debitoCobrado = Math.floor(Number(session.metadata?.bynx_debito_cents) || 0)
+          const debitoConta = session.metadata?.bynx_debito_conta
+          if (debitoCobrado > 0 && debitoConta) {
+            await quitarDebitoDaVenda(supabase, stripe, {
+              conta: debitoConta,
+              pedidoId: pedido.id,
+              cobradoCents: debitoCobrado,
+              paymentIntent: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            })
           }
 
           // ── Receita da Bynx ──────────────────────────────────────────────
@@ -868,6 +915,45 @@ export async function POST(req: NextRequest) {
 
           if (baixas.length === 0) {
             console.error(`[webhook] CRITICAL: pedido ${pedido.numero} pago sem item pra baixar`)
+          }
+
+          // ── Lote de leilao pago -> vendido ───────────────────────────────
+          // Item de leilao tem marketplace_id e produto_id nulos: a baixa abaixo
+          // passa reto por ele (lote nao e estoque). Quem muda e o LOTE:
+          // aguardando_pagamento OU calote -> vendido + pedido_id (pagamento que
+          // chega depois do calote nao e descartado). Idempotente no banco
+          // (leilao_marcar_vendido, migration 20260928100000). Falha aqui nao
+          // desfaz a venda: o pedido ja esta pago e o tick nunca marca calote
+          // em lote com pedido pago -- fica no log para o Du conferir.
+          // ★ RASTRO: erro da RPC (ou resultado fora de vendido/ja_vendido)
+          // vira `erroLeilao` e o evento fecha como result='error' com a
+          // mensagem em stripe_events_processed. NAO devolvemos 5xx para a
+          // Stripe re-entregar: a re-entrega cai no 'duplicate' da idempotencia
+          // por event.id (nada seria refeito), e apagar a linha para forcar
+          // reprocessamento rodaria de novo a venda inteira (receita, emails,
+          // baixa). Conserto e manual: rodar leilao_marcar_vendido(lote, pedido)
+          // -- a funcao e idempotente. A rota de checkout recusa novo pagamento
+          // de lote que ja tem pedido pago, entao nao ha segunda cobranca.
+          // ★ `leilao_id` fica FORA dos selects de pedido/itens acima de
+          // proposito: sem a migration do motor a coluna nao existe, e o select
+          // quebraria a baixa de TODA venda. So pedido com metadata de leilao
+          // (e leitura propria) entra aqui.
+          const leilaoMeta = session.metadata?.bynx_leilao_id
+          const leiloesPagos = leilaoMeta ? await leiloesDoPedido(supabase, pedido.id, leilaoMeta) : []
+          for (const leilaoId of leiloesPagos) {
+            const { data: rLeilao, error: errLeilao } = await supabase.rpc('leilao_marcar_vendido', {
+              p_leilao: leilaoId,
+              p_pedido: pedido.id,
+            })
+            if (errLeilao) {
+              console.error(`[webhook] CRITICAL: leilao ${leilaoId} do pedido ${pedido.numero} nao virou vendido:`, errLeilao.message)
+              erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_vendido(${leilaoId}, ${pedido.id}) falhou: ${errLeilao.message}`
+            } else if (rLeilao !== 'vendido' && rLeilao !== 'ja_vendido') {
+              console.error(`[webhook] CRITICAL: leilao ${leilaoId} pago no pedido ${pedido.numero}, mas ficou como esta (${rLeilao}) — conferir`)
+              erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_vendido(${leilaoId}, ${pedido.id}) = ${rLeilao}`
+            } else {
+              console.log(`[webhook] venda: leilao ${leilaoId} -> vendido (${rLeilao}) pelo pedido ${pedido.numero}`)
+            }
           }
 
           for (const baixa of baixas) {
@@ -1778,7 +1864,6 @@ export async function POST(req: NextRequest) {
         const bruto = charge.amount || 0
         const devolvido = charge.amount_refunded || 0
         const integral = bruto > 0 && devolvido >= bruto
-        const fracaoQueSobra = bruto > 0 ? Math.max(0, 1 - devolvido / bruto) : 0
 
         console.log(
           `[webhook] estorno: PI ${pi} — devolvido ${devolvido}/${bruto} (${integral ? 'integral' : 'parcial'})`
@@ -1788,7 +1873,7 @@ export async function POST(req: NextRequest) {
         try {
           const { data: lancs } = await supabase
             .from('lancamentos')
-            .select('id, valor_bruto, descricao')
+            .select('id, valor_bruto, taxa, descricao')
             .eq('stripe_payment_intent_id', pi)
             .limit(1)
 
@@ -1796,12 +1881,39 @@ export async function POST(req: NextRequest) {
           if (!lanc) {
             console.log(`[webhook] estorno: sem lancamento para o PI ${pi} — nada a reverter`)
           } else {
-            const novoValor = Math.round(Number(lanc.valor_bruto) * fracaoQueSobra * 100) / 100
+            // Base = valor ORIGINAL da charge (application_fee na venda de
+            // loja, amount na cobranca direta) x fracao que sobra. Antes a
+            // fracao cumulativa era aplicada sobre o valor_bruto ja reduzido
+            // pelo estorno anterior e o 2o parcial reduzia em dobro. Ver
+            // src/lib/estornoLancamento.ts (coberto por autoteste).
+            // Comissao que voltou DE FATO para a loja (regra de custo do
+            // estorno, 25/10): a Bynx retem a taxa da Stripe, entao a
+            // proporcao deixou de ser a leitura certa. Falhou a leitura:
+            // segue a proporcao (comportamento antigo) em vez de travar.
+            let comissaoDevolvidaCents: number | null = null
+            if (charge.application_fee) {
+              try {
+                const feeId = typeof charge.application_fee === 'string' ? charge.application_fee : charge.application_fee.id
+                comissaoDevolvidaCents = (await stripe.applicationFees.retrieve(feeId)).amount_refunded
+              } catch (e) {
+                console.warn(`[webhook] estorno: nao li a comissao devolvida do PI ${pi}: ${(e as Error)?.message}`)
+              }
+            }
+            const novoValor = valorLancamentoAposEstorno({
+              amount: bruto,
+              amountRefunded: devolvido,
+              applicationFeeAmount: charge.application_fee_amount,
+              atualReais: Number(lanc.valor_bruto),
+              comissaoDevolvidaCents,
+            })
+            // Liquido = o que sobrou menos a taxa da Stripe (que nao volta).
+            // Zero quando a regra reteve exatamente a taxa; nunca negativo (CHECK).
+            const novoLiquido = Math.max(0, Math.round((novoValor - Number(lanc.taxa || 0)) * 100) / 100)
             const { error: revErr } = await supabase
               .from('lancamentos')
               .update({
                 valor_bruto: novoValor,
-                valor_liquido: novoValor,
+                valor_liquido: novoLiquido,
                 observacao: `Estornado na Stripe em ${new Date().toISOString().slice(0, 10)} — `
                   + `${integral ? 'integral' : 'parcial'} (${devolvido}/${bruto} centavos), charge ${charge.id}.`,
                 updated_at: new Date().toISOString(),
@@ -1909,6 +2021,40 @@ export async function POST(req: NextRequest) {
 
               console.log(`[webhook] estorno: pedido ${pedido.numero} marcado como reembolsado`)
             }
+
+            // ── Lote de leilao reembolsado -> cancelado ('reembolsado') ─────
+            // FORA do guard de status acima: o cancelamento pela loja marca o
+            // pedido 'reembolsado' ANTES deste evento chegar, e o lote ainda
+            // precisa sair de 'vendido'. So mexe se este pedido e o que vendeu
+            // o lote. Idempotente (leilao_marcar_reembolsado, 20260928100000).
+            if (pedido) {
+              const leiloesEstorno = await leiloesDoPedido(supabase, pedido.id, null)
+              for (const leilaoId of leiloesEstorno) {
+                const { data: rEst, error: errEst } = await supabase.rpc('leilao_marcar_reembolsado', {
+                  p_leilao: leilaoId,
+                  p_pedido: pedido.id,
+                })
+                // ★ RASTRO igual ao do leilao_marcar_vendido: erro da RPC (ou
+                // resultado fora do esperado) vira `erroLeilao` e o evento fecha
+                // como result='error' em stripe_events_processed. Sem 5xx: o
+                // estorno do pedido ja rodou e a re-entrega cairia no
+                // 'duplicate'. Conserto manual: rodar
+                // leilao_marcar_reembolsado(lote, pedido) -- idempotente.
+                // Esperados: cancelado | ja_cancelado | outro_pedido (estorno de
+                // pedido antigo nao derruba o lote vendido por outro).
+                // ignorado:<status> fica rastreado: pedido pago e estornado de
+                // um lote que nunca virou vendido e anomalia para conferir.
+                if (errEst) {
+                  console.error(`[webhook] CRITICAL: leilao ${leilaoId} (pedido ${pedido.numero}) nao foi cancelado no estorno:`, errEst.message)
+                  erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_reembolsado(${leilaoId}, ${pedido.id}) falhou: ${errEst.message}`
+                } else if (rEst !== 'cancelado' && rEst !== 'ja_cancelado' && rEst !== 'outro_pedido') {
+                  console.error(`[webhook] CRITICAL: leilao ${leilaoId} estornado no pedido ${pedido.numero}, resultado inesperado (${rEst}) — conferir`)
+                  erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_reembolsado(${leilaoId}, ${pedido.id}) = ${rEst}`
+                } else {
+                  console.log(`[webhook] estorno: leilao ${leilaoId} -> ${rEst} (pedido ${pedido.numero})`)
+                }
+              }
+            }
           } catch (err) {
             console.error('[webhook] CRITICAL: excecao atualizando pedido no estorno:', (err as Error)?.message)
           }
@@ -1920,6 +2066,19 @@ export async function POST(req: NextRequest) {
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
         console.error(`[webhook] CRITICAL DISPUTE: charge ${dispute.charge} reason ${dispute.reason} amount ${dispute.amount} status ${dispute.status}`)
+        // Trava de estorno do pedido (pedidos.em_disputa, 20260928170000): a
+        // Stripe ja segurou o valor; desistencia, cancelamento e decisao de
+        // reclamacao pela Bynx nao estornam por cima. So liga, nunca desliga
+        // aqui -- o desfecho da disputa e decidido caso a caso.
+        try {
+          const pi = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id
+          if (pi) {
+            const { error: dErr } = await supabase.from('pedidos').update({ em_disputa: true }).eq('stripe_payment_intent_id', pi)
+            if (dErr) console.error('[webhook] dispute: falha marcando em_disputa:', dErr.message)
+          }
+        } catch (err) {
+          console.error('[webhook] dispute: erro marcando em_disputa:', (err as Error)?.message)
+        }
         try {
           if (process.env.ADMIN_EMAIL) {
             await sendDisputeAdminEmail({
@@ -2138,12 +2297,14 @@ export async function POST(req: NextRequest) {
     processError = err.message || 'unknown'
     console.error(`[webhook] CRITICAL UNHANDLED: ${event.type}:`, err.message, err.stack)
   } finally {
-    // Marca evento como processado (ok ou error)
+    // Marca evento como processado (ok ou error). Erro do leilao numa venda
+    // paga tambem fecha como 'error' (rastro), sem mudar a resposta.
+    const erroFinal = processError || erroLeilao
     await marcarEventoComoFinalizado(
       supabase,
       event.id,
-      processError ? 'error' : 'ok',
-      processError || undefined
+      erroFinal ? 'error' : 'ok',
+      erroFinal || undefined
     ).catch(console.error)
   }
 

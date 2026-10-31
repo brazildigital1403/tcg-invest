@@ -1,5 +1,10 @@
 import { Resend } from 'resend'
+import { enviarIsolando, type EmailLoteItem, type ResultadoEmail } from './email-lote'
 import { createClient } from '@supabase/supabase-js'
+import { formatarBRL } from './leilao'
+import { prazoCurtoBrasilia } from './leilao-avisos'
+import { urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
+import { DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from './leilao-reclamacao'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 /** Remetente do transacional e da colecao (o motor da regua le daqui). */
@@ -3285,6 +3290,538 @@ export async function sendReembolsoCompradorEmail(args: {
     subject: subjUser(`↩️ Reembolso: ${args.itemNome}`),
     html,
   })
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEILAO — avisos (fatia 3). Consumidor: /api/cron-leilao-avisos.
+//
+// ★ Os modelos so RENDERIZAM ({ subject, html }); quem envia e
+// `enviarLoteEmails`, em lote (resend.batch.send, ate 100 por chamada). O cron
+// de trial das lojas estourou 30s mandando um e-mail por vez (~3,3s cada);
+// aqui um lote inteiro sai em uma chamada.
+// ★ Sem emoji (nem no assunto), sem contracao, cores dos tokens da bynx-ui em
+// hex (cliente de e-mail nao le var()). Horario sempre America/Sao_Paulo.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface EmailRenderizado {
+  to: string
+  subject: string
+  html: string
+}
+
+export type { EmailLoteItem, ResultadoEmail } from './email-lote'
+
+/**
+ * Envia e-mails ja renderizados em lotes de ate 100 (resend.batch.send) e
+ * devolve o resultado POR MENSAGEM, na ordem da entrada. A logica (grupo nunca
+ * partido, divisao ao meio na recusa de conteudo, envio unitario com chave)
+ * esta em ./email-lote, que o autoteste cobre sem rede.
+ *
+ * ★ SDK resend 4.8.0: `emails.send(payload, { idempotencyKey })` e
+ *   `batch.send(payload, { idempotencyKey })` aceitam chave (vai no header
+ *   Idempotency-Key; o Resend guarda por 24h). A chave do lote vale para a
+ *   chamada inteira, nao por item -- por isso so o envio UNITARIO usa a chave
+ *   do item. Nao ha modo "permissivo" de lote nesta versao: um item invalido
+ *   recusa o lote todo, dai a divisao.
+ * ★ Chamadas em SERIE com pausa de 500ms entre elas (limite de requisicoes por
+ *   segundo da conta). No caso normal e uma chamada so por 100 e-mails.
+ */
+export async function enviarLoteEmails(
+  emails: EmailLoteItem[],
+  opts: { tamanho?: number; deveParar?: () => boolean } = {},
+): Promise<ResultadoEmail[]> {
+  const payload = (e: EmailLoteItem) => ({ from: FROM, to: e.to, subject: e.subject, html: e.html })
+  const erro = (e: { name?: string; message?: string } | null | undefined) =>
+    ({ ok: false as const, nome: e?.name, erro: e?.message ?? JSON.stringify(e) })
+  const res = await enviarIsolando(emails, {
+    lote: async itens => {
+      const r = await resend.batch.send(itens.map(payload))
+      if (r.error) {
+        console.error(`[email] FALHA no lote de ${itens.length} e-mail(s): ${r.error.name}: ${r.error.message}`)
+        return erro(r.error)
+      }
+      return { ok: true }
+    },
+    um: async item => {
+      const r = await resend.emails.send(payload(item), item.chave ? { idempotencyKey: item.chave } : undefined)
+      if (r.error) {
+        if (r.error.name !== 'invalid_idempotent_request') {
+          console.error(`[email] FALHA no envio unitario: ${r.error.name}: ${r.error.message}`)
+        }
+        return erro(r.error)
+      }
+      return { ok: true }
+    },
+  }, { tamanho: opts.tamanho, deveParar: opts.deveParar, pausaMs: 500 })
+  return res
+}
+
+/** Link absoluto do lote (ou do pagamento) com UTM. Caminho sai de leilao-urls. */
+function urlLote(slug: string, campaign: string, pagar = false): string {
+  return addUtm(`${URL_CANONICA}${pagar ? caminhoPagar(slug) : caminhoLote(slug)}`, campaign)
+}
+
+/** Bloco de destaque: rotulo pequeno + valor grande (tokens surface/border). */
+function blocoLeilao(rotulo: string, valor: string, cor = '#f0f0f0'): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;">
+    <tr><td bgcolor="#12141a" style="background-color:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 18px;${FONT}">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.45);${FONT}">${rotulo}</p>
+      <p style="margin:0;font-size:22px;font-weight:800;color:${cor};letter-spacing:-0.02em;${FONT}">${valor}</p>
+    </td></tr>
+  </table>`
+}
+
+function forte(t: string): string {
+  return `<strong style="color:#f0f0f0;">${escapeHtml(t)}</strong>`
+}
+
+export interface LeilaoEmailArgs {
+  to: string
+  nome: string | null
+  cardName: string
+  slug: string
+  precoCents: number
+  minimoProximoCents?: number
+  terminaEm?: string | null
+  pagarAte?: string | null
+  /** Loja do vendedor, para o link de Pagamentos (null = vende sem loja). */
+  lojaId?: string | null
+}
+
+/** Participante: alguem cobriu o lance. */
+export function renderLeilaoSuperadoEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const fim = prazoCurtoBrasilia(a.terminaEm)
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('Seu lance foi superado')}
+    ${p(`${escapeHtml(nome)}, outro participante passou o seu lance em ${forte(a.cardName)}.`)}
+    ${blocoLeilao('Lance atual', formatarBRL(a.precoCents))}
+    ${a.minimoProximoCents ? p(`Para voltar à frente, o lance mínimo agora é ${forte(formatarBRL(a.minimoProximoCents))}.`) : ''}
+    ${fim ? p(`O lote termina em ${forte(fim)} (horário de Brasília), se não houver prorrogação.`) : ''}
+    ${btn('Dar novo lance', urlLote(a.slug, 'leilao_superado'))}
+  `, `Lance atual em ${a.cardName}: ${formatarBRL(a.precoCents)}`)
+  return { to: a.to, subject: subjUser(`Seu lance foi superado: ${a.cardName}`), html }
+}
+
+/** Vencedor: arrematou, precisa pagar ate o prazo. */
+export function renderLeilaoVenceuEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1(`Você venceu: ${escapeHtml(a.cardName)}`)}
+    ${p(`${escapeHtml(nome)}, o lote é seu por ${forte(formatarBRL(a.precoCents))}.`)}
+    ${prazo ? blocoLeilao('Pague até (horário de Brasília)', prazo, '#f59e0b') : ''}
+    ${p('No pagamento você confere o frete e o total antes de confirmar. Sem o pagamento dentro do prazo, o arremate é cancelado e a loja é avisada.')}
+    ${btn('Pagar', urlLote(a.slug, 'leilao_venceu', true))}
+  `, prazo ? `Pague até ${prazo} (Brasília)` : `Você venceu: ${a.cardName}`)
+  return {
+    to: a.to,
+    subject: subjUser(prazo
+      ? `Você venceu: ${a.cardName}. Pague até ${prazo} (Brasília)`
+      : `Você venceu: ${a.cardName}`),
+    html,
+  }
+}
+
+/** Vendedor: lote terminou sem nenhum lance. */
+export function renderLeilaoSemLancesEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('O lote terminou sem lances')}
+    ${p(`${escapeHtml(nome)}, o lote ${forte(a.cardName)} chegou ao fim sem nenhum lance. A carta continua com você.`)}
+    ${p('Você pode colocar a carta em uma nova rodada quando quiser.')}
+    ${btn('Ver o lote', urlLote(a.slug, 'leilao_sem_lances'))}
+  `, `${a.cardName} terminou sem lances`)
+  return { to: a.to, subject: subjUser(`Lote encerrado sem lances: ${a.cardName}`), html }
+}
+
+/** Vencedor: o prazo de pagamento passou. */
+export function renderLeilaoCaloteVencedorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#ef4444', '')}
+    ${h1('O prazo para pagar terminou')}
+    ${p(`${escapeHtml(nome)}, o pagamento de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) não foi confirmado${prazo ? ` até ${forte(prazo)} (horário de Brasília)` : ' dentro do prazo'}. O arremate foi cancelado e a loja foi avisada.`)}
+    ${p('Se você pagou e mesmo assim recebeu este aviso, fale com o suporte da Bynx pelo app.')}
+    ${btn('Ver o lote', urlLote(a.slug, 'leilao_calote_vencedor'))}
+  `, `Pagamento de ${a.cardName} não confirmado`)
+  return { to: a.to, subject: subjUser(`Prazo de pagamento encerrado: ${a.cardName}`), html }
+}
+
+/** Vendedor: o vencedor nao pagou. */
+export function renderLeilaoCaloteVendedorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#ef4444', '')}
+    ${h1('O vencedor não pagou')}
+    ${p(`${escapeHtml(nome)}, o vencedor de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) não pagou${prazo ? ` até ${forte(prazo)} (horário de Brasília)` : ' dentro do prazo'}.`)}
+    ${p('Nada foi cobrado e não há envio a fazer. A carta continua com você.')}
+    ${btn('Ver o lote', urlLote(a.slug, 'leilao_calote_vendedor'))}
+  `, `O vencedor de ${a.cardName} não pagou`)
+  return { to: a.to, subject: subjUser(`Arremate não pago: ${a.cardName}`), html }
+}
+
+/** Onde o vendedor regulariza o recebimento: painel da loja ou /recebimentos. */
+function urlRecebimento(lojaId: string | null | undefined, campaign: string): string {
+  return addUtm(`${URL_CANONICA}${lojaId ? `/minha-loja/${lojaId}/pagamentos` : '/recebimentos'}`, campaign)
+}
+
+/** Vendedor: o vencedor quis pagar e o recebimento dele esta pendente. */
+export function renderLeilaoBloqueioVendedorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('Um arrematante quer pagar')}
+    ${p(`${escapeHtml(nome)}, o vencedor de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) tentou pagar, mas o seu recebimento pela Bynx está pendente. Enquanto isso, o pagamento fica travado.`)}
+    ${p(prazo
+      ? `Regularize até ${forte(prazo)} (horário de Brasília) e o pagamento libera na hora para o comprador. Depois desse prazo o arremate é cancelado.`
+      : 'Regularize o quanto antes e o pagamento libera na hora para o comprador. Se o prazo terminar, o arremate é cancelado.')}
+    ${btn('Regularizar o recebimento', urlRecebimento(a.lojaId, 'leilao_bloqueio_vendedor'))}
+  `, `O vencedor de ${a.cardName} quer pagar`)
+  return { to: a.to, subject: subjUser(`Pagamento travado: ${a.cardName}`), html }
+}
+
+/** Vencedor: arremate cancelado porque a loja nao conseguiu receber. */
+export function renderLeilaoCanceladoVendedorCompradorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('O arremate foi cancelado')}
+    ${p(`${escapeHtml(nome)}, a loja não conseguiu receber o pagamento de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) dentro do prazo, então o arremate foi cancelado.`)}
+    ${p('Nada foi cobrado no seu cartão e isso não conta contra você.')}
+    ${btn('Ver leilões ao vivo', addUtm(`${URL_CANONICA}/leiloes`, 'leilao_cancelado_vendedor'))}
+  `, `${a.cardName}: arremate cancelado, nada cobrado`)
+  return { to: a.to, subject: subjUser(`Arremate cancelado: ${a.cardName}`), html }
+}
+
+/** Vendedor: arremate cancelado porque o recebimento dele estava pendente. */
+export function renderLeilaoCanceladoVendedorLojaEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const html = baseLayout(`
+    ${badge('Leilão', '#ef4444', '')}
+    ${h1('Arremate cancelado')}
+    ${p(`${escapeHtml(nome)}, o arremate de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) foi cancelado porque o seu recebimento pela Bynx estava pendente e o comprador não conseguiu pagar.`)}
+    ${p('Nada foi cobrado e não há envio a fazer. A carta continua com você. Regularize o recebimento antes da próxima rodada.')}
+    ${btn('Regularizar o recebimento', urlRecebimento(a.lojaId, 'leilao_cancelado_vendedor_loja'))}
+  `, `${a.cardName} foi cancelado: recebimento pendente`)
+  return { to: a.to, subject: subjUser(`Arremate cancelado: ${a.cardName}`), html }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEILAO — Protecao Bynx (reclamacao de pedido de leilao, fatia 7).
+// Politica e prazos: src/lib/leilao-reclamacao.ts. Mesmas regras dos avisos do
+// leilao: sem emoji (nem no assunto), sem contracao, cores dos tokens em hex,
+// horario de Brasilia. Os modelos so renderizam; `enviarEmailRenderizado`
+// manda um por vez (rotas) e o cron usa `enviarLoteEmails`.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Envia UM e-mail ja renderizado. Falha nao lanca: loga e devolve o erro. */
+export async function enviarEmailRenderizado(e: EmailRenderizado) {
+  // template (exigido pelo log de envios da main desde out/26): um nome so para
+  // os e-mails de pos-venda do leilao, que chegam aqui ja renderizados.
+  return enviar({ template: 'leilao-pos-venda', from: FROM, to: e.to, subject: e.subject, html: e.html })
+}
+
+function urlPedidoComprador(pedidoId: string, campaign: string): string {
+  return addUtm(`${URL_CANONICA}/pedido/${pedidoId}`, campaign)
+}
+function urlPedidosLoja(lojaId: string, campaign: string): string {
+  return addUtm(`${URL_CANONICA}/minha-loja/${lojaId}/pedidos`, campaign)
+}
+
+export interface ReclamacaoEmailBase {
+  to: string
+  nome: string | null
+  pedidoId: string
+  pedidoNumero: number | string
+  itemNome: string
+  lojaNome: string
+  lojaId: string
+}
+
+/** Loja: o comprador abriu uma reclamacao. */
+export function renderReclamacaoAbertaLojaEmail(a: ReclamacaoEmailBase & {
+  motivo: string
+  descricao: string
+  prazoLoja: string
+}): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const html = baseLayout(`
+    ${badge('Proteção Bynx', '#f59e0b', '')}
+    ${h1('Um comprador abriu uma reclamação')}
+    ${p(`${escapeHtml(nome)}, o comprador do pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}) relatou um problema: ${forte(a.motivo)}.`)}
+    ${p(`<span style="color:rgba(255,255,255,0.75);">"${escapeHtml(a.descricao)}"</span>`)}
+    ${blocoLeilao('Responda até (horário de Brasília)', escapeHtml(a.prazoLoja), '#f59e0b')}
+    ${p('Você pode aceitar o estorno, propor um acordo ou enviar suas provas (rastreio, fotos do envio). Sem resposta no prazo, a decisão fica a favor do comprador.')}
+    ${btnB2B('Responder', urlPedidosLoja(a.lojaId, 'reclamacao_aberta'))}
+  `, `Reclamação no pedido #${a.pedidoNumero}. Responda até ${a.prazoLoja}`)
+  return { to: a.to, subject: subjUser(`Reclamação no pedido #${a.pedidoNumero}: responda até ${a.prazoLoja}`), html }
+}
+
+/** Comprador: a loja respondeu. */
+export function renderReclamacaoRespostaCompradorEmail(a: ReclamacaoEmailBase & {
+  resposta: string
+  texto: string
+  contrapropostaCents: number | null
+  prazoDecisao: string
+}): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Proteção Bynx', '#f59e0b', '')}
+    ${h1('A loja respondeu sua reclamação')}
+    ${p(`${escapeHtml(nome)}, a ${forte(a.lojaNome)} respondeu sobre o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}): ${forte(a.resposta)}.`)}
+    ${a.texto ? p(`<span style="color:rgba(255,255,255,0.75);">"${escapeHtml(a.texto)}"</span>`) : ''}
+    ${a.contrapropostaCents ? blocoLeilao('Proposta da loja', formatarBRL(a.contrapropostaCents)) : ''}
+    ${p(`Agora a Bynx analisa o caso e decide${a.prazoDecisao ? ` até ${forte(a.prazoDecisao)} (horário de Brasília)` : ''}. Você recebe a decisão por e-mail.`)}
+    ${btn('Ver o pedido', urlPedidoComprador(a.pedidoId, 'reclamacao_resposta'))}
+  `, `A ${a.lojaNome} respondeu sobre o pedido #${a.pedidoNumero}`)
+  return { to: a.to, subject: subjUser(`A loja respondeu sua reclamação: pedido #${a.pedidoNumero}`), html }
+}
+
+const TEXTO_DECISAO: Record<string, { titulo: string; comprador: string; loja: string }> = {
+  estorno_total: {
+    titulo: 'Reclamação resolvida com estorno total',
+    comprador: 'A Bynx decidiu a seu favor e estornou o valor integral do pedido.',
+    loja: 'A Bynx decidiu a favor do comprador e o valor integral foi estornado. O repasse deste pedido foi revertido.',
+  },
+  estorno_parcial: {
+    titulo: 'Reclamação resolvida com estorno parcial',
+    comprador: 'A Bynx decidiu por um estorno parcial do pedido.',
+    loja: 'A Bynx decidiu por um estorno parcial ao comprador. O repasse deste pedido foi ajustado na mesma proporção.',
+  },
+  devolucao: {
+    titulo: 'Devolução confirmada e estorno feito',
+    comprador: 'A devolução foi confirmada e o valor restante do pedido foi estornado.',
+    loja: 'A devolução foi confirmada e o valor restante foi estornado ao comprador. O repasse deste pedido foi revertido.',
+  },
+  devolucao_iniciada: {
+    titulo: 'Decisão: devolução da carta',
+    comprador: 'A Bynx decidiu pela devolução. Quando a carta chegar de volta à loja, o estorno é feito. A Bynx combina o envio com você.',
+    loja: 'A Bynx decidiu pela devolução. Quando a carta chegar de volta, avise a Bynx para concluir o estorno.',
+  },
+  improcedente: {
+    titulo: 'Reclamação encerrada sem estorno',
+    comprador: 'A Bynx analisou as informações das duas partes e encerrou a reclamação sem estorno.',
+    loja: 'A Bynx analisou o caso e encerrou a reclamação a favor da loja. Nada muda no seu repasse.',
+  },
+}
+
+/** Comprador ou loja: a Bynx decidiu. `decisao` aceita 'devolucao_iniciada' (1o passo). */
+/**
+ * Desistencia contestada pela loja e decidida pela Bynx (11/10): mesmo
+ * e-mail, mas sem chamar de "reclamacao" o que foi direito de arrependimento.
+ * So estorno total, parcial ou improcedente (devolucao nao se aplica: a carta
+ * ja voltou).
+ */
+/** Desistencia improcedente (#501): o que acontece com o que chegou na loja. */
+const TEXTO_DESTINO_CARTA: Record<string, { comprador: string; loja: string }> = {
+  devolver_comprador: {
+    comprador: 'O que chegou na loja volta para você, com o frete por sua conta. A loja entra em contato para combinar o envio.',
+    loja: 'Devolva ao comprador o que chegou, com o frete por conta dele. Combine o envio com ele antes de postar.',
+  },
+  retida_prova: {
+    comprador: 'O que chegou na loja fica retido com ela como prova do caso.',
+    loja: 'Guarde o que chegou como prova do caso. Não descarte nem revenda.',
+  },
+}
+
+const TEXTO_DECISAO_DESISTENCIA: Record<string, { titulo: string; comprador: string; loja: string }> = {
+  estorno_total: {
+    titulo: 'Desistência concluída com estorno total',
+    comprador: 'A Bynx analisou a contestação da loja e estornou o valor integral do pedido.',
+    loja: 'A Bynx analisou a sua contestação e decidiu pelo estorno integral ao comprador. O repasse deste pedido foi revertido.',
+  },
+  estorno_parcial: {
+    titulo: 'Desistência concluída com estorno parcial',
+    comprador: 'A Bynx analisou a contestação da loja e decidiu por um estorno parcial do pedido.',
+    loja: 'A Bynx analisou a sua contestação e decidiu por um estorno parcial ao comprador. O repasse deste pedido foi ajustado na mesma proporção.',
+  },
+  improcedente: {
+    titulo: 'Desistência encerrada sem estorno',
+    comprador: 'A Bynx analisou a contestação da loja e o vídeo da abertura do pacote: o que chegou na loja não é a carta vendida. Por isso não há estorno, e a venda continua valendo.',
+    loja: 'A Bynx analisou a sua contestação e o vídeo da abertura e decidiu a favor da loja. Não há estorno, e a venda continua valendo.',
+  },
+}
+
+export function renderReclamacaoDecisaoEmail(a: ReclamacaoEmailBase & {
+  papel: 'comprador' | 'loja'
+  decisao: string
+  valorCents: number
+  nota: string | null
+  /** true = era desistencia (motivo 'arrependimento'), nao reclamacao. */
+  desistencia?: boolean
+  /** Desistencia improcedente: destino do que chegou na loja. */
+  destinoCarta?: string
+}): EmailRenderizado {
+  const t = (a.desistencia ? TEXTO_DECISAO_DESISTENCIA[a.decisao] : null)
+    || TEXTO_DECISAO[a.decisao] || TEXTO_DECISAO.improcedente
+  const comprador = a.papel === 'comprador'
+  const nome = primeiroNome(a.nome, comprador ? 'Colecionador' : 'Lojista')
+  const html = baseLayout(`
+    ${badge(a.desistencia ? 'Desistência da compra' : 'Proteção Bynx', '#f59e0b', '')}
+    ${h1(t.titulo)}
+    ${p(`${escapeHtml(nome)}, sobre o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}${comprador ? ` da ${forte(a.lojaNome)}` : ''}): ${comprador ? t.comprador : t.loja}`)}
+    ${a.valorCents > 0 ? blocoLeilao('Valor estornado', formatarBRL(a.valorCents), '#22c55e') : ''}
+    ${a.destinoCarta && TEXTO_DESTINO_CARTA[a.destinoCarta] ? p(comprador ? TEXTO_DESTINO_CARTA[a.destinoCarta].comprador : TEXTO_DESTINO_CARTA[a.destinoCarta].loja) : ''}
+    ${a.nota ? p(`<strong style="color:#f0f0f0;">Observação da Bynx:</strong> ${escapeHtml(a.nota)}`) : ''}
+    ${a.valorCents > 0 && comprador ? p('O estorno volta para o mesmo meio de pagamento em alguns dias úteis, no prazo do banco emissor.') : ''}
+    ${comprador
+      ? btn('Ver o pedido', urlPedidoComprador(a.pedidoId, 'reclamacao_decisao'))
+      : btnB2B('Ver pedidos', urlPedidosLoja(a.lojaId, 'reclamacao_decisao'))}
+  `, `${t.titulo}: pedido #${a.pedidoNumero}`)
+  return { to: a.to, subject: subjUser(`${t.titulo}: pedido #${a.pedidoNumero}`), html }
+}
+
+/** Comprador: dia DIAS_AVISO_RECEBIMENTO depois do envio, sem confirmacao. */
+export function renderRecebimentoAvisoEmail(a: ReclamacaoEmailBase & { fechaEm: string }): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Proteção Bynx', '#f59e0b', '')}
+    ${h1('Confirme ou nos conte se houve problema')}
+    ${p(`${escapeHtml(nome)}, a ${forte(a.lojaNome)} enviou ${forte(a.itemNome)} (pedido #${escapeHtml(String(a.pedidoNumero))}) há ${DIAS_AVISO_RECEBIMENTO} dias e ainda não recebemos a sua confirmação.`)}
+    ${p('Se a carta chegou bem, confirme o recebimento. Se chegou com problema ou ainda não chegou, abra uma reclamação pelo pedido.')}
+    ${a.fechaEm ? blocoLeilao('Confirmação automática em (horário de Brasília)', escapeHtml(a.fechaEm)) : ''}
+    ${p(`Depois da confirmação automática, você ainda tem ${DIAS_RECLAMAR} dias para relatar um problema.`)}
+    ${btn('Abrir o pedido', urlPedidoComprador(a.pedidoId, 'recebimento_aviso'))}
+  `, `Seu pedido #${a.pedidoNumero} chegou?`)
+  return { to: a.to, subject: subjUser(`Seu pedido #${a.pedidoNumero} chegou? Confirme ou nos conte`), html }
+}
+
+/** Comprador e loja: cancelamento por atraso no envio (DIAS_UTEIS_ENVIO dias uteis). */
+export function renderCancelamentoAtrasoEmail(a: ReclamacaoEmailBase & {
+  papel: 'comprador' | 'loja'
+  valorCents: number
+}): EmailRenderizado {
+  const comprador = a.papel === 'comprador'
+  const nome = primeiroNome(a.nome, comprador ? 'Colecionador' : 'Lojista')
+  const html = baseLayout(`
+    ${badge('Proteção Bynx', '#ef4444', '')}
+    ${h1(comprador ? 'Pedido cancelado e estornado' : 'Pedido cancelado por atraso no envio')}
+    ${comprador
+      ? p(`${escapeHtml(nome)}, o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}) não foi enviado pela ${forte(a.lojaNome)} dentro de ${DIAS_UTEIS_ENVIO} dias úteis. Como você pediu, ele foi cancelado e o valor integral foi estornado.`)
+      : p(`${escapeHtml(nome)}, o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}) não foi enviado dentro de ${DIAS_UTEIS_ENVIO} dias úteis depois do pagamento. O comprador pediu o cancelamento e o valor foi estornado integralmente. O repasse deste pedido foi revertido e não há envio a fazer.`)}
+    ${blocoLeilao('Valor estornado', formatarBRL(a.valorCents), '#22c55e')}
+    ${comprador ? p('O estorno volta para o mesmo meio de pagamento em alguns dias úteis, no prazo do banco emissor.') : ''}
+    ${comprador
+      ? btn('Ver o pedido', urlPedidoComprador(a.pedidoId, 'cancelamento_atraso'))
+      : btnB2B('Ver pedidos', urlPedidosLoja(a.lojaId, 'cancelamento_atraso'))}
+  `, `Pedido #${a.pedidoNumero} cancelado`)
+  return {
+    to: a.to,
+    subject: subjUser(comprador ? `Pedido #${a.pedidoNumero} cancelado e estornado` : `Pedido #${a.pedidoNumero} cancelado por atraso no envio`),
+    html,
+  }
+}
+
+/**
+ * Comprador e loja: direito de arrependimento (art. 49 do CDC) em pedido de
+ * leilao. Uma funcao para todas as etapas, mesmo layout:
+ *   antes_do_envio  desistiu com o pedido pago: cancelado e estornado na hora
+ *   aberto          desistiu depois do envio: comprador recebe a confirmacao
+ *                   com data e hora e o prazo para postar; loja e avisada
+ *   postado         (loja) o comprador informou o rastreio da devolucao
+ *   entregue        (loja) a devolucao chegou: prazo para contestar
+ *   contestado      (comprador) a loja contestou; a Bynx decide
+ *   estornado       devolucao aceita (pela loja ou sem contestacao no prazo)
+ *   expirado        o comprador nao postou no prazo: sem estorno
+ */
+export type EtapaArrependimento = 'antes_do_envio' | 'aberto' | 'postado' | 'entregue' | 'contestado' | 'estornado' | 'expirado'
+
+export function renderArrependimentoEmail(a: ReclamacaoEmailBase & {
+  papel: 'comprador' | 'loja'
+  etapa: EtapaArrependimento
+  /** "10/10 às 14:32" (Brasilia): registro da desistencia. */
+  registradoEm?: string
+  /** Prazo da etapa ja formatado: postar, contestar ou decidir. */
+  prazo?: string
+  rastreio?: string | null
+  /** Etiqueta reversa (#500): codigo de postagem, quando ja saiu. */
+  codigo?: string | null
+  valorCents?: number
+}): EmailRenderizado {
+  const comprador = a.papel === 'comprador'
+  const nome = escapeHtml(primeiroNome(a.nome, comprador ? 'Colecionador' : 'Lojista'))
+  const num = escapeHtml(String(a.pedidoNumero))
+  const item = forte(a.itemNome)
+  const loja = forte(a.lojaNome)
+  const valor = a.valorCents ? blocoLeilao('Valor estornado', formatarBRL(a.valorCents), '#22c55e') : ''
+  const prazoBanco = comprador ? p('O estorno volta para o mesmo meio de pagamento em alguns dias úteis, no prazo do banco emissor.') : ''
+  const semReputacao = comprador ? '' : p('Desistência não é reclamação e não afeta a reputação da loja.')
+
+  let titulo = ''
+  let corpo = ''
+  let assunto = ''
+  switch (a.etapa) {
+    case 'antes_do_envio':
+      titulo = comprador ? 'Compra cancelada e estornada' : 'O comprador desistiu antes do envio'
+      corpo = comprador
+        ? p(`${nome}, você desistiu da compra do pedido #${num} (${item}) antes do envio. O pedido foi cancelado e o valor integral foi estornado.`) + valor + prazoBanco
+        : p(`${nome}, o comprador desistiu do pedido #${num} (${item}) antes do envio, como garante o Código de Defesa do Consumidor. O pedido foi cancelado, o valor foi estornado e o repasse foi revertido. Não envie a carta.`) + semReputacao
+      assunto = comprador ? `Pedido #${a.pedidoNumero} cancelado e estornado` : `Pedido #${a.pedidoNumero}: comprador desistiu antes do envio`
+      break
+    case 'aberto':
+      titulo = comprador ? 'Recebemos a sua desistência' : 'O comprador vai devolver a carta'
+      corpo = comprador
+        ? p(`${nome}, registramos a sua desistência do pedido #${num} (${item})${a.registradoEm ? ` em ${escapeHtml(a.registradoEm)} (horário de Brasília)` : ''}.`)
+          + (a.codigo
+            ? p(`Leve a carta a uma agência dos Correios até ${forte(a.prazo || '')} e mostre o código de postagem ${forte(a.codigo)}. O frete de volta é pago pela Bynx: não precisa imprimir etiqueta. Envie como recebeu: sleeve, toploader e envelope com proteção.`)
+            : p('Estamos gerando o código de postagem dos Correios, com o frete de volta pago pela Bynx. Você recebe um aviso assim que ele sair, e o prazo de 7 dias para postar começa nessa hora.'))
+          + p('Quando a devolução chegar e a loja conferir, o estorno integral sai no seu cartão, em 5 a 10 dias úteis no prazo do banco. Se não postar no prazo, a desistência expira e a compra continua valendo.')
+        : p(`${nome}, o comprador desistiu do pedido #${num} (${item}) dentro dos 7 dias garantidos pelo Código de Defesa do Consumidor. Ele tem 7 dias para postar a carta de volta depois que o código de postagem sair.`)
+          + p('A etiqueta de volta é paga pela Bynx e o rastreio aparece sozinho no painel. Quando a devolução chegar, você confere a carta. Se ela voltou trocada ou danificada, conteste com a prova pelo painel. Sem contestação, o estorno sai sozinho; a etiqueta e a taxa do cartão saem da comissão que voltaria para a loja.')
+          + semReputacao
+      assunto = comprador ? `Desistência do pedido #${a.pedidoNumero} registrada` : `Pedido #${a.pedidoNumero}: o comprador vai devolver a carta`
+      break
+    case 'postado':
+      titulo = 'A devolução foi postada'
+      corpo = p(`${nome}, o comprador postou a devolução do pedido #${num} (${item}).${a.rastreio ? ` Rastreio: ${forte(a.rastreio)}.` : ''}`)
+        + p('Quando a carta chegar, confira antes de qualquer coisa. Se voltou trocada ou danificada, conteste pelo painel com o vídeo da abertura do pacote.')
+      assunto = `Pedido #${a.pedidoNumero}: devolução postada`
+      break
+    case 'entregue':
+      titulo = 'A devolução chegou na loja'
+      corpo = p(`${nome}, a devolução do pedido #${num} (${item}) foi entregue na loja. Você tem até ${forte(a.prazo || '')} para contestar, se a carta voltou trocada ou danificada.`)
+        + p('Sem contestação até lá, o estorno integral sai sozinho para o comprador.')
+      assunto = `Pedido #${a.pedidoNumero}: devolução entregue, prazo para conferir`
+      break
+    case 'contestado':
+      titulo = 'A loja contestou a devolução'
+      corpo = p(`${nome}, a ${loja} contestou a devolução do pedido #${num} (${item}). A Bynx analisa as provas dos dois lados e decide até ${forte(a.prazo || '')} (horário de Brasília).`)
+      assunto = `Pedido #${a.pedidoNumero}: devolução em análise`
+      break
+    case 'estornado':
+      titulo = comprador ? 'Devolução concluída e estornada' : 'Devolução concluída'
+      corpo = comprador
+        ? p(`${nome}, a devolução do pedido #${num} (${item}) foi concluída e o valor integral foi estornado.`) + valor + prazoBanco
+        : p(`${nome}, a devolução do pedido #${num} (${item}) foi concluída. O valor foi estornado ao comprador e o repasse deste pedido foi revertido.`) + semReputacao
+      assunto = comprador ? `Pedido #${a.pedidoNumero}: estorno da devolução` : `Pedido #${a.pedidoNumero}: devolução concluída`
+      break
+    case 'expirado':
+      titulo = 'A desistência expirou'
+      corpo = comprador
+        ? p(`${nome}, a devolução do pedido #${num} (${item}) não foi postada até ${forte(a.prazo || '')}. A desistência expirou e a compra continua valendo.`)
+        : p(`${nome}, o comprador não postou a devolução do pedido #${num} (${item}) no prazo. A desistência expirou e a venda continua valendo.`)
+      assunto = `Pedido #${a.pedidoNumero}: desistência expirada`
+      break
+  }
+
+  const html = baseLayout(`
+    ${badge('Desistência da compra', '#f59e0b', '')}
+    ${h1(titulo)}
+    ${corpo}
+    ${comprador
+      ? btn('Ver o pedido', urlPedidoComprador(a.pedidoId, `arrependimento_${a.etapa}`))
+      : btnB2B('Ver pedidos', urlPedidosLoja(a.lojaId, `arrependimento_${a.etapa}`))}
+  `, `Pedido #${a.pedidoNumero}`)
+  return { to: a.to, subject: subjUser(assunto), html }
 }
 
 // ── Cupom de oferta de evento ("Me lembra do código") ────────────────────────

@@ -16,6 +16,8 @@ import ChatDock from '@/components/marketplace/ChatDock'
 import { IconShield, IconLocation, IconCarrinho, IconTruck } from '@/components/ui/Icons'
 import { buscarAnuncioPublico, buscarOutrosDoVendedor, CARTA_PESO_G, CARTA_DIMENSOES, type AnuncioPublico, type OutroDoVendedor } from '@/lib/anuncioPublico'
 import SelosPagamento from '@/components/ui/SelosPagamento'
+import VendidoPor from '@/components/ui/VendidoPor'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 
 /**
  * Pagina publica de um anuncio do marketplace.
@@ -129,7 +131,10 @@ export default async function AnuncioPage({
 
   // ★ As outras cartas do mesmo vendedor. Depois do redirect de proposito:
   //   nao vale consultar o banco para uma pagina que vai responder 308.
-  const outros = await buscarOutrosDoVendedor(a.vendedorId, a.id)
+  const [outros, vendedor] = await Promise.all([
+    buscarOutrosDoVendedor(a.vendedorId, a.id),
+    identificarVendedor(a.lojaId, a.vendedorId),
+  ])
 
   const trilha = [
     { name: 'Início', href: '/' },
@@ -304,6 +309,7 @@ export default async function AnuncioPage({
                   </span>
                 </div>
               )}
+              <VendidoPor ident={vendedor} separado />
             </div>
 
             {/* Ficha tecnica. O PESO estava so no codigo (`pacoteDeCarta`): a

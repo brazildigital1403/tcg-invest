@@ -13,6 +13,7 @@ import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { vendedoresNoCarrinho, itensDoVendedor, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
 import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled, IconBolt, IconCard } from '@/components/ui/Icons'
 import SeloVerificado from '@/components/ui/SeloVerificado'
+import type { Identificacao } from '@/lib/vendedorIdentificado'
 
 /**
  * /carrinho — uma sacola POR LOJA.
@@ -59,6 +60,8 @@ interface Resumo {
     cidade: string | null; estado: string | null; plano: string | null
     rating: { media: number; total: number } | null
   }
+  /** Quem vende (#470): razao social e CNPJ, ou nome e CPF mascarado. */
+  identificacao: Identificacao | null
   itens: ItemResumo[]
   subtotal_cents: number
   acrescimo_cents: number
@@ -361,6 +364,11 @@ function CarrinhoInner() {
                         {r.vendedor.tipo === 'loja' ? 'Vendido e enviado pela loja' : 'Vendido e enviado por este vendedor'}
                       </span>
                     </span>
+                    {r.identificacao && (
+                      <span style={S.identLinha}>
+                        Vendido por {r.identificacao.nome}{r.identificacao.documento ? ` · ${r.identificacao.documento}` : ''}
+                      </span>
+                    )}
                   </span>
                 </Link>
                 <span style={S.mutSm}>{unidades(r)} {unidades(r) === 1 ? 'unidade' : 'unidades'}</span>
@@ -645,6 +653,7 @@ const S: Record<string, CSSProperties> = {
   lojaLogoVazia: { display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, color: 'var(--bx-text-3)' },
   lojaNome: { fontSize: 14.5, fontWeight: 800, color: 'var(--bx-text)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5 },
   selo: { display: 'inline-flex', alignItems: 'center' },
+  identLinha: { display: 'block', fontSize: 11.5, color: 'var(--bx-text-3)', marginTop: 3, overflowWrap: 'anywhere', fontVariantNumeric: 'tabular-nums' },
   lojaMeta: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 3 },
   metaItem: { display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, color: 'var(--bx-text-3)', fontWeight: 600 },
 

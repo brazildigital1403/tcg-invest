@@ -7,6 +7,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { uploadFotoLoja, deletarFotoLoja, uploadLogoLoja, deletarLogoLoja, uploadCapaLoja, deletarCapaLoja } from '@/lib/uploadFoto'
 import { IconKey } from '@/components/ui/Icons'
 import { NATUREZA_OPCOES, NaturezaLoja, normalizarNatureza } from '@/lib/naturezaLoja'
+import { cnpjValido, formatarCnpj } from '@/lib/vendedorIdentificado'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,9 @@ export interface LojaFormData {
   status?: 'pendente' | 'ativa' | 'suspensa' | 'inativa'
   /** O que a pessoa declara aqui. O admin confirma na aprovacao -- ver src/lib/naturezaLoja.ts. */
   natureza_declarada?: NaturezaLoja
+  /** #470: so digitos. Null = vende como pessoa fisica (nome e CPF do dono). */
+  cnpj?: string | null
+  razao_social?: string | null
 }
 
 interface Props {
@@ -121,6 +125,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
 
   const [natureza,       setNatureza]       = useState<NaturezaLoja>(normalizarNatureza(initialData?.natureza_declarada))
   const [nome,           setNome]           = useState(initialData?.nome           || '')
+  // Quem vende (#470). Sem CNPJ, a loja aparece com o nome e o CPF do dono.
+  const [vendeComo,      setVendeComo]      = useState<'empresa' | 'pessoa'>(initialData?.cnpj ? 'empresa' : 'pessoa')
+  const [cnpj,           setCnpj]           = useState(formatarCnpj(initialData?.cnpj || ''))
+  const [razaoSocial,    setRazaoSocial]    = useState(initialData?.razao_social   || '')
   const [slugCustom,     setSlugCustom]     = useState(initialData?.slug           || '')
   const [descricao,      setDescricao]      = useState(initialData?.descricao      || '')
   const [cidade,         setCidade]         = useState(initialData?.cidade         || '')
@@ -353,6 +361,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       return 'Endereço é obrigatório para lojas físicas.'
     if (descricao.length > limites.descricao)
       return `A descrição no plano atual tem limite de ${limites.descricao} caracteres.`
+    if (vendeComo === 'empresa') {
+      if (!cnpjValido(cnpj))               return 'CNPJ inválido. Confira os 14 números.'
+      if (razaoSocial.trim().length < 2)   return 'Informe a razão social do CNPJ.'
+    }
     return null
   }
 
@@ -379,6 +391,8 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       youtube: youtube.trim() || null,
       twitter: twitter.trim() || null,
       discord: discord.trim() || null,
+      cnpj: vendeComo === 'empresa' ? cnpj.replace(/\D/g, '') : null,
+      razao_social: vendeComo === 'empresa' ? razaoSocial.trim() : null,
       // ★ SO NO CADASTRO. Depois de aprovada, a natureza publica e a que o
       // admin confirmou -- deixar a propria loja reescrever pela edicao
       // desfaria a confirmacao sem ninguem ver.
@@ -694,6 +708,65 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
             disabled={capaUploading}
           />
         </div>
+      </fieldset>
+
+      {/* ─── SEÇÃO: Quem vende (#470) ────────────────────────── */}
+      {/* A lei pede nome e CNPJ ou CPF de quem vende. Aparece em "Vendido por"
+          na loja, no produto, no checkout e no pedido. */}
+      <fieldset style={S.fieldset}>
+        <legend style={S.legend}>Dados de quem vende</legend>
+
+        <div style={S.chipsRow}>
+          {([['empresa', 'Empresa (CNPJ)'], ['pessoa', 'Pessoa física']] as const).map(([v, rotulo]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setVendeComo(v)}
+              aria-pressed={vendeComo === v}
+              style={{ ...S.chip, ...(vendeComo === v ? S.chipActive : {}), minHeight: 44 }}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+
+        {vendeComo === 'empresa' ? (
+          <div style={S.grid2}>
+            <div>
+              <label style={LABEL} htmlFor="loja-cnpj">CNPJ *</label>
+              <input
+                id="loja-cnpj"
+                type="text"
+                inputMode="numeric"
+                value={cnpj}
+                onChange={e => setCnpj(formatarCnpj(e.target.value.replace(/\D/g, '').slice(0, 14)))}
+                placeholder="00.000.000/0000-00"
+                style={{ ...INPUT, borderColor: cnpj.replace(/\D/g, '').length === 14 && !cnpjValido(cnpj) ? 'rgba(239,68,68,0.4)' : undefined }}
+                maxLength={18}
+              />
+              {cnpj.replace(/\D/g, '').length === 14 && !cnpjValido(cnpj) && (
+                <p style={S.errorText}>Esse CNPJ não confere. Revise os números.</p>
+              )}
+            </div>
+            <div>
+              <label style={LABEL} htmlFor="loja-razao">Razão social *</label>
+              <input
+                id="loja-razao"
+                type="text"
+                value={razaoSocial}
+                onChange={e => setRazaoSocial(e.target.value)}
+                placeholder="Como está no cartão CNPJ"
+                style={INPUT}
+                maxLength={150}
+              />
+            </div>
+          </div>
+        ) : (
+          <p style={S.hintText}>
+            Vamos usar o nome e o CPF da conta de quem cadastrou a loja. Nas telas públicas o CPF aparece
+            mascarado; inteiro, só no pedido de quem comprou.
+          </p>
+        )}
       </fieldset>
 
       {/* ─── SEÇÃO: Localização ──────────────────────────────── */}

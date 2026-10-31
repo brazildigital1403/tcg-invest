@@ -15,6 +15,8 @@ import SeloVerificado from '@/components/ui/SeloVerificado'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, IconLocation, IconCarrinho, IconShield } from '@/components/ui/Icons'
 import SelosPagamento from '@/components/ui/SelosPagamento'
+import VendidoPor from '@/components/ui/VendidoPor'
+import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 
 /**
  * /produto/[id] — a pagina que faltava.
@@ -172,6 +174,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
   }
 
   const nomeLoja = loja.nome || 'Loja'
+  const vendedor = await identificarVendedor(loja.id, loja.owner_user_id)
   const fotos = Array.isArray(produto.fotos) ? produto.fotos.filter(Boolean) : []
   // Tudo ou nada, igual ao cadastro e ao calculo do frete: com uma medida
   // faltando a cotacao cai na estimativa, entao a ficha nao pode dizer que ha
@@ -336,6 +339,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                     )}
                   </span>
                 </Link>
+                <VendidoPor ident={vendedor} separado />
               </div>
 
               {/* ★ A EMBALAGEM SO APARECE QUANDO O LOJISTA INFORMOU
