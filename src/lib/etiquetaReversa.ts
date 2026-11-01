@@ -49,7 +49,8 @@ export function cpfValido(v: unknown): boolean {
  */
 export function separarEndereco(texto: unknown): { rua: string; numero: string; bairro: string } {
   const t = String(texto ?? '').replace(/\s+/g, ' ').trim()
-  const [antes, ...depois] = t.split(/\s+-\s+/)
+  // Hifen, meia-risca ou travessao: o exemplo do formulario da loja usa travessao.
+  const [antes, ...depois] = t.split(/\s+[-\u2013\u2014]\s+/)
   const bairro = depois.join(' - ').trim()
   const m = antes.match(/^(.*?)[,\s]+(n[ºo°.]?\s*)?(\d+[A-Za-z]?)\s*(.*)$/i)
   if (m && m[1].trim()) {

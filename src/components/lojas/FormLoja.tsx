@@ -827,19 +827,25 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
           <p style={S.hintText}>Usado para calcular o frete dos seus pedidos.</p>
         </div>
 
-        {(tipo === 'fisica' || tipo === 'ambas') && (
-          <div>
-            <label style={LABEL}>Endereço *</label>
-            <input
-              type="text"
-              value={endereco}
-              onChange={e => setEndereco(e.target.value)}
-              placeholder="Ex: Rua Augusta, 1200 — Consolação"
-              style={INPUT}
-            />
-            <p style={S.hintText}>Aparecerá na página junto com um link para o Google Maps.</p>
-          </div>
-        )}
+        {/* ★ Loja online tambem precisa de endereco (01/11/2026): e para la que
+            volta a carta numa desistencia, e a etiqueta reversa recusa sem rua,
+            numero e bairro. Para online o campo e opcional e NAO aparece na
+            pagina -- a /lojas/[slug] so mostra endereco de loja fisica. */}
+        <div>
+          <label style={LABEL}>{tipo === 'online' ? 'Endereço para devoluções' : 'Endereço *'}</label>
+          <input
+            type="text"
+            value={endereco}
+            onChange={e => setEndereco(e.target.value)}
+            placeholder="Ex: Rua Augusta, 1200 — Consolação"
+            style={INPUT}
+          />
+          <p style={S.hintText}>
+            {tipo === 'online'
+              ? 'Não aparece na sua página. Usado só na etiqueta de devolução, quando um comprador desiste.'
+              : 'Aparecerá na página junto com um link para o Google Maps.'}
+          </p>
+        </div>
       </fieldset>
 
       {/* ─── SEÇÃO: Especialidades ────────────────────────────── */}
