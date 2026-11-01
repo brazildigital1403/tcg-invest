@@ -81,7 +81,7 @@ export type ResultadoEtiqueta =
 async function pessoas(sb: SupabaseClient, rec: Rec): Promise<{ comprador: PessoaReversa; loja: PessoaReversa; valorCents: number; nomeItem: string }> {
   const [{ data: peds }, { data: us }, { data: ljs }] = await Promise.all([
     sb.from('pedidos').select('endereco, valor_item_cents, item_nome').eq('id', rec.pedido_id).limit(1),
-    sb.from('users').select('name, email, cpf, whatsapp, logradouro, numero, complemento, bairro, cep, uf').eq('id', rec.comprador_user_id).limit(1),
+    sb.from('users').select('name, email, cpf, whatsapp, logradouro, numero, complemento, bairro, cep, uf, city').eq('id', rec.comprador_user_id).limit(1),
     sb.from('lojas').select('nome, endereco, cidade, estado, cep, email, whatsapp, owner_user_id, cnpj').eq('id', rec.loja_id).limit(1),
   ])
   const ped = peds?.[0] as { endereco?: Record<string, string | null> | null; valor_item_cents?: number; item_nome?: string } | undefined
@@ -104,7 +104,9 @@ async function pessoas(sb: SupabaseClient, rec: Rec): Promise<{ comprador: Pesso
     numero: cadastroOk ? (u.numero || 'S/N') : daEntrega.numero,
     complemento: cadastroOk ? u.complemento : null,
     bairro: cadastroOk ? u.bairro : (end.linha2 || daEntrega.bairro),
-    cidade: end.cidade,
+    // A cidade do cadastro e `city`. Sem ela, o pedido sem endereco de entrega
+    // (01/11: pedido 12, so com o pais) travava a etiqueta mesmo com rua e CEP.
+    cidade: cadastroOk ? (u.city || end.cidade) : end.cidade,
     uf: cadastroOk ? (u.uf || end.estado) : end.estado,
     cep: cadastroOk ? u.cep : end.cep,
   }
