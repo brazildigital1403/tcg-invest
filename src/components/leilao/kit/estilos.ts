@@ -119,6 +119,7 @@ a.lk-linha:hover { background: var(--bx-surface-2); border-color: var(--bx-borde
 .lk-aviso { display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--lk-c) 34%, transparent); background: color-mix(in srgb, var(--lk-c) 8%, transparent); font-size: 13.5px; line-height: 1.45; color: var(--bx-text-2); }
 .lk-aviso > svg { flex-shrink: 0; color: var(--lk-c); margin-top: 1px; }
 .lk-aviso b { display: block; color: var(--bx-text); }
+.lk-aviso .lk-btn-leve { display: flex; width: fit-content; padding: 0; margin-bottom: -10px; }
 
 .lk-rec { border-bottom: 1px solid var(--bx-border); }
 .lk-rec summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; cursor: pointer; list-style: none; font-size: 14.5px; font-weight: 600; color: var(--bx-text); }
@@ -147,6 +148,9 @@ a.lk-linha:hover { background: var(--bx-surface-2); border-color: var(--bx-borde
 .lk-barra p { display: flex; justify-content: space-between; gap: 10px; margin: 0; font-size: 13px; font-weight: 600; color: var(--bx-text-2); }
 .lk-barra p b { color: var(--bx-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lk-barra small { font-size: 12px; text-align: center; color: var(--bx-text-3); }
+
+.lk-assist { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 1000px) { .lk-assist { grid-template-columns: minmax(0, 1fr) 320px; } }
 
 .lk-esq { display: block; border-radius: 12px; background: var(--bx-surface-2); }
 

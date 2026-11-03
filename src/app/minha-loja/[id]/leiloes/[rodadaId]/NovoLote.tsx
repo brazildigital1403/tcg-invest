@@ -5,13 +5,14 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import CardItem, { type CardItemData } from '@/components/ui/CardItem'
 import { IconClose, IconImage, IconSearch } from '@/components/ui/Icons'
+import { Aviso, Botao, Etapas, Recolhido } from '@/components/leilao/kit'
 import { CAMPO_VALOR, getPrecoVariante, getVarianteEfetiva } from '@/lib/calcPatrimonio'
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { GRADUADORAS } from '@/lib/graduadoras'
 import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
 import { comissaoVendedorLeilaoCents } from '@/lib/leilao-taxas'
 import {
-  CONDICOES_LOTE, DIAS_LOTE, DURACOES_LOTE, IDIOMAS_LOTE, FRACAO_SUGESTAO,
+  CONDICOES_LOTE, DIAS_LOTE, DURACOES_LOTE, IDIOMAS_LOTE, FRACAO_SUGESTAO, LANCE_INICIAL_MIN_CENTS,
   reaisParaCents, sugestaoLanceInicialCents, validarLote,
   type CondicaoLote, type DiasLote, type DuracaoLote, type IdiomaLote,
 } from '@/lib/leilao-painel'
@@ -20,11 +21,14 @@ import { chamarPainel } from '../_rodada'
 /**
  * Adicionar lote a uma rodada em rascunho.
  *
+ * Em tres passos: carta; fotos e estado; preco e tempo.
+ *
  * 1. Carta: busca no catalogo pela MESMA RPC do AddCardModal/comparador
  *    (smart_search_cards_v5, paginada em 12) ou escolha na colecao do dono
  *    (precos pelo /api/cards/lookup, por id). Nenhuma query nova no catalogo.
- * 2. Detalhes: frente e verso (obrigatorias), condicao, idioma, graduacao,
- *    descricao, lance inicial e duracao.
+ * 2. Fotos e estado: frente e verso (obrigatorias), condicao, idioma, graduacao
+ *    e descricao.
+ * 3. Preco e tempo: lance inicial e duracao.
  *
  * Sugestao de lance: 60% do MENOR preco do Mercado Brasileiro da variante com
  * preco (CAMPO_VALOR de calcPatrimonio). So sugere; o campo fica com a loja.
@@ -105,6 +109,7 @@ export default function NovoLote({
   const [duracao, setDuracao] = useState<DuracaoLote>(45)
   const [dias, setDias] = useState<DiasLote>(((DIAS_LOTE as readonly number[]).includes(inicial?.dias ?? 0) ? inicial!.dias : 3) as DiasLote)
   const prazo = !rodadaId
+  const [fase, setFase] = useState<'estado' | 'preco'>('estado')
   const lanceCents = reaisParaCents(lanceTxt) || 0
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -140,9 +145,9 @@ export default function NovoLote({
   const preco = escolhida ? menorPreco(escolhida.row, escolhida.variante) : 0
   const sugestao = sugestaoLanceInicialCents(preco)
 
-  async function salvar() {
-    if (!escolhida) return
-    const corpo = {
+  function montarCorpo() {
+    if (!escolhida) return null
+    return {
       card_id: String(escolhida.row.id),
       fotos: [frente, verso].filter(Boolean),
       condicao,
@@ -153,9 +158,27 @@ export default function NovoLote({
       lance_inicial_cents: reaisParaCents(lanceTxt),
       ...(prazo ? { dias } : { duracao_seg: duracao }),
     }
-    // Mesma validacao do servidor, so para avisar antes (a URL da foto o
-    // servidor confere com fotoLeilaoValida; aqui so conta as duas).
-    const v = validarLote(corpo, { fotosDaLoja: null, graduadorasValidas: GRADUADORAS.map(g => g.slug), prazo })
+  }
+
+  // Mesma validacao do servidor, so para avisar antes (a URL da foto o
+  // servidor confere com fotoLeilaoValida; aqui so conta as duas).
+  const validar = (corpo: Record<string, unknown>) =>
+    validarLote(corpo, { fotosDaLoja: null, graduadorasValidas: GRADUADORAS.map(g => g.slug), prazo })
+
+  function avancar() {
+    const corpo = montarCorpo()
+    if (!corpo) return
+    // O lance so entra no proximo passo: aqui confere o resto do lote.
+    const v = validar({ ...corpo, lance_inicial_cents: LANCE_INICIAL_MIN_CENTS })
+    if (!v.ok) { setErro(v.erro); return }
+    setErro(null)
+    setFase('preco')
+  }
+
+  async function salvar() {
+    const corpo = montarCorpo()
+    if (!corpo) return
+    const v = validar(corpo)
     if (!v.ok) { setErro(v.erro); return }
     setSalvando(true)
     setErro(null)
@@ -174,8 +197,15 @@ export default function NovoLote({
   return (
     <div style={S.box}>
       <div style={S.topo}>
-        <div style={S.cap}>{escolhida ? (prazo ? 'Detalhes do leilão' : 'Detalhes do lote') : 'Escolha a carta'}</div>
+        <div style={S.cap}>{prazo ? 'Novo leilão' : 'Novo lote'}</div>
         <button onClick={onCancelar} style={S.btnIcone} aria-label="Fechar"><IconClose size={18} /></button>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <Etapas direcao="h" itens={[
+          { titulo: 'Carta', estado: escolhida ? 'feito' : 'atual' },
+          { titulo: 'Fotos e estado', estado: !escolhida ? 'futuro' : fase === 'estado' ? 'atual' : 'feito' },
+          { titulo: 'Preço e tempo', estado: escolhida && fase === 'preco' ? 'atual' : 'futuro' },
+        ]} />
       </div>
 
       {!escolhida ? (
@@ -197,151 +227,173 @@ export default function NovoLote({
       ) : (
         <>
           <div style={S.escolhida}>
-            <div style={{ width: 120, flexShrink: 0 }}>
+            <div style={{ width: 88, flexShrink: 0 }}>
               <CardItem card={cardDaLinha(escolhida.row)} mode="readonly" hidePriceTable ocultarIdioma ocultarSemPreco />
             </div>
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={S.nomeCarta}>{txt(escolhida.row.name)}</div>
-              <div style={S.hint}>
+              <div style={{ ...S.hint, marginTop: 0 }}>
                 {preco > 0
                   ? `Menor preço no Mercado Brasileiro: ${formatarBRL(Math.round(preco * 100))}`
                   : 'Sem preço no Mercado Brasileiro para esta carta.'}
               </div>
-              <button onClick={() => setEscolhida(null)} style={S.btnGhost}>Trocar carta</button>
+              {fase === 'estado' && <button onClick={() => setEscolhida(null)} style={{ ...S.btnGhost, alignSelf: 'flex-start' }}>Trocar carta</button>}
             </div>
           </div>
 
-          <label style={S.lbl}>Fotos reais da carta (obrigatórias)</label>
-          <div style={S.fotos}>
-            {([['frente', frente, setFrente, fileFrente], ['verso', verso, setVerso, fileVerso]] as const).map(
-              ([lado, url, set, ref]) => (
-                <div key={lado} style={S.fotoCol}>
-                  {url ? (
-                    <div style={S.foto}>
-                      <Image src={url} alt={lado === 'frente' ? 'Frente da carta' : 'Verso da carta'} fill sizes="128px" style={{ objectFit: 'cover' }} />
-                      {/* Alvo de toque 44x44 no canto; o circulo visivel continua de 30px. */}
-                      <button type="button" onClick={() => set(null)} style={S.remFoto} aria-label={`Remover foto do ${lado}`}>
-                        <span style={S.remFotoCirculo}><IconClose size={14} /></span>
-                      </button>
-                    </div>
-                  ) : (
-                    <button onClick={() => ref.current?.click()} disabled={subindo !== null} style={S.addFoto}>
-                      <IconImage size={22} />
-                      <span>{subindo === lado ? 'Enviando…' : lado === 'frente' ? 'Frente' : 'Verso'}</span>
-                    </button>
-                  )}
-                  <input
-                    ref={ref} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) subir(lado, f) }}
-                  />
-                </div>
-              )
-            )}
-          </div>
-          <p style={S.hint}>Foto da carta que vai ser enviada, não a imagem do catálogo. JPG, PNG ou WEBP até 5 MB.</p>
-
-          <label style={S.lbl}>Condição</label>
-          <div style={S.chips}>
-            {CONDICOES_LOTE.map(c => (
-              <button key={c} onClick={() => setCondicao(c)} aria-pressed={condicao === c} style={{ ...S.chip, ...(condicao === c ? S.chipOn : null) }}>{c}</button>
-            ))}
-          </div>
-
-          <label style={S.lbl}>Idioma</label>
-          <div style={S.chips}>
-            {IDIOMAS_LOTE.map(i => (
-              <button key={i} onClick={() => setIdioma(i)} aria-pressed={idioma === i} style={{ ...S.chip, ...(idioma === i ? S.chipOn : null) }}>{IDIOMA_ROTULO[i]}</button>
-            ))}
-          </div>
-
-          <div style={S.two}>
-            <div>
-              <label style={S.lbl} htmlFor="lote-grad">Graduadora (opcional)</label>
-              <select id="lote-grad" value={graduadora} onChange={e => { setGraduadora(e.target.value); if (!e.target.value) setNota('') }} style={S.input}>
-                <option value="">Sem graduação</option>
-                {GRADUADORAS.map(g => <option key={g.slug} value={g.slug}>{g.curto}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={S.lbl} htmlFor="lote-nota">Nota</label>
-              <input
-                id="lote-nota" value={nota} onChange={e => setNota(e.target.value.replace(/[^0-9.,]/g, '').slice(0, 4))}
-                placeholder={graduadora ? 'Ex: 9,5' : 'Sem graduação'} disabled={!graduadora} inputMode="decimal" style={S.input}
-              />
-            </div>
-          </div>
-
-          <label style={S.lbl} htmlFor="lote-desc">Descrição (opcional)</label>
-          <textarea
-            id="lote-desc" value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} maxLength={1000}
-            placeholder="Detalhes que a foto não mostra: centralização, marcas, borda…"
-            style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }}
-          />
-
-          <label style={S.lbl} htmlFor="lote-lance">Lance inicial</label>
-          <div style={S.inputWrap}>
-            <span style={S.prefixo}>R$</span>
-            <input
-              id="lote-lance" value={lanceTxt} onChange={e => setLanceTxt(e.target.value)} inputMode="decimal"
-              placeholder={sugestao ? (sugestao / 100).toFixed(2).replace('.', ',') : '10,00'} style={S.inputBare}
-            />
-          </div>
-          {sugestao ? (
-            <div style={S.sugestao}>
-              <span style={S.hint}>
-                Sugestão: {formatarBRL(sugestao)} ({Math.round(FRACAO_SUGESTAO * 100)}% do menor preço do Mercado Brasileiro)
-              </span>
-              <button onClick={() => setLanceTxt((sugestao / 100).toFixed(2).replace('.', ','))} style={S.btnGhost}>Usar sugestão</button>
-            </div>
-          ) : (
-            <p style={S.hint}>Sem preço de referência: defina o lance inicial pelo seu conhecimento da carta.</p>
-          )}
-
-          {prazo ? (
+          {fase === 'estado' ? (
             <>
-              <label style={S.lbl}>Quanto tempo fica aberto?</label>
+              <label style={S.lbl}>Fotos reais da carta</label>
+              <div style={S.fotos}>
+                {([['frente', frente, setFrente, fileFrente], ['verso', verso, setVerso, fileVerso]] as const).map(
+                  ([lado, url, set, ref]) => (
+                    <div key={lado} style={S.fotoCol}>
+                      {url ? (
+                        <div style={S.foto}>
+                          <Image src={url} alt={lado === 'frente' ? 'Frente da carta' : 'Verso da carta'} fill sizes="128px" style={{ objectFit: 'cover' }} />
+                          {/* Alvo de toque 44x44 no canto; o circulo visivel continua de 30px. */}
+                          <button type="button" onClick={() => set(null)} style={S.remFoto} aria-label={`Remover foto do ${lado}`}>
+                            <span style={S.remFotoCirculo}><IconClose size={14} /></span>
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => ref.current?.click()} disabled={subindo !== null} style={S.addFoto}>
+                          <IconImage size={22} />
+                          <span>{subindo === lado ? 'Enviando…' : lado === 'frente' ? 'Frente' : 'Verso'}</span>
+                        </button>
+                      )}
+                      <input
+                        ref={ref} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) subir(lado, f) }}
+                      />
+                    </div>
+                  )
+                )}
+              </div>
+              <p style={S.hint}>A carta que vai ser enviada, não a imagem do catálogo.</p>
+
+              <label style={S.lbl}>Condição</label>
               <div style={S.chips}>
-                {DIAS_LOTE.map(d => (
-                  <button key={d} onClick={() => setDias(d)} aria-pressed={dias === d} style={{ ...S.chip, ...(dias === d ? S.chipOn : null) }}>{d === 1 ? '1 dia' : `${d} dias`}</button>
+                {CONDICOES_LOTE.map(c => (
+                  <button key={c} onClick={() => setCondicao(c)} aria-pressed={condicao === c} style={{ ...S.chip, ...(condicao === c ? S.chipOn : null) }}>{c}</button>
                 ))}
               </div>
-              <p style={S.termina}>Termina em {horarioBrasilia(new Date(Date.now() + dias * 86_400_000).toISOString())}</p>
-              <p style={S.hint}>Abre assim que você publica. Lance nos últimos 2 minutos estende o fim em 2 minutos. Depois do primeiro lance, o leilão não pode ser cancelado.</p>
-              {lanceCents > 0 && (
-                <p style={S.hint}>
-                  Não há preço mínimo: o lote sai pelo maior lance. Com um único lance, você recebe <b>{formatarBRL(lanceCents - comissaoVendedorLeilaoCents(lanceCents))}</b>. O frete é à parte, e o repasse cai cerca de 30 dias depois do pagamento.
-                </p>
-              )}
-              <label style={S.lbl}>Como aparece</label>
-              <div style={{ width: 170 }}>
-                <CardItem
-                  card={{ ...cardDaLinha(escolhida.row), image_small: frente || txt(escolhida.row.image_small), idioma }}
-                  mode="readonly" hidePriceTable ocultarSemPreco
-                  badge={lanceCents > 0 ? <span style={S.previaPreco}>{formatarBRL(lanceCents)}</span> : undefined}
-                  footerSlot={<span style={S.previaRodape}>{dias === 1 ? '1 dia' : `${dias} dias`} · Sem lance</span>}
-                />
+
+              <label style={S.lbl}>Idioma</label>
+              <div style={S.chips}>
+                {IDIOMAS_LOTE.map(i => (
+                  <button key={i} onClick={() => setIdioma(i)} aria-pressed={idioma === i} style={{ ...S.chip, ...(idioma === i ? S.chipOn : null) }}>{IDIOMA_ROTULO[i]}</button>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 8 }}>
+                <Recolhido titulo="Graduação e descrição (opcional)" aberto={!!graduadora || !!descricao}>
+                  <div style={S.two}>
+                    <div>
+                      <label style={{ ...S.lbl, marginTop: 0 }} htmlFor="lote-grad">Graduadora</label>
+                      <select id="lote-grad" value={graduadora} onChange={e => { setGraduadora(e.target.value); if (!e.target.value) setNota('') }} style={S.input}>
+                        <option value="">Sem graduação</option>
+                        {GRADUADORAS.map(g => <option key={g.slug} value={g.slug}>{g.curto}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ ...S.lbl, marginTop: 0 }} htmlFor="lote-nota">Nota</label>
+                      <input
+                        id="lote-nota" value={nota} onChange={e => setNota(e.target.value.replace(/[^0-9.,]/g, '').slice(0, 4))}
+                        placeholder={graduadora ? 'Ex: 9,5' : 'Sem graduação'} disabled={!graduadora} inputMode="decimal" style={S.input}
+                      />
+                    </div>
+                  </div>
+                  <label style={{ ...S.lbl, marginTop: 6 }} htmlFor="lote-desc">Descrição</label>
+                  <textarea
+                    id="lote-desc" value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} maxLength={1000}
+                    placeholder="Detalhes que a foto não mostra: centralização, marcas, borda…"
+                    style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                </Recolhido>
+              </div>
+
+              {erro && <div style={{ marginTop: 12 }}><Aviso tom="perigo">{erro}</Aviso></div>}
+
+              <div style={{ marginTop: 16 }}>
+                <Botao cheio onClick={avancar} disabled={subindo !== null}>Continuar</Botao>
               </div>
             </>
           ) : (
             <>
-          <label style={S.lbl}>Duração do lote</label>
-          <div style={S.chips}>
-            {DURACOES_LOTE.map(d => (
-              <button key={d} onClick={() => setDuracao(d)} aria-pressed={duracao === d} style={{ ...S.chip, ...(duracao === d ? S.chipOn : null) }}>{d}s</button>
-            ))}
-          </div>
-          <p style={S.hint}>Lance nos últimos 10 segundos estende o lote em mais 10.</p>
+              <label style={S.lbl} htmlFor="lote-lance">Lance inicial</label>
+              <div style={S.inputWrap}>
+                <span style={S.prefixo}>R$</span>
+                <input
+                  id="lote-lance" value={lanceTxt} onChange={e => setLanceTxt(e.target.value)} inputMode="decimal"
+                  placeholder={sugestao ? (sugestao / 100).toFixed(2).replace('.', ',') : '10,00'} style={S.inputBare}
+                />
+              </div>
+              {sugestao ? (
+                <div style={S.sugestao}>
+                  <span style={S.hint}>
+                    Sugestão: {formatarBRL(sugestao)} ({Math.round(FRACAO_SUGESTAO * 100)}% do menor preço do Mercado Brasileiro)
+                  </span>
+                  <button onClick={() => setLanceTxt((sugestao / 100).toFixed(2).replace('.', ','))} style={S.btnGhost}>Usar sugestão</button>
+                </div>
+              ) : (
+                <p style={S.hint}>Sem preço de referência: defina pelo seu conhecimento da carta.</p>
+              )}
+
+              {prazo ? (
+                <>
+                  <label style={S.lbl}>Quanto tempo fica aberto?</label>
+                  <div style={S.chips}>
+                    {DIAS_LOTE.map(d => (
+                      <button key={d} onClick={() => setDias(d)} aria-pressed={dias === d} style={{ ...S.chip, ...(dias === d ? S.chipOn : null) }}>{d === 1 ? '1 dia' : `${d} dias`}</button>
+                    ))}
+                  </div>
+                  <p style={S.termina}>Termina em {horarioBrasilia(new Date(Date.now() + dias * 86_400_000).toISOString())}</p>
+                  <div style={{ marginTop: 12 }}>
+                    <Aviso tom="atencao">
+                      Sem preço mínimo: sai pelo maior lance.
+                      {lanceCents > 0 && <> Com um único lance, você recebe <b style={{ display: 'inline' }}>{formatarBRL(lanceCents - comissaoVendedorLeilaoCents(lanceCents))}</b>.</>}
+                      {' '}Depois do primeiro lance, não dá para cancelar.
+                    </Aviso>
+                  </div>
+                  <div style={{ marginTop: 4 }}>
+                    <Recolhido titulo="Mais regras">
+                      <p>Abre assim que você publica. Lance nos últimos 2 minutos estende o fim em 2 minutos.</p>
+                      <p>O frete é à parte, e o repasse cai cerca de 30 dias depois do pagamento.</p>
+                    </Recolhido>
+                  </div>
+                  <label style={S.lbl}>Como aparece</label>
+                  <div style={{ width: 170 }}>
+                    <CardItem
+                      card={{ ...cardDaLinha(escolhida.row), image_small: frente || txt(escolhida.row.image_small), idioma }}
+                      mode="readonly" hidePriceTable ocultarSemPreco
+                      badge={lanceCents > 0 ? <span style={S.previaPreco}>{formatarBRL(lanceCents)}</span> : undefined}
+                      footerSlot={<span style={S.previaRodape}>{dias === 1 ? '1 dia' : `${dias} dias`} · Sem lance</span>}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label style={S.lbl}>Duração do lote</label>
+                  <div style={S.chips}>
+                    {DURACOES_LOTE.map(d => (
+                      <button key={d} onClick={() => setDuracao(d)} aria-pressed={duracao === d} style={{ ...S.chip, ...(duracao === d ? S.chipOn : null) }}>{d}s</button>
+                    ))}
+                  </div>
+                  <p style={S.hint}>Lance nos últimos 10 segundos estende o lote em mais 10.</p>
+                </>
+              )}
+
+              {erro && <div style={{ marginTop: 12 }}><Aviso tom="perigo">{erro}</Aviso></div>}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+                <Botao cheio onClick={salvar} disabled={salvando || subindo !== null}>
+                  {salvando ? 'Salvando…' : prazo ? 'Publicar leilão' : 'Adicionar lote'}
+                </Botao>
+                <Botao tipo="sec" cheio onClick={() => { setErro(null); setFase('estado') }} disabled={salvando}>Voltar</Botao>
+              </div>
             </>
           )}
-
-          {erro && <div style={S.erro} role="alert">{erro}</div>}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={salvar} disabled={salvando || subindo !== null} style={{ ...S.btnPrim, flex: 1, opacity: salvando ? 0.6 : 1 }}>
-              {salvando ? 'Salvando…' : prazo ? 'Publicar leilão' : 'Adicionar lote'}
-            </button>
-            <button onClick={onCancelar} style={S.btnGhost}>Cancelar</button>
-          </div>
         </>
       )}
       {!escolhida && erro && <div style={S.erro} role="alert">{erro}</div>}
