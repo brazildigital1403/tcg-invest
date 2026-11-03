@@ -7,7 +7,8 @@ import {
 import { prazoPostagem, fmtPrazo, validarRastreio } from '@/lib/leilao-reclamacao'
 import { marcarDevolucaoEntregue, sino, nomeDaLoja } from '@/lib/reclamacaoServer'
 import { cotarFrete, pacoteDeCartas } from '@/lib/melhor-envio'
-import { SERVICO_PAC, SERVICO_SEDEX } from '@/lib/etiquetaReversa'
+import { SERVICO_PAC, SERVICO_SEDEX, SALDO_MINIMO_AVISO_CENTS, ERRO_SEM_SALDO, lerSaldoCents, faltaSaldo } from '@/lib/etiquetaReversa'
+import { sendSaldoMelhorEnvioAdminEmail } from '@/lib/email'
 
 /**
  * Etiqueta reversa da desistencia no Melhor Envio (#500): rede e gravacao.
@@ -59,6 +60,65 @@ async function me(path: string, metodo: 'GET' | 'POST', body?: unknown): Promise
   return { ok: r.ok, status: r.status, json, texto }
 }
 
+/** Saldo da carteira em centavos. Falha de rede ou resposta estranha = null. */
+export async function saldoCarteiraCents(): Promise<number | null> {
+  try {
+    const r = await me('/api/v2/me/balance', 'GET')
+    return r.ok ? lerSaldoCents(r.json) : null
+  } catch (err) {
+    console.error('[etiqueta] saldo:', (err as Error)?.message)
+    return null
+  }
+}
+
+/**
+ * Avisa o admin (sino e e-mail) com a carteira abaixo de R$ 50. No maximo 1 vez
+ * em 24 h, ou a cada 6 h se ja ha etiqueta parada esperando recarga. Quem marca
+ * o ultimo aviso e o proprio sino; sem conta para o ADMIN_EMAIL, so o e-mail
+ * das 12h (Brasilia). Nunca derruba o cron.
+ */
+export async function avisarSaldoBaixo(sb: SupabaseClient): Promise<boolean> {
+  try {
+    const saldo = await saldoCarteiraCents()
+    if (saldo === null || saldo >= SALDO_MINIMO_AVISO_CENTS) return false
+    const email = process.env.ADMIN_EMAIL?.trim()
+    if (!email) return false
+
+    const { count } = await sb.from('pedido_reclamacoes').select('id', { count: 'exact', head: true })
+      .eq('status', 'aguardando_devolucao').eq('etiqueta_erro', ERRO_SEM_SALDO)
+    const paradas = count ?? 0
+
+    const { data: us } = await sb.from('users').select('id').ilike('email', email).limit(1)
+    const adminId = us?.[0]?.id as string | undefined
+    if (adminId) {
+      const desde = new Date(Date.now() - (paradas > 0 ? 6 : 24) * 3_600_000).toISOString()
+      const { data: ja } = await sb.from('notifications').select('id')
+        .eq('user_id', adminId).eq('data->>alerta', 'saldo-melhor-envio').gte('created_at', desde).limit(1)
+      if (ja?.length) return false
+    } else if (new Date().getUTCHours() !== 15) {
+      return false
+    }
+
+    const reais = (saldo / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    if (adminId) {
+      await sb.from('notifications').insert({
+        user_id: adminId,
+        type: 'aviso',
+        title: 'Carteira do Melhor Envio com saldo baixo',
+        message: paradas > 0
+          ? `Saldo de ${reais} e ${paradas} ${paradas === 1 ? 'etiqueta parada' : 'etiquetas paradas'} esperando recarga.`
+          : `Saldo de ${reais}, abaixo do mínimo de R$ 50,00. Sem saldo, a etiqueta de devolução não sai.`,
+        data: { alerta: 'saldo-melhor-envio' },
+      })
+    }
+    await sendSaldoMelhorEnvioAdminEmail({ to: email, saldoCents: saldo, paradas })
+    return true
+  } catch (err) {
+    console.error('[etiqueta] aviso de saldo:', (err as Error)?.message)
+    return false
+  }
+}
+
 function erroCurto(etapa: string, r: { status: number; texto: string }): string {
   return `${etapa}: Melhor Envio ${r.status} ${r.texto.replace(/\s+/g, ' ').slice(0, 300)}`.slice(0, 500)
 }
@@ -81,7 +141,7 @@ export type ResultadoEtiqueta =
 async function pessoas(sb: SupabaseClient, rec: Rec): Promise<{ comprador: PessoaReversa; loja: PessoaReversa; valorCents: number; nomeItem: string }> {
   const [{ data: peds }, { data: us }, { data: ljs }] = await Promise.all([
     sb.from('pedidos').select('endereco, valor_item_cents, item_nome').eq('id', rec.pedido_id).limit(1),
-    sb.from('users').select('name, email, cpf, whatsapp, logradouro, numero, complemento, bairro, cep, uf').eq('id', rec.comprador_user_id).limit(1),
+    sb.from('users').select('name, email, cpf, whatsapp, logradouro, numero, complemento, bairro, cep, uf, city').eq('id', rec.comprador_user_id).limit(1),
     sb.from('lojas').select('nome, endereco, cidade, estado, cep, email, whatsapp, owner_user_id, cnpj').eq('id', rec.loja_id).limit(1),
   ])
   const ped = peds?.[0] as { endereco?: Record<string, string | null> | null; valor_item_cents?: number; item_nome?: string } | undefined
@@ -104,7 +164,9 @@ async function pessoas(sb: SupabaseClient, rec: Rec): Promise<{ comprador: Pesso
     numero: cadastroOk ? (u.numero || 'S/N') : daEntrega.numero,
     complemento: cadastroOk ? u.complemento : null,
     bairro: cadastroOk ? u.bairro : (end.linha2 || daEntrega.bairro),
-    cidade: end.cidade,
+    // A cidade do cadastro e `city`. Sem ela, o pedido sem endereco de entrega
+    // (01/11: pedido 12, so com o pais) travava a etiqueta mesmo com rua e CEP.
+    cidade: cadastroOk ? (u.city || end.cidade) : end.cidade,
     uf: cadastroOk ? (u.uf || end.estado) : end.estado,
     cep: cadastroOk ? u.cep : end.cep,
   }
@@ -163,6 +225,7 @@ export async function emitirEtiquetaReversa(sb: SupabaseClient, rid: string, o: 
 
   // 1. Carrinho (so se ainda nao foi).
   let meId = rec.etiqueta_me_id
+  let custoCents = rec.etiqueta_custo_cents
   if (!meId) {
     const p = await pessoas(sb, rec)
     // Servico: o mais barato entre PAC e SEDEX que atende o trecho. Dentro da
@@ -187,17 +250,24 @@ export async function emitirEtiquetaReversa(sb: SupabaseClient, rid: string, o: 
     meId = typeof j.id === 'string' ? j.id : null
     if (!meId) return falhar(sb, rid, 'carrinho: resposta sem id', r.json)
     const preco = Number(j.price)
+    custoCents = Number.isFinite(preco) && preco > 0 ? Math.round(preco * 100) : null
     await gravar(sb, rid, {
       etiqueta_me_id: meId,
       etiqueta_protocolo: typeof j.protocol === 'string' ? j.protocol : null,
       etiqueta_servico: Number(j.service_id) || null,
-      etiqueta_custo_cents: Number.isFinite(preco) && preco > 0 ? Math.round(preco * 100) : null,
+      etiqueta_custo_cents: custoCents,
       etiqueta_resposta: r.json,
     })
   }
 
   // 2. Pagamento com o saldo da carteira (422 "ja foram pagas" = ja pago).
   if (!rec.etiqueta_paga_em) {
+    // Sem saldo nao e falha: fica em 'gerando', devolve a tentativa e o cron
+    // tenta de novo a cada hora ate a recarga. O prazo de postar nao corre.
+    if (faltaSaldo(await saldoCarteiraCents(), custoCents)) {
+      await gravar(sb, rid, { etiqueta_status: 'gerando', etiqueta_tentativas: rec.etiqueta_tentativas, etiqueta_erro: ERRO_SEM_SALDO })
+      return { ok: false, erro: ERRO_SEM_SALDO }
+    }
     const r = await me('/api/v2/me/shipment/checkout', 'POST', { orders: [meId] })
     const jaPaga = r.status === 422 && /pagas/i.test(r.texto)
     if (!r.ok && !jaPaga) return falhar(sb, rid, erroCurto('pagamento', r), r.json)

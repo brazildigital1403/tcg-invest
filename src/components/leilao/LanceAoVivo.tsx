@@ -17,8 +17,10 @@ import {
   type LotePublico,
   type StatusPublico,
 } from '@/lib/leilao'
+import OutrosLotes from '@/components/leilao/OutrosLotes'
 import { calcularArremate } from '@/lib/leilao-taxas'
 import { urlPagar } from '@/lib/leilao-urls'
+import { DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from '@/lib/leilao-reclamacao'
 import { atalhosLance, textoProrrogacao } from '@/lib/leilao-rodada'
 
 /**
@@ -39,10 +41,8 @@ import { atalhosLance, textoProrrogacao } from '@/lib/leilao-rodada'
  * do dar_lance (`lider`, `seu_maximo_cents`) atualiza na hora. Nada fica no
  * aparelho: outra aba, outro celular ou sessao nova mostram o mesmo.
  *
- * "Lance rapido" x "Lance maximo": TODO lance e automatico. As duas abas mandam
- * `maximoCents` ao RPC, que so sobe o preco ate onde precisar para vencer. No
- * rapido o teto e o chip escolhido; no maximo, o valor digitado. A diferenca e
- * so de entrada (chip x campo), nunca de regra.
+ * TODO lance e automatico: chip ou "Outro valor" mandam `maximoCents` ao RPC, que
+ * so sobe o preco ate onde precisar para vencer. A diferenca e so de entrada.
  *
  * ENCERRAMENTO: relogio local zerado com o lote ainda `ativo` no servidor NAO
  * esconde nada por conta propria. A tela mostra "Conferindo encerramento...",
@@ -77,6 +77,10 @@ const FATOR_AVISO_MERCADO = 1.5
 const FATOR_CONFIRMACAO_DUPLA = 3
 /** Ultimos N ms: o anel do relogio fica vermelho. */
 const ANEL_URGENTE_MS = 10_000
+/** POST do lance sem resposta nesse tempo vira erro de conexao (a chave de idempotencia fica). */
+const TIMEOUT_LANCE_MS = 8_000
+/** Relogio zerado ha mais que isto: a tela avisa que continua conferindo. */
+const CONFERINDO_LONGO_MS = 10_000
 const FOCAVEIS = 'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
 
 type Aba = 'rapido' | 'maximo'
@@ -86,6 +90,13 @@ interface MinhaPosicao {
   voceLidera: boolean
   /** Meu teto em leilao_proxy; null = nunca dei lance neste lote. */
   seuMaximoCents: number | null
+}
+
+/** Total se vencer no limite `baseCents`. O frete fixo pode ser gratis acima de um valor. */
+interface FreteLote { cents: number | null; estimado: boolean; gratisAcimaCents: number | null }
+const freteNoPreco = (f: FreteLote | null, baseCents: number): number | null => {
+  if (!f || f.cents == null) return null
+  return f.gratisAcimaCents != null && baseCents >= f.gratisAcimaCents ? 0 : f.cents
 }
 
 async function tokenAtual(): Promise<string | null> {
@@ -141,6 +152,7 @@ export default function LanceAoVivo({
   aoParticipar,
   variante = 'lote',
   aposMercado,
+  conexaoInstavel = false,
 }: {
   loteInicial: LotePublico
   serverNow: string
@@ -158,6 +170,8 @@ export default function LanceAoVivo({
   variante?: 'lote' | 'rodada'
   /** Bloco logo abaixo do Mercado Brasileiro (a rodada poe ali a faixa de resultado). */
   aposMercado?: ReactNode
+  /** Na rodada, quem le o estado e a pagina: ela avisa quando as leituras falham. */
+  conexaoInstavel?: boolean
 }) {
   const [lote, setLote] = useState<LotePublico>(loteInicial)
 
@@ -173,12 +187,25 @@ export default function LanceAoVivo({
   const [agora, setAgora] = useState<number>(Number.isFinite(baseInicial) ? baseInicial : 0)
 
   const [logado, setLogado] = useState<boolean | null>(null)
+  // Quem nao pode dar lance descobre ANTES do Confirmar. null = ainda nao sabe:
+  // a tela segue como antes, e o servidor continua sendo quem recusa de verdade.
+  const [cadastro, setCadastro] = useState<{ cep: boolean; cpf: boolean; menor: boolean } | null>(null)
+  const [cepTxt, setCepTxt] = useState('')
+  const [salvandoCep, setSalvandoCep] = useState(false)
+  const [erroCep, setErroCep] = useState<string | null>(null)
   const [online, setOnline] = useState(true)
   const [posicao, setPosicao] = useState<MinhaPosicao | null>(null)
   /** O servidor diz se quem esta logado e o vendedor (o id do vendedor nunca vem). */
   const [proprio, setProprio] = useState(false)
   /** Prazo para pagar o arremate. So vem do servidor para quem venceu. */
   const [pagarAte, setPagarAte] = useState<string | null>(null)
+  const [pedidoId, setPedidoId] = useState<string | null>(null)
+  const [frete, setFrete] = useState<FreteLote | null>(null)
+  const freteBuscadoRef = useRef(false)
+  /** Hora local da ultima leitura boa: sem ela ha um tempo, o preco pode estar velho. */
+  const ultimaLeituraRef = useRef(Date.now())
+  /** Valor em que o relogio local zerou, para avisar se a conferencia demorar. */
+  const conferindoDesdeRef = useRef<number | null>(null)
   /** Hora local do ultimo lance confirmado: leitura que saiu antes dele e chegou depois nao desfaz. */
   const ultimoLanceEmRef = useRef(0)
   /** Maior versao do lote ja vista (leitura ou retorno do lance). */
@@ -210,11 +237,24 @@ export default function LanceAoVivo({
 
   // ── Sessao, conexao, lance guardado ─────────────────────────────────────
   useEffect(() => {
+    const lerCadastro = async (id: string) => {
+      const { data, error } = await supabase.from('users').select('cep, cpf, data_nascimento').eq('id', id).maybeSingle()
+      if (error || !data) return
+      const nasc = data.data_nascimento ? new Date(`${data.data_nascimento}T12:00:00`) : null
+      const dezoito = nasc ? new Date(nasc.getFullYear() + 18, nasc.getMonth(), nasc.getDate()) : null
+      setCadastro({
+        cep: String(data.cep || '').replace(/\D/g, '').length === 8,
+        cpf: !!data.cpf,
+        menor: !!dezoito && dezoito.getTime() > Date.now(),
+      })
+    }
     supabase.auth.getSession().then(({ data }) => {
       setLogado(!!data.session?.user)
+      if (data.session?.user) lerCadastro(data.session.user.id)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setLogado(!!session?.user)
+      if (session?.user) lerCadastro(session.user.id)
     })
     const on = () => setOnline(true)
     const off = () => setOnline(false)
@@ -247,10 +287,12 @@ export default function LanceAoVivo({
       })
       if (!r.ok) return
       const j = (await r.json()) as Partial<EstadoLote>
+      ultimaLeituraRef.current = Date.now()
       aplicarServerNow(j.server_now, enviadoEm)
       if (j.lote) {
         setProprio(j.proprio === true)
         setPagarAte(typeof j.pagarAte === 'string' ? j.pagarAte : null)
+        setPedidoId(typeof j.pedidoId === 'string' ? j.pedidoId : null)
         const novo = j.lote
         // Resposta atrasada nao pode desfazer um lance ja visto. (Ref, nao o
         // updater do setState: o updater pode rodar so no proximo render.)
@@ -278,7 +320,10 @@ export default function LanceAoVivo({
   const fimMs = lote.terminaEm ? Date.parse(lote.terminaEm) : NaN
   const restanteMs = Number.isFinite(fimMs) ? fimMs - agora : Infinity
   const intervalo =
-    conferindo || (aberto && restanteMs <= JANELA_FINAL_MS) ? INTERVALO_FINAL_MS : INTERVALO_NORMAL_MS
+    conferindo || (aberto && restanteMs <= JANELA_FINAL_MS) ? INTERVALO_FINAL_MS
+    // Faltando mais de 5 min nao ha pressa: lote de dias nao pode custar request a cada instante.
+    : lote.duracaoSeg > 3600 && restanteMs > 300_000 ? 30_000
+    : INTERVALO_NORMAL_MS
 
   // Versao que entrou por fora tambem conta para descartar leitura atrasada.
   useEffect(() => {
@@ -338,6 +383,7 @@ export default function LanceAoVivo({
       setPosicao(null)
       setProprio(false)
       setPagarAte(null)
+      setPedidoId(null)
       if (pollingExterno) return
     }
     buscarEstado()
@@ -353,19 +399,25 @@ export default function LanceAoVivo({
   const precoCents = lote.nLances > 0 && lote.precoAtualCents != null ? lote.precoAtualCents : lote.lanceInicialCents
   const minimo = minimoProximoCents(lote)
   const atalhos = atalhosLance(lote)
+  const estouGanhando = !!posicao?.voceLidera && lote.nLances > 0
+  const meuTeto = posicao?.seuMaximoCents ?? 0
+  // Quem lidera so pode subir o proprio teto: o piso e o teto atual + 1 degrau.
+  const pisoFolha = estouGanhando && meuTeto >= minimo ? meuTeto + incrementoCents(meuTeto) : minimo
+  const fuiSuperado = !!posicao && !posicao.voceLidera && posicao.seuMaximoCents != null && lote.nLances > 0
+
   const chipsRapidos = useMemo(() => {
-    const a = minimo
+    const a = pisoFolha
     const b = a + incrementoCents(a)
     const c = b + incrementoCents(b)
     return [a, b, c]
-  }, [minimo])
-
-  const estouGanhando = !!posicao?.voceLidera && lote.nLances > 0
-  const fuiSuperado = !!posicao && !posicao.voceLidera && posicao.seuMaximoCents != null && lote.nLances > 0
+  }, [pisoFolha])
 
   const valorCents = reaisParaCents(valorTxt)
   // O valor e sempre o TETO: o total mostrado e o maximo que pode ser cobrado.
-  const arremate = valorCents ? calcularArremate(valorCents) : null
+  // Teto menor que o atual nao baixa nada, entao a conta vale pelo maior.
+  const baseTotal = valorCents ? Math.max(valorCents, meuTeto) : 0
+  const arremate = baseTotal ? calcularArremate(baseTotal) : null
+  const freteTotal = baseTotal ? freteNoPreco(frete, baseTotal) : null
   const acimaDoMercado =
     !!valorCents && !!referenciaMercadoCents && valorCents > referenciaMercadoCents * FATOR_AVISO_MERCADO
   const valorAlto = !!valorCents && valorCents > minimo * FATOR_CONFIRMACAO_DUPLA
@@ -386,13 +438,24 @@ export default function LanceAoVivo({
   }, [precoCents])
 
   // ── Folha ────────────────────────────────────────────────────────────────
-  const abrirFolha = (valorInicial: number = minimo) => {
+  const abrirFolha = (valorInicial: number = pisoFolha) => {
     setErro(null)
     setAviso(null)
     setAba('rapido')
     setValorTxt(centsParaCampo(valorInicial))
     setConfirmarAlto(false)
     setAberta(true)
+    if (!freteBuscadoRef.current) {
+      freteBuscadoRef.current = true
+      tokenAtual().then(async token => {
+        if (!token) return
+        const r = await fetch(`/api/leiloes/${lote.id}/frete?preco=${valorInicial}`, { headers: { Authorization: `Bearer ${token}` } })
+        const j = await r.json().catch(() => null)
+        if (r.ok && typeof j?.freteCents === 'number') {
+          setFrete({ cents: j.freteCents, estimado: !!j.estimado, gratisAcimaCents: typeof j.gratisAcimaCents === 'number' ? j.gratisAcimaCents : null })
+        }
+      }).catch(() => { /* sem cotacao: a folha diz "calculado no pagamento" */ })
+    }
   }
   const fecharFolha = useCallback(() => {
     setAberta(false)
@@ -403,7 +466,7 @@ export default function LanceAoVivo({
     setAba(a)
     // Rapido so tem os chips: valor digitado fora deles volta para o minimo.
     if (a === 'rapido' && (valorCents == null || !chipsRapidos.includes(valorCents))) {
-      setValorTxt(centsParaCampo(minimo))
+      setValorTxt(centsParaCampo(pisoFolha))
     }
     // No maximo o campo e a entrada: foca (e abre o teclado) so quando a pessoa escolhe.
     if (a === 'maximo') setTimeout(() => campoRef.current?.focus(), 0)
@@ -465,14 +528,33 @@ export default function LanceAoVivo({
     }
   }, [aberta, fecharFolha])
 
+  // Alguem deu lance com a folha aberta: o valor escolhido nao vale mais.
+  const minimoVistoRef = useRef(minimo)
+  useEffect(() => {
+    const subiu = minimo > minimoVistoRef.current
+    minimoVistoRef.current = minimo
+    if (!aberta || !subiu || enviando) return
+    if (valorCents != null && valorCents < minimo) {
+      setValorTxt(centsParaCampo(minimo))
+      setAviso(`Alguém deu lance. O mínimo agora é ${formatarBRL(minimo)}.`)
+    }
+  }, [minimo, aberta, enviando, valorCents])
+
+  // O lote fechou com a folha aberta: a folha sai e o resultado fica na tela.
+  useEffect(() => {
+    if (aberta && !aberto && !conferindo && st !== 'em_breve') fecharFolha()
+  }, [aberta, aberto, conferindo, st, fecharFolha])
+
   async function confirmar() {
     if (!valorCents || enviando) return
     if (!online) {
       setErro('Sem conexão. O lance fica disponível quando a internet voltar.')
       return
     }
-    if (valorCents < minimo) {
-      setErro(`O lance mínimo agora é ${formatarBRL(minimo)}.`)
+    if (valorCents < pisoFolha) {
+      setErro(estouGanhando
+        ? `Seu máximo já é ${formatarBRL(meuTeto)}. Para aumentar, informe ${formatarBRL(pisoFolha)} ou mais.`
+        : `O lance mínimo agora é ${formatarBRL(minimo)}.`)
       return
     }
     // Valor muito acima do minimo (zero a mais, dedo escorregou): segundo toque.
@@ -491,6 +573,8 @@ export default function LanceAoVivo({
     const idem = idemRef.current.chave
 
     const enviadoEm = Date.now()
+    const corte = new AbortController()
+    const tempoLimite = setTimeout(() => corte.abort(), TIMEOUT_LANCE_MS)
     try {
       const token = await tokenAtual()
       if (!token) {
@@ -500,6 +584,7 @@ export default function LanceAoVivo({
       }
       const r = await fetch(`/api/leiloes/${lote.id}/lance`, {
         method: 'POST',
+        signal: corte.signal,
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         // vistoCents: o minimo que a tela mostrava. O servidor usa para dizer se
         // outro lance chegou primeiro ou se o valor digitado ficou abaixo.
@@ -545,15 +630,39 @@ export default function LanceAoVivo({
         fecharFolha()
       } else {
         // Outro teto automatico cobriu na hora. A folha fica aberta com o novo minimo.
-        setAviso(`Outro participante tinha um lance máximo maior. Lance atual: ${formatarBRL(res.precoCents)}.`)
+        setAviso(`Outro participante tinha um lance máximo igual ou maior. Lance atual: ${formatarBRL(res.precoCents)}.`)
         setValorTxt(centsParaCampo(res.minimoProximoCents))
       }
       buscarEstado()
     } catch {
       // Rede caiu no meio: a chave fica guardada para o reenvio do mesmo valor.
-      setErro('A conexão falhou antes da confirmação. Tente de novo: o lance não é registrado duas vezes.')
+      setErro('A conexão falhou antes da confirmação. Confira o lance atual e tente de novo: o lance não é registrado duas vezes.')
+      buscarEstado()
     } finally {
+      clearTimeout(tempoLimite)
       setEnviando(false)
+    }
+  }
+
+  async function salvarCep() {
+    const digitos = cepTxt.replace(/\D/g, '')
+    if (digitos.length !== 8) { setErroCep('O CEP tem 8 números.'); return }
+    setSalvandoCep(true)
+    setErroCep(null)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const r = await fetch('/api/conta/cep', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${data.session?.access_token ?? ''}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cep: digitos }),
+      })
+      const j = await r.json().catch(() => null)
+      if (!r.ok) { setErroCep(j?.error || 'Não foi possível salvar. Tente de novo.'); return }
+      setCadastro(c => (c ? { ...c, cep: true } : c))
+    } catch {
+      setErroCep('A conexão falhou. Tente de novo.')
+    } finally {
+      setSalvandoCep(false)
     }
   }
 
@@ -581,6 +690,7 @@ export default function LanceAoVivo({
   const fracaoAnel =
     aberto && Number.isFinite(restanteMs) && totalMs > 0 ? Math.min(1, Math.max(0, restanteMs / totalMs)) : 0
   const anelUrgente = conferindo || (aberto && restanteMs <= ANEL_URGENTE_MS)
+  const longo = lote.duracaoSeg > 3600
   const horaAbsoluta =
     st === 'em_breve' && lote.iniciaEm
       ? `Começa em ${horarioBrasilia(lote.iniciaEm)}`
@@ -590,11 +700,25 @@ export default function LanceAoVivo({
           ? `Encerrado em ${horarioBrasilia(lote.encerradoEm)}`
           : ''
 
+  if (conferindo && conferindoDesdeRef.current == null) conferindoDesdeRef.current = agora
+  if (!conferindo) conferindoDesdeRef.current = null
+  const conferindoLongo = conferindo && agora - (conferindoDesdeRef.current ?? agora) > CONFERINDO_LONGO_MS
+
+  // Sem leitura boa por mais de 2 voltas: o preco na tela pode estar velho.
+  const atrasado = conexaoInstavel || (
+    !pollingExterno && aberto && online && typeof document !== 'undefined' && !document.hidden
+    && Date.now() - ultimaLeituraRef.current > intervalo * 2 + 4_000
+  )
+
   const voltarPara = urlLogin || urlLote
   const loginHref = `${voltarPara}?auth=login&next=${encodeURIComponent(voltarPara)}`
 
   // Quem venceu e ainda nao pagou: o CTA leva ao pagamento, com o prazo.
   const devePagar = lote.status === 'aguardando_pagamento' && !!posicao?.voceLidera && !!pagarAte
+  const vendidoParaMim = lote.status === 'vendido' && !!posicao?.voceLidera
+  const perdi = st === 'arrematado' && !posicao?.voceLidera && posicao?.seuMaximoCents != null
+  const terminou = st === 'arrematado' || st === 'sem_lances' || st === 'cancelado'
+  const totalArremate = estouGanhando && lote.status === 'aguardando_pagamento' ? calcularArremate(precoCents) : null
 
   let cta: ReactNode
   if (devePagar) {
@@ -603,10 +727,16 @@ export default function LanceAoVivo({
         Pagar até {horarioBrasilia(pagarAte!)}
       </Link>
     )
+  } else if (vendidoParaMim && pedidoId) {
+    cta = (
+      <Link href={`/pedido/${pedidoId}`} prefetch={false} className="lv-cta-btn bx-ctx-comprador" style={{ ...S.ctaBtn, background: 'var(--ac-grad)' }}>
+        Ver o pedido
+      </Link>
+    )
   } else if (conferindo) {
     cta = (
       <div role="status" style={S.ctaInfo}>
-        Conferindo encerramento...
+        {conferindoLongo ? 'Ainda conferindo o último lance. A tela atualiza sozinha.' : 'Conferindo encerramento...'}
       </div>
     )
   } else if (!aberto) {
@@ -623,6 +753,35 @@ export default function LanceAoVivo({
         Entrar para dar lance
       </Link>
     )
+  } else if (cadastro?.menor) {
+    cta = <div style={S.ctaInfo}>Os lances são permitidos só para maiores de 18 anos.</div>
+  } else if (cadastro && !cadastro.cpf) {
+    cta = (
+      <Link href="/minha-conta" prefetch={false} className="lv-cta-btn" style={S.ctaBtn}>
+        Informe seu CPF em Minha conta para dar lance
+      </Link>
+    )
+  } else if (cadastro && !cadastro.cep) {
+    cta = (
+      <form onSubmit={e => { e.preventDefault(); salvarCep() }} style={S.cepForm}>
+        <label htmlFor="lv-cep" style={S.cepRotulo}>Falta o seu CEP para dar lance. Ele também calcula o frete.</label>
+        <div style={S.ctaLinha}>
+          <input
+            id="lv-cep"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="00000-000"
+            value={cepTxt}
+            onChange={e => { setCepTxt(e.target.value); setErroCep(null) }}
+            style={S.cepCampo}
+          />
+          <button type="submit" disabled={salvandoCep} className="lv-cta-btn" style={{ ...S.ctaBtn, flex: '0 0 auto', width: 'auto', padding: '0 18px' }}>
+            {salvandoCep ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+        {erroCep && <p role="alert" style={S.erro}>{erroCep}</p>}
+      </form>
+    )
   } else if (!online) {
     cta = <div style={S.ctaInfo}>Sem conexão. O lance fica disponível quando a internet voltar.</div>
   } else {
@@ -630,7 +789,7 @@ export default function LanceAoVivo({
     cta = (
       <div style={S.ctaLinha}>
         <button ref={ctaRef} type="button" onClick={() => abrirFolha()} disabled={logado === null} className="lv-cta-btn" style={S.ctaBtn}>
-          Dar lance · {formatarBRL(minimo)}
+          {estouGanhando ? 'Aumentar meu máximo' : fuiSuperado ? `Cobrir por ${formatarBRL(minimo)}` : `Dar lance · ${formatarBRL(minimo)}`}
         </button>
         {variante === 'rodada' && (
           <button
@@ -651,7 +810,52 @@ export default function LanceAoVivo({
   // Atalhos do desktop: mesmo estado em que o CTA e "Dar lance".
   const mostrarAtalhos =
     variante === 'rodada' && aberto && !devePagar && !conferindo && !proprio && logado !== false && online
+    && !(cadastro && (cadastro.menor || !cadastro.cpf || !cadastro.cep))
+  // Dock do celular: posicao e relogio junto do CTA, para decidir sem rolar a tela.
+  const podeLance = mostrarAtalhos || (variante !== 'rodada' && aberto && !devePagar && !conferindo && !proprio && logado !== false && online
+    && !(cadastro && (cadastro.menor || !cadastro.cpf || !cadastro.cep)))
+  const totalMinimo = calcularArremate(minimo)
+  const freteMinimo = freteNoPreco(frete, minimo)
   const prorrogacaoRodada = variante === 'rodada' && (aberto || conferindo) ? textoProrrogacao(lote.softCloseSeg, lote.prorrogacoes) : null
+
+  const faixaEstado = (
+    <>
+      {estouGanhando && (aberto || st === 'arrematado') && (
+        <div role="status" style={{ ...S.faixa, ...S.faixaGanhando }}>
+          <IconCheck size={18} />
+          <span style={S.faixaTexto}>
+            <b style={S.faixaTitulo}>
+              {st === 'arrematado'
+                ? lote.status === 'calote'
+                  ? 'Arremate cancelado: o prazo de pagamento terminou'
+                  : 'Você venceu este lote'
+                : 'Você está na frente'}
+            </b>
+            {aberto && posicao?.seuMaximoCents != null && posicao.seuMaximoCents > precoCents && (
+              <small style={S.faixaSub}>Seu máximo: {formatarBRL(posicao.seuMaximoCents)}</small>
+            )}
+          </span>
+        </div>
+      )}
+      {fuiSuperado && !perdi && (
+        <div role="status" style={{ ...S.faixa, ...S.faixaSuperado }}>
+          <IconWarning size={18} />
+          <span style={S.faixaTexto}>
+            <b style={S.faixaTitulo}>Você foi superado</b>
+            {posicao?.seuMaximoCents != null && <small style={S.faixaSub}>Seu máximo era {formatarBRL(posicao.seuMaximoCents)}</small>}
+          </span>
+        </div>
+      )}
+      {perdi && (
+        <div role="status" style={S.faixa}>
+          <span style={S.faixaTexto}>
+            <b style={S.faixaTitulo}>Você não venceu</b>
+            <small style={S.faixaSub}>Nada a pagar. Seu máximo era {formatarBRL(posicao?.seuMaximoCents ?? 0)}.</small>
+          </span>
+        </div>
+      )}
+    </>
+  )
 
   return (
     <section aria-label="Lance ao vivo" style={S.bloco}>
@@ -668,6 +872,7 @@ export default function LanceAoVivo({
         .lv-rapido:hover:not(:disabled) { background: var(--bx-surface-2); border-color: var(--ac-1); }
         .lv-rapido:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
         .lv-so-celular { display: none; }
+        @media (min-width: 769px) { .lv-dock { display: none !important; } }
         @media (max-width: 768px) {
           .lv-rapidos { display: none; }
           .lv-so-celular { display: inline-flex; align-items: center; justify-content: center; }
@@ -709,20 +914,26 @@ export default function LanceAoVivo({
           a cada tique do relogio, e aria-live nele leria a tela inteira. */}
       <p className="lv-sr" aria-live="polite" aria-atomic="true">{anuncio}</p>
 
+      {variante !== 'rodada' && faixaEstado}
       <div style={S.lanceLinha}>
         <div style={S.lanceCol}>
           <span style={S.precoRotulo}>
-            {lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : 'Lance atual') : 'Lance inicial'}
+            {lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : st === 'cancelado' ? 'Último lance' : 'Lance atual') : 'Lance inicial'}
           </span>
           <span style={{ ...S.preco, fontSize: variante === 'rodada' ? 40 : 34 }}>{formatarBRL(precoCents)}</span>
           <span style={S.precoMeta}>
             {lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`}
             {lote.nParticipantes > 1 ? ` · ${lote.nParticipantes} participantes` : ''}
-            {lote.liderApelido && lote.nLances > 0 ? ` · liderando: ${lote.liderApelido}` : ''}
+            {lote.liderApelido && lote.nLances > 0 && st !== 'cancelado' && !(aberto && variante !== 'rodada') ? ` · ${aberto ? 'liderando' : 'vencedor'}: ${lote.liderApelido}` : ''}
           </span>
           {horaAbsoluta && <span style={S.horaAbs}>{horaAbsoluta}</span>}
         </div>
-        {relogio ? (
+        {relogio && longo && aberto ? (
+          <span style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <span style={S.precoRotulo}>Termina em</span>
+            <span style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</span>
+          </span>
+        ) : relogio ? (
           <Anel
             fracao={st === 'em_breve' ? 0 : fracaoAnel}
             texto={relogioAnel}
@@ -751,30 +962,29 @@ export default function LanceAoVivo({
             ) : (
               <strong style={S.mercadoValor}>{formatarBRL(referenciaMercadoCents)}</strong>
             )}
-            {lote.nLances > 0 && (() => {
+            {lote.nLances > 0 && st !== 'cancelado' && (() => {
               const pct = Math.round((precoCents / referenciaMercadoCents - 1) * 100)
               if (pct === 0) return ' · no valor de mercado'
-              return pct < 0 ? ` · ${-pct}% abaixo` : ` · ${pct}% acima`
+              return pct < 0 ? ` · ${-pct}% abaixo, sem taxas e frete` : ` · ${pct}% acima, sem taxas e frete`
             })()}
           </span>
         </p>
       )}
       {aposMercado}
 
-      {estouGanhando && (aberto || st === 'arrematado') && (
-        <div role="status" style={{ ...S.faixa, ...S.faixaGanhando }}>
-          <IconCheck size={16} />
-          {st === 'arrematado' ? 'Você venceu este lote' : 'Você está ganhando'}
-          {aberto && posicao?.seuMaximoCents != null && posicao.seuMaximoCents > precoCents
-            ? ` · seu máximo: ${formatarBRL(posicao.seuMaximoCents)}`
-            : ''}
-        </div>
+      {variante === 'rodada' && faixaEstado}
+      {totalArremate && (
+        <p style={S.nota}>
+          {formatarBRL(precoCents)} + taxas: {formatarBRL(totalArremate.compradorPagaCents)}, mais frete, calculado no pagamento.
+        </p>
       )}
-      {fuiSuperado && (
-        <div role="status" style={{ ...S.faixa, ...S.faixaSuperado }}>
-          <IconWarning size={16} />
-          Seu lance foi superado
-        </div>
+      {devePagar && variante !== 'rodada' && (
+        <ol className="bx-ctx-comprador" style={S.etapas}>
+          <li style={S.etapa}><i style={{ ...S.etapaN, ...S.etapaAtual }}>1</i><b style={{ color: 'var(--bx-text)' }}>Pagar</b></li>
+          <li style={S.etapa}><i style={S.etapaN}>2</i>Loja envia em até {DIAS_UTEIS_ENVIO} dias úteis</li>
+          <li style={S.etapa}><i style={S.etapaN}>3</i>Você recebe</li>
+          <li style={S.etapa}><i style={S.etapaN}>4</i>{DIAS_RECLAMAR} dias para reclamar ou desistir</li>
+        </ol>
       )}
 
       {mostrarAtalhos && (
@@ -794,13 +1004,41 @@ export default function LanceAoVivo({
           ))}
         </div>
       )}
-      <div className="lv-cta-fixo">{cta}</div>
+      {atrasado && aberto && (
+        <p role="status" style={S.instavel}><IconWarning size={14} />Conexão instável. O valor pode estar atrasado.</p>
+      )}
+      {!(terminou && variante !== 'rodada' && !devePagar && !vendidoParaMim) && <div className="lv-cta-fixo">
+        {podeLance && (
+          <p className="lv-dock" style={S.dock}>
+            <span style={{ minWidth: 0 }}>
+              {estouGanhando
+                ? `Na frente${meuTeto ? ` · máximo ${formatarBRL(meuTeto)}` : ''}`
+                : fuiSuperado
+                  ? `Superado · lance atual ${formatarBRL(precoCents)}`
+                  : `${lote.nLances > 0 ? 'Lance atual' : 'Lance inicial'} ${formatarBRL(precoCents)}`}
+            </span>
+            <b style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</b>
+          </p>
+        )}
+        {cta}
+        {podeLance && !estouGanhando && (
+          <p style={S.dockTotal}>
+            Se vencer neste lance: {freteMinimo != null
+              ? `${formatarBRL(totalMinimo.compradorPagaCents + freteMinimo)} com taxas e frete`
+              : `${formatarBRL(totalMinimo.compradorPagaCents)} com taxas, mais frete`}
+          </p>
+        )}
+      </div>}
       {prorrogacaoRodada && <p style={S.prorrogacao}>{prorrogacaoRodada}</p>}
 
-      <p style={S.protecao}>
-        <IconShield size={14} />
-        Quem arremata paga pela Bynx, no cartão, com pagamento protegido.
-      </p>
+      {terminou ? (
+        variante !== 'rodada' && !devePagar && !vendidoParaMim && <OutrosLotes loteAtualId={lote.id} />
+      ) : (
+        <p style={S.protecao}>
+          <IconShield size={14} />
+          Só paga quem vence, no cartão, em até 48 horas.
+        </p>
+      )}
 
       {aberta && (
         <div
@@ -825,51 +1063,40 @@ export default function LanceAoVivo({
               </button>
             </div>
 
-            <div role="group" aria-label="Tipo de lance" style={S.abas}>
-              {(['rapido', 'maximo'] as const).map(a => (
+            <div style={S.folhaCarta}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {(lote.fotos[0] || lote.cardImage) && <img src={lote.fotos[0] || lote.cardImage || ''} alt="" style={S.folhaFoto} />}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <b style={S.folhaNome}>{lote.cardName}{lote.cardNumero ? ` ${lote.cardNumero}` : ''}</b>
+                <span style={S.folhaAtual}>{lote.nLances > 0 ? 'Lance atual' : 'Lance inicial'} {formatarBRL(precoCents)}</span>
+              </div>
+              {relogio && <b style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</b>}
+            </div>
+
+            <p style={S.rotuloCampo}>{estouGanhando ? 'Até quanto você quer aumentar?' : 'Qual é o seu máximo?'}</p>
+            <div style={S.chipsRapidos}>
+              {chipsRapidos.map(c => (
                 <button
-                  key={a}
+                  key={c}
                   type="button"
-                  aria-pressed={aba === a}
-                  onClick={() => trocarAba(a)}
-                  className="lv-foco"
-                  style={{ ...S.aba, ...(aba === a ? S.abaAtiva : null) }}
+                  aria-pressed={aba === 'rapido' && valorCents === c}
+                  className="lv-chip-rapido lv-foco"
+                  onClick={() => {
+                    setAba('rapido')
+                    setValorTxt(centsParaCampo(c))
+                    setErro(null)
+                  }}
+                  style={{ ...S.chipRapido, ...(aba === 'rapido' && valorCents === c ? S.chipRapidoAtivo : null) }}
                 >
-                  {a === 'rapido' ? 'Lance rápido' : 'Lance máximo'}
+                  {formatarBRL(c)}
                 </button>
               ))}
             </div>
-            <p style={S.abaTexto}>
-              {aba === 'rapido'
-                ? 'Todo lance é automático. O valor que você escolher é o seu limite: você paga o menor valor necessário para vencer, até o limite que informou.'
-                : 'Todo lance é automático. Informe o máximo que aceita pagar: você paga o menor valor necessário para vencer, até o limite que informou. Ninguém vê o seu máximo.'}
-            </p>
-
-            <p style={S.rotuloCampo}>Lance mínimo agora: {formatarBRL(minimo)}</p>
-
             {aba === 'rapido' ? (
-              <div style={S.chipsRapidos}>
-                {chipsRapidos.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-pressed={valorCents === c}
-                    className="lv-chip-rapido lv-foco"
-                    onClick={() => {
-                      setValorTxt(centsParaCampo(c))
-                      setErro(null)
-                    }}
-                    style={{ ...S.chipRapido, ...(valorCents === c ? S.chipRapidoAtivo : null) }}
-                  >
-                    {formatarBRL(c)}
-                  </button>
-                ))}
-              </div>
+              <button type="button" className="lv-foco" onClick={() => trocarAba('maximo')} style={S.outroValor}>Outro valor</button>
             ) : (
               <>
-                <label htmlFor="lv-valor" style={S.rotuloCampo}>
-                  Seu lance máximo
-                </label>
+                <label htmlFor="lv-valor" style={S.rotuloCampo}>Seu máximo</label>
                 <div style={S.campoWrap}>
                   <span style={S.campoPrefixo}>R$</span>
                   <input
@@ -888,6 +1115,7 @@ export default function LanceAoVivo({
                 </div>
               </>
             )}
+            <p style={S.abaTexto}>Ninguém vê o seu máximo. Você paga só o necessário para vencer.</p>
 
             {acimaDoMercado && referenciaMercadoCents && (
               <p style={S.avisoMercado}>
@@ -899,17 +1127,22 @@ export default function LanceAoVivo({
 
             {arremate && (
               <dl style={S.total}>
-                <div style={S.totalLinha}><dt>Seu limite</dt><dd>{formatarBRL(arremate.precoCents)}</dd></div>
-                <div style={S.totalLinha}><dt>Taxa de proteção</dt><dd>até {formatarBRL(arremate.protecaoCents)}</dd></div>
-                <div style={S.totalLinha}><dt>Custo do cartão</dt><dd>até {formatarBRL(arremate.custoMetodoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>{estouGanhando && meuTeto > (valorCents ?? 0) ? 'Seu máximo atual' : 'Seu máximo'}</dt><dd>{formatarBRL(arremate.precoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>Taxas e cartão</dt><dd>até {formatarBRL(arremate.protecaoCents + arremate.custoMetodoCents)}</dd></div>
+                {freteTotal != null && (
+                  <div style={S.totalLinha}>
+                    <dt>{freteTotal === 0 ? 'Frete' : frete?.estimado ? 'Frete estimado até seu CEP' : 'Frete da loja'}</dt>
+                    <dd>{freteTotal === 0 ? 'Grátis' : formatarBRL(freteTotal)}</dd>
+                  </div>
+                )}
                 <div style={{ ...S.totalLinha, ...S.totalFinal }}>
-                  <dt>Total máximo se arrematar</dt><dd>até {formatarBRL(arremate.compradorPagaCents)}</dd>
+                  <dt>Se vencer</dt><dd>até {formatarBRL(arremate.compradorPagaCents + (freteTotal ?? 0))}</dd>
                 </div>
               </dl>
             )}
-            {arremate && (
+            {arremate && (freteTotal == null || frete?.estimado) && (
               <p style={S.totalNota}>
-                Se ninguém disputar até o seu limite, você paga menos. Frete calculado no pagamento, pelo seu CEP.
+                {freteTotal == null ? 'Frete calculado no pagamento, pelo seu CEP.' : 'O frete final sai no pagamento.'}
               </p>
             )}
 
@@ -923,6 +1156,8 @@ export default function LanceAoVivo({
                 </p>
               )}
               {erro && <p role="alert" style={S.erro}>{erro}</p>}
+
+              <p style={S.compromisso}>Lance é compromisso de compra e não pode ser cancelado. Quem vence tem 48 horas para pagar.</p>
 
               <button
                 type="button"
@@ -981,7 +1216,17 @@ const S: Record<string, CSSProperties> = {
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)', background: 'var(--bx-surface)',
   },
   faixaGanhando: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)' },
-  faixaSuperado: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)' },
+  faixaSuperado: { color: 'var(--bx-amber)', borderColor: 'var(--bx-amber)' },
+  faixaTexto: { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 },
+  faixaTitulo: { color: 'var(--bx-text)', fontSize: 14, fontWeight: 700 },
+  faixaSub: { color: 'var(--bx-text-2)', fontSize: 12.5, fontWeight: 500 },
+  etapas: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, color: 'var(--bx-text-2)' },
+  etapa: { display: 'flex', alignItems: 'center', gap: 10 },
+  etapaN: {
+    width: 24, height: 24, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 999, fontStyle: 'normal',
+    fontSize: 11, fontWeight: 800, border: '1px solid var(--bx-border-2)',
+  },
+  etapaAtual: { background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', border: 'none' },
   ctaLinha: { display: 'flex', gap: 8 },
   rapido: {
     minHeight: 44, borderRadius: 12, border: '1px solid var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)',
@@ -999,6 +1244,13 @@ const S: Record<string, CSSProperties> = {
     background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', textDecoration: 'none',
     fontVariantNumeric: 'tabular-nums',
   },
+  compromisso: { margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.45, fontWeight: 600, color: 'var(--bx-text)' },
+  cepForm: { display: 'flex', flexDirection: 'column', gap: 6 },
+  cepRotulo: { fontSize: 12.5, lineHeight: 1.4, color: 'var(--bx-text-2)' },
+  cepCampo: {
+    flex: 1, minWidth: 0, minHeight: 46, borderRadius: 10, padding: '0 12px', fontSize: 16, fontFamily: 'inherit',
+    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',
+  },
   ctaInfo: {
     minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
     padding: '8px 12px', borderRadius: 10, fontSize: 14, fontWeight: 600,
@@ -1011,15 +1263,14 @@ const S: Record<string, CSSProperties> = {
     width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10,
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)', cursor: 'pointer',
   },
-  abas: {
-    display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 4, padding: 4, borderRadius: 12,
-    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
-  },
-  aba: {
-    minHeight: 44, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--bx-text-2)',
-    fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-  },
-  abaAtiva: { background: 'var(--bx-surface-3)', color: 'var(--bx-text)' },
+  folhaCarta: { display: 'flex', alignItems: 'center', gap: 10, padding: 10, marginBottom: 12, borderRadius: 12, background: 'var(--bx-surface)', border: '1px solid var(--bx-border)' },
+  folhaFoto: { width: 44, height: 62, flexShrink: 0, objectFit: 'cover', borderRadius: 6, background: 'var(--bx-surface-2)' },
+  folhaNome: { display: 'block', fontSize: 14, fontWeight: 800, color: 'var(--bx-text)', overflowWrap: 'anywhere' },
+  folhaAtual: { display: 'block', marginTop: 2, fontSize: 12.5, color: 'var(--bx-text-2)', fontVariantNumeric: 'tabular-nums' },
+  outroValor: { minHeight: 44, width: '100%', marginBottom: 4, borderRadius: 10, border: '1px dashed var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' },
+  dock: { display: 'flex', justifyContent: 'space-between', gap: 10, margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--bx-text)' },
+  dockTotal: { margin: '6px 0 0', fontSize: 12, color: 'var(--bx-text-2)', textAlign: 'center', fontVariantNumeric: 'tabular-nums' },
+  instavel: { display: 'flex', alignItems: 'center', gap: 6, margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--bx-red)' },
   abaTexto: { fontSize: 13, color: 'var(--bx-text-2)', lineHeight: 1.5, margin: '10px 0 12px' },
   rotuloCampo: { display: 'block', fontSize: 12, color: 'var(--bx-text-3)', fontWeight: 600, margin: '0 0 6px' },
   chipsRapidos: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 },

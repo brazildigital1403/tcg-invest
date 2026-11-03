@@ -3,7 +3,7 @@ import { enviarIsolando, type EmailLoteItem, type ResultadoEmail } from './email
 import { createClient } from '@supabase/supabase-js'
 import { formatarBRL } from './leilao'
 import { prazoCurtoBrasilia } from './leilao-avisos'
-import { urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
+import { urlHome as caminhoLeiloes, urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
 import { DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from './leilao-reclamacao'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -2502,6 +2502,21 @@ export async function sendDisputeAdminEmail(args: {
 }
 
 
+/** Carteira do Melhor Envio abaixo do minimo: as etiquetas de devolucao saem dela. */
+export async function sendSaldoMelhorEnvioAdminEmail(args: { to: string; saldoCents: number; paradas: number }) {
+  const saldo = (args.saldoCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const html = baseLayout(`
+    ${badge('Melhor Envio', '#ef4444', 'rgba(239,68,68,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Carteira com saldo baixo')}
+    ${p(`O saldo está em <strong>${saldo}</strong>, abaixo do mínimo de R$ 50,00. As etiquetas de devolução são pagas com esse saldo.`)}
+    ${args.paradas > 0 ? p(`<strong>${args.paradas} ${args.paradas === 1 ? 'etiqueta está parada' : 'etiquetas estão paradas'}</strong> esperando a recarga. Elas saem sozinhas na hora seguinte à recarga.`) : ''}
+    ${btn('Recarregar no Melhor Envio', 'https://melhorenvio.com.br')}
+  `, `Carteira do Melhor Envio: ${saldo}`)
+
+  return enviar({ template: 'saldo-melhor-envio-admin', from: FROM, to: args.to, subject: subjInterno('Alerta', `Melhor Envio com ${saldo} na carteira`), html })
+}
+
 // ── Marketplace: marcos da negociacao + nao lidas ────────────────────────────
 
 function fmtBRLemail(v: number | null | undefined): string {
@@ -3234,6 +3249,8 @@ export async function sendPedidoEnviadoEmail(args: {
   itemNome: string
   nomeLoja: string
   rastreio: string | null
+  /** Nome pronto para exibir (Jadlog, Correios...). */
+  transportadora?: string | null
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/pedido/${args.pedidoId}`
@@ -3243,7 +3260,7 @@ export async function sendPedidoEnviadoEmail(args: {
     ${h1('Seu pedido foi enviado!')}
     ${p(`${escapeHtml(firstName)}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> despachou <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong>. Agora é só aguardar a entrega.`)}
     ${args.rastreio
-      ? `${divider()}${p(`<strong style="color:#f0f0f0;">Código de rastreio</strong>`)}${p(`<span style="font-family:monospace;font-size:16px;color:#60a5fa;letter-spacing:0.05em;">${escapeHtml(args.rastreio)}</span>`)}`
+      ? `${divider()}${p(`<strong style="color:#f0f0f0;">Código de rastreio${args.transportadora ? ` · ${escapeHtml(args.transportadora)}` : ''}</strong>`)}${p(`<span style="font-family:monospace;font-size:16px;color:#60a5fa;letter-spacing:0.05em;">${escapeHtml(args.rastreio)}</span>`)}`
       : ''}
     ${divider()}
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_enviado'))}
@@ -3385,6 +3402,7 @@ export interface LeilaoEmailArgs {
   minimoProximoCents?: number
   terminaEm?: string | null
   pagarAte?: string | null
+  maximoCents?: number
   /** Loja do vendedor, para o link de Pagamentos (null = vende sem loja). */
   lojaId?: string | null
 }
@@ -3424,6 +3442,20 @@ export function renderLeilaoVenceuEmail(a: LeilaoEmailArgs): EmailRenderizado {
       : `Você venceu: ${a.cardName}`),
     html,
   }
+}
+
+/** Participante: o lote terminou e outra pessoa venceu. */
+export function renderLeilaoNaoVenceuEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('Este lote terminou')}
+    ${p(`${escapeHtml(nome)}, outro participante venceu ${forte(a.cardName)}. Você não paga nada.`)}
+    ${blocoLeilao('Arrematado por', formatarBRL(a.precoCents))}
+    ${a.maximoCents ? p(`Seu máximo era ${forte(formatarBRL(a.maximoCents))}.`) : ''}
+    ${btn('Ver leilões abertos', addUtm(`${URL_CANONICA}${caminhoLeiloes()}`, 'leilao_nao_venceu'))}
+  `, `${a.cardName} foi arrematado por ${formatarBRL(a.precoCents)}`)
+  return { to: a.to, subject: subjUser(`Este lote terminou: ${a.cardName}`), html }
 }
 
 /** Vendedor: lote terminou sem nenhum lance. */
@@ -3693,6 +3725,36 @@ export function renderRecebimentoAvisoEmail(a: ReclamacaoEmailBase & { fechaEm: 
     ${btn('Abrir o pedido', urlPedidoComprador(a.pedidoId, 'recebimento_aviso'))}
   `, `Seu pedido #${a.pedidoNumero} chegou?`)
   return { to: a.to, subject: subjUser(`Seu pedido #${a.pedidoNumero} chegou? Confirme ou nos conte`), html }
+}
+
+/** Quem pediu aviso em /leiloes: uma loja marcou um leilao. Um envio por pedido. */
+export function renderLeilaoMarcadoEmail(a: { to: string; nome: string | null; lojaNome: string; quando: string; nLotes: number; link: string }): EmailRenderizado {
+  const nome = primeiroNome(a.nome || '', 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Bynx Leilões', '#f59e0b', '')}
+    ${h1('O leilão que você pediu para acompanhar foi marcado')}
+    ${p(`${escapeHtml(nome)}, a ${forte(a.lojaNome)} marcou um leilão com ${a.nLotes} ${a.nLotes === 1 ? 'carta' : 'cartas'}.`)}
+    ${blocoLeilao('Quando (horário de Brasília)', escapeHtml(a.quando))}
+    ${p('Para dar lance, você precisa ter 18 anos ou mais, com CPF e CEP no cadastro. Só paga quem vence.')}
+    ${btn('Ver o leilão', `${APP_URL}${a.link}`)}
+    ${p('Este aviso vale uma vez. Para receber o próximo, é só pedir de novo na página de leilões.')}
+  `, `${a.lojaNome} marcou um leilão`)
+  return { to: a.to, subject: subjUser(`${a.lojaNome} marcou um leilão`), html }
+}
+
+/** Quem pediu "Quero ser avisado": uma loja abriu um leilao com prazo. */
+export function renderLeilaoAbertoEmail(a: { to: string; nome: string | null; lojaNome: string; cartaNome: string; quando: string; link: string }): EmailRenderizado {
+  const nome = primeiroNome(a.nome || '', 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Bynx Leilões', '#f59e0b', '')}
+    ${h1('O leilão que você pediu para acompanhar abriu')}
+    ${p(`${escapeHtml(nome)}, a ${forte(a.lojaNome)} colocou ${forte(a.cartaNome)} em leilão.`)}
+    ${blocoLeilao('Termina em (horário de Brasília)', escapeHtml(a.quando))}
+    ${p('Para dar lance, você precisa ter 18 anos ou mais, com CPF e CEP no cadastro. Só paga quem vence.')}
+    ${btn('Ver o leilão', `${APP_URL}${a.link}`)}
+    ${p('Este aviso vale uma vez. Para receber o próximo, é só pedir de novo na página de leilões.')}
+  `, `${a.lojaNome} abriu um leilão`)
+  return { to: a.to, subject: subjUser(`${a.lojaNome} abriu um leilão: ${a.cartaNome}`), html }
 }
 
 /** Comprador e loja: cancelamento por atraso no envio (DIAS_UTEIS_ENVIO dias uteis). */

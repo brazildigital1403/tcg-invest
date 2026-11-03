@@ -9,10 +9,11 @@ import { CAMPO_VALOR, getPrecoVariante, getVarianteEfetiva } from '@/lib/calcPat
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { GRADUADORAS } from '@/lib/graduadoras'
 import { formatarBRL } from '@/lib/leilao'
+import { comissaoVendedorLeilaoCents } from '@/lib/leilao-taxas'
 import {
-  CONDICOES_LOTE, DURACOES_LOTE, IDIOMAS_LOTE, FRACAO_SUGESTAO,
+  CONDICOES_LOTE, DIAS_LOTE, DURACOES_LOTE, IDIOMAS_LOTE, FRACAO_SUGESTAO,
   reaisParaCents, sugestaoLanceInicialCents, validarLote,
-  type CondicaoLote, type DuracaoLote, type IdiomaLote,
+  type CondicaoLote, type DiasLote, type DuracaoLote, type IdiomaLote,
 } from '@/lib/leilao-painel'
 import { chamarPainel } from '../_rodada'
 
@@ -58,30 +59,53 @@ function cardDaLinha(row: Linha): CardItemData {
   }
 }
 
+/** "Outra carta igual": tudo preenchido, menos as fotos, que sao do exemplar. */
+export interface LoteInicial {
+  card_id: string
+  card_name: string
+  card_numero?: string | null
+  set_nome?: string | null
+  card_image?: string | null
+  condicao?: string | null
+  idioma?: string | null
+  graduadora?: string | null
+  nota?: string | number | null
+  descricao?: string | null
+  lance_inicial_cents: number
+  dias?: number
+}
+
 export default function NovoLote({
-  lojaId, rodadaId, onCriado, onCancelar, onEnviando,
+  lojaId, rodadaId, onCriado, onCancelar, onEnviando, inicial,
 }: {
   lojaId: string
-  rodadaId: string
+  /** Sem rodada: leilao com prazo, publicado direto. */
+  rodadaId?: string
   onCriado: () => void
   onCancelar: () => void
   /** true enquanto o POST do lote esta no ar: o editor trava o Agendar. */
   onEnviando?: (enviando: boolean) => void
+  inicial?: LoteInicial | null
 }) {
   const [aba, setAba] = useState<'catalogo' | 'colecao'>('catalogo')
-  const [escolhida, setEscolhida] = useState<Escolhida | null>(null)
+  const [escolhida, setEscolhida] = useState<Escolhida | null>(inicial
+    ? { row: { id: inicial.card_id, name: inicial.card_name, number: inicial.card_numero?.split('/')[0], set_name: inicial.set_nome, image_small: inicial.card_image }, variante: null }
+    : null)
 
   // detalhes
   const [frente, setFrente] = useState<string | null>(null)
   const [verso, setVerso] = useState<string | null>(null)
   const [subindo, setSubindo] = useState<'frente' | 'verso' | null>(null)
-  const [condicao, setCondicao] = useState<CondicaoLote | null>(null)
-  const [idioma, setIdioma] = useState<IdiomaLote>('pt')
-  const [graduadora, setGraduadora] = useState('')
-  const [nota, setNota] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [lanceTxt, setLanceTxt] = useState('')
+  const [condicao, setCondicao] = useState<CondicaoLote | null>((inicial?.condicao as CondicaoLote) || null)
+  const [idioma, setIdioma] = useState<IdiomaLote>((inicial?.idioma as IdiomaLote) || 'pt')
+  const [graduadora, setGraduadora] = useState(inicial?.graduadora || '')
+  const [nota, setNota] = useState(inicial?.nota != null ? String(inicial.nota) : '')
+  const [descricao, setDescricao] = useState(inicial?.descricao || '')
+  const [lanceTxt, setLanceTxt] = useState(inicial ? (inicial.lance_inicial_cents / 100).toFixed(2).replace('.', ',') : '')
   const [duracao, setDuracao] = useState<DuracaoLote>(45)
+  const [dias, setDias] = useState<DiasLote>(((DIAS_LOTE as readonly number[]).includes(inicial?.dias ?? 0) ? inicial!.dias : 3) as DiasLote)
+  const prazo = !rodadaId
+  const lanceCents = reaisParaCents(lanceTxt) || 0
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const fileFrente = useRef<HTMLInputElement>(null)
@@ -127,17 +151,17 @@ export default function NovoLote({
       nota: graduadora ? nota : null,
       descricao: descricao.trim() || null,
       lance_inicial_cents: reaisParaCents(lanceTxt),
-      duracao_seg: duracao,
+      ...(prazo ? { dias } : { duracao_seg: duracao }),
     }
     // Mesma validacao do servidor, so para avisar antes (a URL da foto o
     // servidor confere com fotoLeilaoValida; aqui so conta as duas).
-    const v = validarLote(corpo, { fotosDaLoja: null, graduadorasValidas: GRADUADORAS.map(g => g.slug) })
+    const v = validarLote(corpo, { fotosDaLoja: null, graduadorasValidas: GRADUADORAS.map(g => g.slug), prazo })
     if (!v.ok) { setErro(v.erro); return }
     setSalvando(true)
     setErro(null)
     onEnviando?.(true)
     try {
-      await chamarPainel(`/api/lojas/${lojaId}/leiloes/${rodadaId}/lotes`, { method: 'POST', body: JSON.stringify(corpo) })
+      await chamarPainel(prazo ? `/api/lojas/${lojaId}/leiloes/lotes` : `/api/lojas/${lojaId}/leiloes/${rodadaId}/lotes`, { method: 'POST', body: JSON.stringify(corpo) })
       onEnviando?.(false)
       onCriado()
     } catch (e) {
@@ -150,7 +174,7 @@ export default function NovoLote({
   return (
     <div style={S.box}>
       <div style={S.topo}>
-        <div style={S.cap}>{escolhida ? 'Detalhes do lote' : 'Escolha a carta'}</div>
+        <div style={S.cap}>{escolhida ? (prazo ? 'Detalhes do leilão' : 'Detalhes do lote') : 'Escolha a carta'}</div>
         <button onClick={onCancelar} style={S.btnIcone} aria-label="Fechar"><IconClose size={18} /></button>
       </div>
 
@@ -273,6 +297,23 @@ export default function NovoLote({
             <p style={S.hint}>Sem preço de referência: defina o lance inicial pelo seu conhecimento da carta.</p>
           )}
 
+          {prazo ? (
+            <>
+              <label style={S.lbl}>Quanto tempo fica aberto?</label>
+              <div style={S.chips}>
+                {DIAS_LOTE.map(d => (
+                  <button key={d} onClick={() => setDias(d)} aria-pressed={dias === d} style={{ ...S.chip, ...(dias === d ? S.chipOn : null) }}>{d === 1 ? '1 dia' : `${d} dias`}</button>
+                ))}
+              </div>
+              <p style={S.hint}>Abre assim que você publica. Lance nos últimos 2 minutos estende o fim em 2 minutos. Depois do primeiro lance, o leilão não pode ser cancelado.</p>
+              {lanceCents > 0 && (
+                <p style={S.hint}>
+                  Não há preço mínimo: o lote sai pelo maior lance. Com um único lance, você recebe <b>{formatarBRL(lanceCents - comissaoVendedorLeilaoCents(lanceCents))}</b>. O frete é à parte, e o repasse cai cerca de 30 dias depois do pagamento.
+                </p>
+              )}
+            </>
+          ) : (
+            <>
           <label style={S.lbl}>Duração do lote</label>
           <div style={S.chips}>
             {DURACOES_LOTE.map(d => (
@@ -280,12 +321,14 @@ export default function NovoLote({
             ))}
           </div>
           <p style={S.hint}>Lance nos últimos 10 segundos estende o lote em mais 10.</p>
+            </>
+          )}
 
           {erro && <div style={S.erro} role="alert">{erro}</div>}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
             <button onClick={salvar} disabled={salvando || subindo !== null} style={{ ...S.btnPrim, flex: 1, opacity: salvando ? 0.6 : 1 }}>
-              {salvando ? 'Salvando…' : 'Adicionar lote'}
+              {salvando ? 'Salvando…' : prazo ? 'Publicar leilão' : 'Adicionar lote'}
             </button>
             <button onClick={onCancelar} style={S.btnGhost}>Cancelar</button>
           </div>

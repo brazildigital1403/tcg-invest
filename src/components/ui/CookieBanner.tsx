@@ -117,19 +117,15 @@ export default function CookieBanner() {
     window.dispatchEvent(new Event(CONSENT_EVENT))
   }
 
-  // ★ Leilao (#413/#416, opcao a do Du, 28/10): numa rodada ao vivo o botao de
-  // lance fica no fim da tela. O banner vira UMA linha (~52 px) e a pagina
-  // ganha o mesmo espaco embaixo enquanto ele aparece -- nada fica coberto.
-  // Mesma escolha e mesmo Consent Mode; so a forma muda.
-  const noLeilao = !!pathname && pathname.startsWith('/leiloes')
-  const mostra = mounted && visible && !(pathname && ROTAS_SEM_BANNER.has(pathname))
-  useEffect(() => {
-    if (!mostra || !noLeilao) return
-    const antes = document.body.style.paddingBottom
-    document.body.style.paddingBottom = 'calc(72px + env(safe-area-inset-bottom, 0px))'
-    return () => { document.body.style.paddingBottom = antes }
-  }, [mostra, noLeilao])
-
+  // ★ Leilao (#413, decisao do Du em 03/11). A linha fina de 28/10 NAO resolveu:
+  // o padding no body nao move elemento fixed, e o banner cobria 100% do botao
+  // de lance (y 744 a 812 contra y 743 a 812, medido a 375 px). Dentro de rodada,
+  // lote, pagamento e Meus lances o banner nao aparece, como nas landings de
+  // evento: sem o clique, o 'consent default' segue denied. Na vitrine, que nao
+  // tem botao fixo, ele continua em uma linha.
+  const dentroDoLeilao = !!pathname && pathname.startsWith('/leiloes/')
+  const noLeilao = pathname === '/leiloes'
+  const mostra = mounted && visible && !dentroDoLeilao && !(pathname && ROTAS_SEM_BANNER.has(pathname))
   // Não renderiza no SSR pra evitar hydration mismatch (localStorage é client-only)
   if (!mostra) return null
 
@@ -200,6 +196,7 @@ const S = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     maxWidth: 960, margin: '0 auto', padding: '6px 8px 6px 12px', borderRadius: 12,
     background: '#0f1117', border: '1px solid rgba(255,255,255,0.10)',
+    fontFamily: "'DM Sans', system-ui, sans-serif",
     boxShadow: '0 8px 24px rgba(0,0,0,0.45)', pointerEvents: 'auto' as const,
   },
   linhaTexto: { margin: 0, fontSize: 12.5, lineHeight: 1.35, color: 'rgba(255,255,255,0.72)', minWidth: 0 },

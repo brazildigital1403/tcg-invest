@@ -172,6 +172,7 @@ export default function RodadaAoVivo({
   }, [baseInicial])
 
   // ── Arremate de quem esta logado ────────────────────────────────────────
+  const [conexaoInstavel, setConexaoInstavel] = useState(false)
   /** Lotes em que a pessoa tem lance (avisado pela LanceAoVivo). */
   const participadosRef = useRef<Set<string>>(new Set())
   const aoParticipar = useCallback((id: string) => {
@@ -295,11 +296,15 @@ export default function RodadaAoVivo({
             if (j?.server_now && Number.isFinite(idadeSeg) && idadeSeg > 0 && idadeSeg < 30) {
               j.server_now = new Date(Date.parse(j.server_now) + idadeSeg * 1000).toISOString()
             }
-            if (vivo && j?.rodada && Array.isArray(j.lotes)) aplicar(j, enviadoEm)
+            if (vivo && j?.rodada && Array.isArray(j.lotes)) {
+              aplicar(j, enviadoEm)
+              setConexaoInstavel(false)
+            }
             return
           } catch {
             if (!vivo) return
             if (i < TENTATIVAS - 1) await esperar(ESPERA_TENTATIVA_MS * (i + 1))
+            else setConexaoInstavel(true)
           } finally {
             clearTimeout(corte)
             emCurso = null
@@ -477,6 +482,7 @@ export default function RodadaAoVivo({
           urlLogin={urlRodada}
           aoParticipar={aoParticipar}
           aposMercado={faixaResultado}
+          conexaoInstavel={conexaoInstavel}
         />
       </div>
     ) : (

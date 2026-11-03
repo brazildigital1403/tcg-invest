@@ -1,3 +1,5 @@
+import { avisarInteressados } from '@/lib/leilaoAvisoInteresse'
+import { separarEndereco } from '@/lib/etiquetaReversa'
 import { NextRequest } from 'next/server'
 import { ANTECEDENCIA_MIN_AGENDAR, erroDoPainel, validarRodada } from '@/lib/leilao-painel'
 import {
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest, ctx: Params) {
       console.error('[lojas/leiloes/rodada GET] lotes', error.code, error.message)
       return json(500, { error: 'Erro ao carregar os lotes.' })
     }
-    return json(200, { rodada, lotes: lotes ?? [], recebimento })
+    return json(200, { rodada, lotes: lotes ?? [], recebimento, enderecoOk: !!separarEndereco(c.loja.endereco).rua })
   } catch (err) {
     console.error('[lojas/leiloes/rodada GET] erro:', (err as Error)?.message)
     return json(500, { error: 'Erro interno.' })
@@ -124,6 +126,11 @@ export async function POST(req: NextRequest, ctx: Params) {
       if (c.loja.status !== 'ativa') return json(403, { error: 'Sua loja precisa estar ativa para agendar.' })
       const rec = await recebimentoDaLoja(c.sb, c.loja)
       if (!rec.podeReceber) return json(409, { error: rec.motivo })
+      // A carta volta para este endereco numa desistencia: sem rua, o Melhor
+      // Envio recusa a etiqueta e a devolucao trava na primeira desistencia.
+      if (!separarEndereco(c.loja.endereco).rua) {
+        return json(409, { error: 'Para agendar, cadastre o endereço para devoluções em Minha vitrine.' })
+      }
       const { data, error } = await c.sb.rpc('leilao_agendar_rodada', {
         p_rodada: rodadaId,
         p_loja: lojaId,
@@ -133,6 +140,17 @@ export async function POST(req: NextRequest, ctx: Params) {
         const e = erroDoPainel(error.message)
         if (e.status === 500) console.error('[lojas/leiloes/agendar]', error.code, error.message)
         return json(e.status, { error: e.mensagem })
+      }
+      // Quem pediu aviso em /leiloes. Falha aqui nao desfaz o agendamento.
+      const agendada = await carregarRodada(c.sb, lojaId, rodadaId)
+      if (agendada) {
+        const r = agendada as unknown as { numero: number; inicia_em: string | null }
+        await avisarInteressados(c.sb, {
+          numero: r.numero,
+          iniciaEm: r.inicia_em,
+          lojaNome: c.loja.nome,
+          nLotes: Number((data as { lotes?: unknown } | null)?.lotes) || 0,
+        })
       }
       return json(200, { ok: true, resultado: data })
     }

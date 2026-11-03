@@ -1,5 +1,7 @@
 'use client'
 
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
+import { IconLeilao } from '@/components/ui/Icons'
 import { useState, useEffect, CSSProperties, RefObject } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
@@ -205,6 +207,8 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
         .ph-explore:focus-within .ph-chev { transform: rotate(180deg); }
 
         .ph-nl:hover { color: #f0f0f0 !important; }
+        /* Com Leiloes no nav, a 769 px sobravam 12 px: Blog segue no menu e no rodape. */
+        @media (max-width: 899px) { .ph-blog { display: none !important; } }
         .ph-dd-item:hover { background: rgba(255,255,255,0.05); color: #f0f0f0 !important; }
         .ph-b2b:hover { color: rgba(255,255,255,0.6) !important; }
         .ph-iconbtn:hover { color: #f0f0f0 !important; border-color: rgba(255,255,255,0.18) !important; }
@@ -301,10 +305,15 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             </div>
 
             {/* Links diretos */}
+            {LEILAO_ATIVO && (
+              <Link href="/leiloes" prefetch={false} className="ph-nl" style={navLinkStyle('/leiloes')}>
+                Leilões
+              </Link>
+            )}
             <Link href="/lojas" prefetch={false} className="ph-nl" style={navLinkStyle('/lojas')}>
               Guia de Lojas
             </Link>
-            <Link href="/blog" prefetch={false} className="ph-nl" style={navLinkStyle('/blog')}>
+            <Link href="/blog" prefetch={false} className="ph-nl ph-blog" style={navLinkStyle('/blog')}>
               Blog
             </Link>
             {/* O preco nao tinha endereco: vivia numa ancora da setima secao da
@@ -431,6 +440,12 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             ))}
 
             <div style={S.mobileGroup}>Explorar</div>
+            {LEILAO_ATIVO && (
+              <Link href="/leiloes" prefetch={false} onClick={closeMobile} className="ph-mitem" style={mobileLinkStyle('/leiloes')}>
+                <span style={S.mobileItemIcon}><IconLeilao size={18} /></span>
+                Leilões ao vivo
+              </Link>
+            )}
             <Link href="/lojas" onClick={closeMobile} className="ph-mitem" style={mobileLinkStyle('/lojas')}>
               <span style={S.mobileItemIcon}><IconGuiaLojasMini /></span>
               Guia de Lojas

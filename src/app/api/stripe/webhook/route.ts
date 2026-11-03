@@ -797,7 +797,15 @@ export async function POST(req: NextRequest) {
           }
 
           const cd = session.customer_details
-          const end = cd?.address
+          // ★ O endereco de ENTREGA vem em collected_information.shipping_details
+          // (shipping_address_collection). customer_details.address e o de
+          // cobranca: no cartao a Stripe pode devolver so o pais. Foi o que
+          // aconteceu no pedido 12 (01/11): a loja ficou sem para onde enviar e
+          // a etiqueta reversa recusou. Entrega primeiro, cobranca como reserva.
+          const entrega = (session as unknown as { collected_information?: { shipping_details?: { name?: string | null; address?: Stripe.Address | null } | null } })
+            .collected_information?.shipping_details
+            ?? (session as unknown as { shipping_details?: { name?: string | null; address?: Stripe.Address | null } | null }).shipping_details
+          const end = entrega?.address?.line1 ? entrega.address : cd?.address
           const enderecoStr = end
             ? [end.line1, end.line2, end.city, end.state, end.postal_code].filter(Boolean).join(', ')
             : 'não informado'
@@ -809,7 +817,7 @@ export async function POST(req: NextRequest) {
               pago_em: new Date().toISOString(),
               stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
               endereco: {
-                nome: cd?.name || null,
+                nome: entrega?.name || cd?.name || null,
                 email: cd?.email || null,
                 telefone: cd?.phone || null,
                 linha1: end?.line1 || null,

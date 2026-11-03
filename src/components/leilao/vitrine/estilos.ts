@@ -44,6 +44,8 @@ export const CSS_VITRINE = `
   transition: background 0.15s ease;
 }
 .vt-cta-sec:hover { background: var(--bx-surface-2); }
+.vt-aviso-ok { margin: 0; flex-basis: 100%; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--bx-text); background: rgba(var(--ac-1-rgb), 0.1); border: 1px solid rgba(var(--ac-1-rgb), 0.3); }
+.vt-aviso-erro { margin: 0; flex-basis: 100%; font-size: 13px; color: var(--bx-red); }
 .vt a:focus-visible, .vt button:focus-visible, .vt summary:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
 
 /* Logo da loja */
@@ -53,6 +55,42 @@ export const CSS_VITRINE = `
 }
 .vt-logo-p { width: 30px; height: 30px; flex-basis: 30px; border-radius: 8px; font-size: 12px; }
 .vt-verif { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; color: var(--bx-text-2); white-space: nowrap; vertical-align: 1px; }
+
+/* Lote em destaque */
+.vt-dest {
+  display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 14px; padding: 14px; border-radius: 18px;
+  border: 1px solid rgba(var(--ac-1-rgb), 0.28); background: var(--bx-hero-wash), var(--bx-surface);
+  color: inherit; text-decoration: none; transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.vt-dest:hover { transform: translateY(-2px); border-color: rgba(var(--ac-1-rgb), 0.5); }
+.vt-dest-art img { display: block; width: 100%; height: auto; border-radius: 8px; box-shadow: var(--bx-shadow); }
+.vt-dest-d { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.vt-dest-ey { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ac-1); }
+.vt-dest-nome { margin-top: 4px; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: var(--bx-text); overflow-wrap: anywhere; }
+.vt-dest-set { font-size: 12px; color: var(--bx-text-3); }
+.vt-dest-rot { margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--bx-text-3); }
+.vt-dest-preco { margin-bottom: 2px; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--bx-text); overflow-wrap: anywhere; }
+.vt-dest-cta { width: 100%; margin-top: auto; min-height: 44px; font-size: 14px; }
+.vt-dest-d > span:nth-last-child(2) { margin-bottom: 10px; }
+@media (min-width: 769px) {
+  .vt-dest { grid-template-columns: 256px minmax(0, 1fr); gap: 32px; padding: 24px; }
+  .vt-dest-nome { font-size: 28px; }
+  .vt-dest-set { font-size: 14px; }
+  .vt-dest-rot { margin-top: 20px; font-size: 13px; }
+  .vt-dest-preco { font-size: 40px; }
+  .vt-dest-cta { width: auto; min-width: 240px; margin-top: 20px; min-height: 46px; }
+}
+
+/* Garantia em uma linha */
+.vt-selos {
+  display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; min-height: 44px; margin-top: -14px;
+  font-size: 12px; font-weight: 600; color: var(--bx-text-2); text-decoration: none; transition: color 0.15s ease;
+}
+.vt-selos:hover { color: var(--bx-text); }
+.vt-selos span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.vt-selos svg { color: var(--ac-1); flex-shrink: 0; }
+@media (min-width: 769px) { .vt-selos { margin-top: -24px; font-size: 13px; gap: 4px 24px; } }
+.vt-sec-t h2 .vt-conta { margin-left: 7px; font-size: 13px; font-weight: 700; color: var(--bx-text-3); }
 
 /* Primeira dobra */
 .vt-dobra { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -252,7 +290,7 @@ a.vt-lojac:hover { border-color: var(--bx-border-2); }
 .vt-linha-r:hover { background: var(--bx-surface-2); }
 
 @media (prefers-reduced-motion: reduce) {
-  .vt-lote, .vt-lote:hover { transition: none; transform: none; }
+  .vt-lote, .vt-lote:hover, .vt-dest, .vt-dest:hover { transition: none; transform: none; }
   .vt-ponto { animation: none; }
   .vt-faq summary svg { transition: none; }
 }

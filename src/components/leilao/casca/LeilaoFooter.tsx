@@ -9,7 +9,7 @@ export default function LeilaoFooter() {
       <div className="lc-rodape-in">
         <p className="lc-rodape-protecao">
           <IconShield size={14} />
-          Pagamento protegido pela Bynx, no cartão.
+          Pagamento no cartão, com Proteção Bynx na compra.
         </p>
         <nav aria-label="Links do Bynx Leilões" className="lc-rodape-links">
           <Link href={urlHome('como-funciona')} prefetch={false} className="lc-link">Como funciona</Link>

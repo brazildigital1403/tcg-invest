@@ -31,6 +31,7 @@ export interface LojaPainel {
   owner_user_id: string
   nome: string
   status: string
+  endereco: string | null
 }
 
 export type Contexto =
@@ -40,7 +41,7 @@ export type Contexto =
 export async function contextoPainel(req: NextRequest, lojaId: string): Promise<Contexto> {
   if (!LEILAO_ATIVO) return { ok: false, res: new NextResponse(null, { status: 404 }) }
   if (!UUID_RE.test(lojaId)) return { ok: false, res: json(404, { error: 'Loja não encontrada.' }) }
-  const auth = await autenticarOwnerOuAdmin(req, lojaId, 'id, owner_user_id, nome, status')
+  const auth = await autenticarOwnerOuAdmin(req, lojaId, 'id, owner_user_id, nome, status, endereco')
   if ('error' in auth) return { ok: false, res: auth.error }
   return { ok: true, sb: auth.sb, loja: auth.loja as LojaPainel }
 }

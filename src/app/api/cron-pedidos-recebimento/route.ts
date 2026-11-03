@@ -5,7 +5,7 @@ import {
   acaoRecebimento, acaoDevolucao, somarDias, fmtPrazo, DIAS_FECHAMENTO_AUTO, DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR,
 } from '@/lib/leilao-reclamacao'
 import { sbServico, sino, carregarPedido, concluirDevolucao, emailSeguro, contato, nomeDaLoja } from '@/lib/reclamacaoServer'
-import { emitirEtiquetaReversa, sincronizarEtiqueta, cancelarEtiqueta } from '@/lib/etiquetaReversaServer'
+import { emitirEtiquetaReversa, sincronizarEtiqueta, cancelarEtiqueta, avisarSaldoBaixo } from '@/lib/etiquetaReversaServer'
 import { MAX_TENTATIVAS_ETIQUETA } from '@/lib/etiquetaReversa'
 import { enviarLoteEmails, renderRecebimentoAvisoEmail, renderArrependimentoEmail, type EmailLoteItem } from '@/lib/email'
 
@@ -274,6 +274,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Carteira do Melhor Envio abaixo de R$ 50: avisa o admin. Depois das
+    // desistencias, para contar as etiquetas que ficaram esperando saldo.
+    const avisoSaldo = !dry && !semTempo() ? await avisarSaldoBaixo(sb) : false
+
     let emailsOk = 0
     if (emails.length) {
       const res = await enviarLoteEmails(emails)
@@ -281,7 +285,7 @@ export async function GET(req: NextRequest) {
       if (emailsOk < emails.length) console.error(`[cron-recebimento] ${emails.length - emailsOk} e-mail(s) de aviso falharam`)
     }
 
-    return NextResponse.json({ ok: true, candidatos: plano.length, fechados, avisados, emails: emailsOk, expiradas, estornadas, etiquetas, rastreios, ms: Date.now() - inicio })
+    return NextResponse.json({ ok: true, candidatos: plano.length, fechados, avisados, emails: emailsOk, expiradas, estornadas, etiquetas, rastreios, avisoSaldo, ms: Date.now() - inicio })
   } catch (err) {
     console.error('[cron-recebimento] erro:', (err as Error)?.message)
     return NextResponse.json({ ok: false, error: 'Erro interno.' }, { status: 500 })

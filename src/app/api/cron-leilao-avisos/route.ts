@@ -5,6 +5,7 @@ import {
   enviarLoteEmails,
   renderLeilaoSuperadoEmail,
   renderLeilaoVenceuEmail,
+  renderLeilaoNaoVenceuEmail,
   renderLeilaoSemLancesEmail,
   renderLeilaoCaloteVencedorEmail,
   renderLeilaoCaloteVendedorEmail,
@@ -20,6 +21,7 @@ import {
   emailEnviavel,
   type EventoReservado,
   type LoteAviso,
+  type ParticipanteLote,
   type EmailPlanejado,
   type SinoPlanejado,
   type PlanoEvento,
@@ -128,10 +130,12 @@ function renderizar(e: EmailPlanejado, to: string, nome: string | null): EmailRe
     terminaEm: e.lote.termina_em,
     pagarAte: e.pagarAte ?? e.lote.pagar_ate,
     lojaId: e.lote.loja_id ?? null,
+    maximoCents: e.maximoCents,
   }
   switch (e.modelo) {
     case 'superado': return renderLeilaoSuperadoEmail(a)
     case 'venceu': return renderLeilaoVenceuEmail(a)
+    case 'nao_venceu': return renderLeilaoNaoVenceuEmail(a)
     case 'sem_lances': return renderLeilaoSemLancesEmail(a)
     case 'calote_vencedor': return renderLeilaoCaloteVencedorEmail(a)
     case 'calote_vendedor': return renderLeilaoCaloteVendedorEmail(a)
@@ -149,13 +153,29 @@ async function lerLotes(sb: SB, eventos: EventoReservado[]): Promise<Map<string,
   if (ids.length === 0) return lotes
   const { data, error } = await sb
     .from('leiloes')
-    .select('id, slug, card_name, status, termina_em, pagar_ate, lider_user_id, vendedor_user_id, preco_atual_cents, loja_id, cancelado_motivo')
+    .select('id, slug, card_name, status, termina_em, pagar_ate, lider_user_id, vendedor_user_id, preco_atual_cents, loja_id, cancelado_motivo, rodada_id')
     .in('id', ids)
   // ★ Falha de leitura NAO vira "nada a avisar": sem o lote o plano
   //   finalizaria o evento em silencio.
   if (error) throw new ErroLeitura(`leiloes: ${error.message}`)
   for (const l of (data ?? []) as LoteAviso[]) lotes.set(l.id, l)
   return lotes
+}
+
+/** Quem deu lance nos lotes com prazo que acabaram de terminar. */
+async function lerParticipantes(sb: SB, eventos: EventoReservado[], lotes: Map<string, LoteAviso>) {
+  const ids = [...new Set(eventos
+    .filter(e => e.tipo === 'encerrado' && e.leilao_id && !lotes.get(e.leilao_id)?.rodada_id)
+    .map(e => e.leilao_id as string))]
+  const porLote = new Map<string, ParticipanteLote[]>()
+  if (ids.length === 0) return porLote
+  const { data, error } = await sb.from('leilao_proxy').select('leilao_id, user_id, maximo_cents').in('leilao_id', ids)
+  // Sem esta leitura o evento fecharia sem avisar ninguem.
+  if (error) throw new ErroLeitura(`leilao_proxy: ${error.message}`)
+  for (const p of (data ?? []) as Array<ParticipanteLote & { leilao_id: string }>) {
+    porLote.set(p.leilao_id, [...(porLote.get(p.leilao_id) ?? []), { user_id: p.user_id, maximo_cents: p.maximo_cents }])
+  }
+  return porLote
 }
 
 async function lerUsers(sb: SB, planos: PlanoEvento[]) {
@@ -222,7 +242,7 @@ export async function GET(req: NextRequest) {
     try {
       const eventos = await espiarFila(sb)
       const lotes = await lerLotes(sb, eventos)
-      const planos = planejarAvisos(eventos, lotes, Date.now())
+      const planos = planejarAvisos(eventos, lotes, Date.now(), await lerParticipantes(sb, eventos, lotes))
       const users = await lerUsers(sb, planos)
       let semEndereco = 0
       const assuntos: string[] = []
@@ -291,7 +311,7 @@ export async function GET(req: NextRequest) {
   try {
     // 2. Estado atual dos lotes e usuarios.
     const lotes = await lerLotes(sb, eventos)
-    planos = planejarAvisos(eventos, lotes, Date.now())
+    planos = planejarAvisos(eventos, lotes, Date.now(), await lerParticipantes(sb, eventos, lotes))
     const users = await lerUsers(sb, planos)
 
     // 3. Renderiza. Grupo = evento: os e-mails de um evento vao juntos no

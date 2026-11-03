@@ -642,6 +642,20 @@ try {
     assert.equal(R.podeInformarPostagem({ ...aberta, etiqueta_status: 'falhou' }, agora), true)
   }, 'etiqueta reversa: CPF, endereco, corpo do Melhor Envio, leitura do pedido e prazo so com codigo pronto')
 
+  ok(() => {
+    assert.equal(ET.lerSaldoCents({ balance: 10.06, reserved: 0, debts: 0 }), 1006)
+    assert.equal(ET.lerSaldoCents({ balance: '20' }), 2000)
+    assert.equal(ET.lerSaldoCents({ balance: 0 }), 0)
+    assert.equal(ET.lerSaldoCents(null), null)
+    assert.equal(ET.lerSaldoCents({ message: 'Unauthenticated' }), null)
+    assert.equal(ET.faltaSaldo(1006, 994), false)
+    assert.equal(ET.faltaSaldo(993, 994), true)
+    assert.equal(ET.faltaSaldo(null, 994), false)
+    assert.equal(ET.faltaSaldo(0, null), true)
+    assert.equal(ET.faltaSaldo(100, null), false)
+    assert.equal(ET.SALDO_MINIMO_AVISO_CENTS, 5000)
+  }, 'carteira do Melhor Envio: leitura do saldo e etiqueta que nao cabe no saldo espera')
+
   console.log(`\n${n} blocos ok`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

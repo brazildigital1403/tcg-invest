@@ -91,6 +91,8 @@ export interface LanceResultado {
 /** Resposta de GET /api/leiloes/[id]/estado. */
 export interface EstadoLote {
   lote: LotePublico
+  /** Pedido do arremate pago. So vem para QUEM VENCEU. */
+  pedidoId?: string | null
   server_now: string
   /** Calculado no servidor para o usuario do Bearer. false sem login. */
   voceLidera: boolean
