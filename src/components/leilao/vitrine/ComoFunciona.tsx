@@ -1,4 +1,5 @@
-import { IconPlus } from '@/components/ui/Icons'
+import { IconClock, IconLoja, IconPlus, IconShield, IconTruck } from '@/components/ui/Icons'
+import { IconeBloco, Rotulo } from '@/components/leilao/kit'
 import { PRAZO_PAGAMENTO_ARREMATE_HORAS, rotuloTaxaProtecao } from '@/lib/leilao-vitrine'
 import { calcularArremate } from '@/lib/leilao-taxas'
 import { formatarBRL } from '@/lib/leilao'
@@ -17,21 +18,18 @@ const H = PRAZO_PAGAMENTO_ARREMATE_HORAS
  * Textos revistos no estudo de 03/11 contra /termos, secao 5.4.
  */
 const PASSOS = [
-  { titulo: 'Escolha a carta', texto: 'A loja publica a carta e o leilão fica aberto de 1 a 7 dias. Dar lance não pede cartão.' },
-  { titulo: 'Dê seu lance', texto: 'Informe até quanto aceita pagar: a Bynx cobre os outros lances por você, só até esse limite. Se vencer, você se compromete a pagar.' },
-  { titulo: `Pague em ${H} horas`, texto: 'No cartão, com taxa de proteção, custo do cartão e frete mostrados antes. Só paga quem vence.' },
+  { titulo: 'Escolha a carta', texto: 'Veja a foto, quem vende e o Mercado Brasileiro.' },
+  { titulo: 'Defina seu máximo', texto: 'A Bynx cobre os lances por você, até esse valor.' },
+  { titulo: 'Pague se vencer', texto: `No cartão, em ${H} horas, com o total antes.` },
 ] as const
 
 export function ComoFunciona() {
   return (
-    <section className="vt-sec" aria-labelledby="vt-como-t">
-      <div className="vt-sec-t">
-        <h2 id="vt-como-t">Como funciona</h2>
-      </div>
+    <section aria-label="Passo a passo">
       <ol className="vt-passos">
         {PASSOS.map((p, i) => (
           <li key={p.titulo} className="vt-passo">
-            <span className="vt-passo-n" aria-hidden>{i + 1}</span>
+            <span className="vt-passo-n" aria-hidden>{`0${i + 1}`}</span>
             <div>
               <b>{p.titulo}</b>
               <span>{p.texto}</span>
@@ -89,11 +87,29 @@ const PERGUNTAS: ReadonlyArray<{ q: string; r: string }> = [
   },
 ]
 
+/** Garantias sem paragrafo: o detalhe de cada uma esta nas perguntas. */
+export function BlocoProtecao() {
+  return (
+    <section className="vt-prot" aria-labelledby="vt-prot-t">
+      <IconeBloco><IconShield size={38} /></IconeBloco>
+      <div className="vt-prot-c">
+        <Rotulo>Proteção Bynx</Rotulo>
+        <h2 id="vt-prot-t" className="lk-sub">Você disputa a carta. A Proteção Bynx cobre o caminho.</h2>
+        <ul>
+          <li><IconClock size={16} />7 dias para abrir uma ocorrência</li>
+          <li><IconTruck size={16} />Devolução sem custo de postagem</li>
+          <li><IconLoja size={16} />Quem vende aparece</li>
+        </ul>
+      </div>
+    </section>
+  )
+}
+
 export function PerguntasFrequentes() {
   return (
     <section className="vt-sec" aria-labelledby="vt-faq-t">
       <div className="vt-sec-t">
-        <h2 id="vt-faq-t">Perguntas frequentes</h2>
+        <h2 id="vt-faq-t" className="lk-sub">Ainda em dúvida?</h2>
       </div>
       <div className="vt-faq">
         {PERGUNTAS.map(p => (

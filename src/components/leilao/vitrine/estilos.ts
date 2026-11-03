@@ -300,13 +300,20 @@ a.vt-lojac:hover { border-color: var(--bx-border-2); }
 /* Como funciona */
 .vt-passos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; list-style: none; margin: 0; padding: 0; }
 @media (min-width: 769px) { .vt-passos { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; } }
-.vt-passo { border: 1px solid var(--bx-border); border-radius: 14px; padding: 16px; background: var(--bx-surface); display: flex; gap: 14px; }
+.vt-passo { border: 1px solid var(--bx-border); border-radius: 16px; padding: 18px; background: var(--bx-surface); display: flex; align-items: center; gap: 16px; }
 .vt-passo-n {
-  width: 32px; height: 32px; border-radius: 50%; background: var(--ac-grad); color: var(--bx-brand-ink); font-weight: 800;
-  display: grid; place-items: center; flex: 0 0 32px;
+  flex: 0 0 56px; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; background: var(--ac-grad); color: var(--bx-brand-ink);
+  font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
 }
-.vt-passo b { display: block; font-size: 14.5px; margin-bottom: 2px; color: var(--bx-text); }
-.vt-passo span { font-size: 13px; color: var(--bx-text-2); line-height: 1.5; }
+.vt-passo b { display: block; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 2px; color: var(--bx-text); }
+.vt-passo div span { font-size: 14px; color: var(--bx-text-2); line-height: 1.45; }
+@media (min-width: 769px) { .vt-passo { flex-direction: column; align-items: flex-start; padding: 22px; } }
+.vt-prot { display: flex; flex-direction: column; gap: 16px; padding: 22px; border-radius: 18px; border: 1px solid rgba(var(--ac-1-rgb), 0.34); background: var(--bx-hero-wash), var(--bx-surface); }
+.vt-prot-c { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vt-prot ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.vt-prot li { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--bx-text); }
+.vt-prot li svg { color: var(--ac-1); flex-shrink: 0; }
+@media (min-width: 769px) { .vt-prot { flex-direction: row; align-items: center; gap: 28px; padding: 28px; } .vt-prot ul { flex-direction: row; flex-wrap: wrap; gap: 8px 22px; } }
 
 /* FAQ: <details>, sem JS */
 .vt-faq { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }

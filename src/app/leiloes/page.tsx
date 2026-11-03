@@ -10,7 +10,6 @@ import { CSS_VITRINE } from '@/components/leilao/vitrine/estilos'
 import BotaoAvisoLeilao from '@/components/leilao/vitrine/BotaoAvisoLeilao'
 import { HeroSemRodada, PalcoAoVivo, PalcoProxima } from '@/components/leilao/vitrine/Palco'
 import CardHoje from '@/components/leilao/vitrine/CardHoje'
-import FaixaGarantia from '@/components/leilao/vitrine/FaixaGarantia'
 import LinhaAgenda from '@/components/leilao/vitrine/LinhaAgenda'
 import LinhaResultado from '@/components/leilao/vitrine/LinhaResultado'
 import LoteDestaque from '@/components/leilao/vitrine/LoteDestaque'
@@ -19,8 +18,7 @@ import SelosGarantia from '@/components/leilao/vitrine/SelosGarantia'
 import Arrematados from '@/components/leilao/vitrine/Arrematados'
 import AgendaSemana from '@/components/leilao/vitrine/AgendaSemana'
 import LojasDoLeilao from '@/components/leilao/vitrine/LojasDoLeilao'
-import { ComoFunciona, PerguntasFrequentes } from '@/components/leilao/vitrine/ComoFunciona'
-import BlocoLojista from '@/components/leilao/vitrine/BlocoLojista'
+import { BlocoProtecao, ComoFunciona, PerguntasFrequentes } from '@/components/leilao/vitrine/ComoFunciona'
 import ChamadaLojas from '@/components/leilao/vitrine/ChamadaLojas'
 import TopoVitrine from '@/components/leilao/vitrine/TopoVitrine'
 import ListaRodadas from '@/components/leilao/vitrine/ListaRodadas'
@@ -112,7 +110,6 @@ export default async function LeiloesPage({
       <style>{CSS_VITRINE}</style>
       <LeilaoAbas ativa={aba} />
       <div className="vt">
-        {aba === 'como-funciona' && <h1 className="vt-sr">Como funciona o leilão de cartas Pokémon</h1>}
         {conteudo}
       </div>
     </div>
@@ -404,10 +401,12 @@ async function abaResultados() {
 function AbaComoFunciona() {
   return (
     <>
+      <Titulo rotulo="Sem surpresa no caminho" titulo="Como funciona" />
       <ComoFunciona />
-      <FaixaGarantia />
+      <BlocoProtecao />
       <PerguntasFrequentes />
-      <BlocoLojista />
+      <Botao href={urlHome()}>Ver leilões abertos</Botao>
+      <ChamadaLojas />
     </>
   )
 }
