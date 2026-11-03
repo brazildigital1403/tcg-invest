@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 
 /** "Quero ser avisado do proximo leilao". Sem conta, abre o login e volta para a vitrine. */
-export default function BotaoAvisoLeilao() {
+export default function BotaoAvisoLeilao({ className = 'vt-cta' }: { className?: string }) {
   const { openLogin } = useAuthModal()
   const [ativo, setAtivo] = useState(false)
   const [enviando, setEnviando] = useState(false)
@@ -41,10 +41,10 @@ export default function BotaoAvisoLeilao() {
     }
   }
 
-  if (ativo) return <p role="status" className="vt-aviso-ok">Pronto. Você recebe um e-mail quando o próximo leilão for marcado.</p>
+  if (ativo) return <p role="status" className="vt-aviso-ok" style={{ margin: 0, padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 600, color: 'var(--bx-text)', background: 'rgba(var(--ac-1-rgb), 0.1)', border: '1px solid rgba(var(--ac-1-rgb), 0.3)' }}>Pronto. Você recebe um e-mail quando o próximo leilão for marcado.</p>
   return (
     <>
-      <button type="button" onClick={pedir} disabled={enviando} className="vt-cta" style={{ border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+      <button type="button" onClick={pedir} disabled={enviando} className={className} style={{ border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
         {enviando ? 'Salvando...' : 'Quero ser avisado do próximo leilão'}
       </button>
       {erro && <p role="alert" className="vt-aviso-erro">{erro}</p>}

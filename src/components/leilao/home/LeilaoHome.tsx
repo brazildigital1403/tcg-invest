@@ -2,273 +2,446 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { IconLeilao } from '@/components/ui/Icons'
-import { formatarBRL } from '@/lib/leilao'
-import { urlRodada } from '@/lib/leilao-urls'
+import CardItem from '@/components/ui/CardItem'
+import BotaoAvisoLeilao from '@/components/leilao/vitrine/BotaoAvisoLeilao'
+import { cardDoLote } from '@/components/leilao/cardDoLote'
+import { LEILAO_PRAZO_ATIVO } from '@/lib/leilao-flag'
+import { formatarBRL, type LotePublico } from '@/lib/leilao'
+import { urlLote, urlRodada } from '@/lib/leilao-urls'
 
 /**
- * Secao de leilao da home, logo depois do hero (pedido do Du, 03/11).
+ * Parte viva da secao de leilao da home. Titulo, texto e letreiro vem do servidor
+ * (page.tsx), para o Google e para nunca dependerem do JS.
  *
- * Ordem, sempre o REAL primeiro: rodada no ar > rodada agendada > demonstracao.
- * A demonstracao so entra quando a rota confirmou, com 200, que nao ha nada. Em
- * erro ou enquanto carrega, fica so o texto, que e verdade em qualquer momento:
- * nunca um leilao ficticio por cima de um real que nao conseguimos ler.
+ * Ordem, sempre o REAL primeiro: rodada no ar > leiloes abertos > rodada agendada >
+ * demonstracao. A demonstracao so entra quando a rota confirmou, com 200, que nao
+ * ha nada; em erro aparece o aviso de leitura, nunca um leilao ficticio.
  *
- * Na demonstracao nada imita o estado real: sem selo AO VIVO, sem "Dar lance",
- * com aviso fixo e loja, lances e valores ficticios.
+ * Na demonstracao nada imita o real: contorno tracejado, faixa em cada carta e
+ * nenhum preco, lance ou relogio. Real e demonstracao nunca dividem a tela.
+ * Decisao do Du: cartas de exemplo com aviso visivel, e so quando nao ha nada.
  */
 
+type LoteHome = LotePublico & { lojaNome: string | null }
+
 interface Resumo {
-  estado: 'ao_vivo' | 'agendada' | 'nada'
+  estado: 'ao_vivo' | 'abertos' | 'agendada' | 'nada'
   serverNow: string
+  lotes?: LoteHome[]
+  totalAbertos?: number
+  totalNoLimite?: boolean
   rodada?: { numero: number; iniciaEm: string | null; lojaNome: string; nLotes: number; outrasNoAr: number }
   lote?: { nome: string; imagem: string | null; precoCents: number; nLances: number; terminaEm: string | null } | null
   proximos?: string[]
 }
 
-const IMG = (id: string) => `https://images.pokemontcg.io/${id}.png`
-
-// Tudo ficticio: so existe para mostrar como a tela se comporta.
+// Conferidas por id no catalogo em 03/11. Sem preco de proposito: colecionador
+// compara numero, e valor de exemplo vira ancora falsa.
+const IMG = (caminho: string) => `https://images.pokemontcg.io/${caminho}.png`
 const DEMO = [
-  { nome: 'Charizard', imagem: IMG('base1/4'), inicial: 90000, passos: [95000, 102000, 110000, 118000] },
-  { nome: 'Umbreon VMAX', imagem: IMG('swsh7/215'), inicial: 600000, passos: [640000, 690000, 730000] },
-  { nome: 'Eevee', imagem: IMG('sv3pt5/133'), inicial: 500, passos: [700, 1000, 1200, 1500] },
+  { id: 'base1-4', nome: 'Charizard', set: 'Base', imagem: IMG('base1/4') },
+  { id: 'swsh7-215', nome: 'Umbreon VMAX', set: 'Evolving Skies', imagem: IMG('swsh7/215') },
+  { id: 'sv3pt5-133', nome: 'Eevee', set: '151', imagem: IMG('sv3pt5/133') },
+  { id: 'sv3pt5-25', nome: 'Pikachu', set: '151', imagem: IMG('sv3pt5/25') },
+  { id: 'neo1-9', nome: 'Lugia', set: 'Neo Genesis', imagem: IMG('neo1/9') },
+  { id: 'sv3pt5-151', nome: 'Mew ex', set: '151', imagem: IMG('sv3pt5/151') },
+  { id: 'base1-2', nome: 'Blastoise', set: 'Base', imagem: IMG('base1/2') },
+  { id: 'sv3pt5-94', nome: 'Gengar', set: '151', imagem: IMG('sv3pt5/94') },
+  { id: 'sv8-238', nome: 'Pikachu ex', set: 'Surging Sparks', imagem: IMG('sv8/238') },
+  { id: 'sv3pt5-6', nome: 'Charizard ex', set: '151', imagem: IMG('sv3pt5/6') },
+  { id: 'sm12-1', nome: 'Venusaur & Snivy-GX', set: 'Cosmic Eclipse', imagem: IMG('sm12/1') },
+  { id: 'sv3pt5-9', nome: 'Blastoise ex', set: '151', imagem: IMG('sv3pt5/9') },
 ] as const
-const DEMO_APELIDOS = ['a***o', 'm***a', 'r***s', 'j***e', 'c***a']
-const DEMO_SEG = 24
-const DEMO_FIM_SEG = 4
+const TROCA_MS = 8_000
 
-function relogio(seg: number): string {
-  const s = Math.max(0, Math.ceil(seg))
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+// Vermelho antes disso e urgencia sem motivo: 45 minutos nao sao o fim.
+const URGENTE_MS = 10 * 60_000
+
+function tempo(ms: number): { txt: string; urg: boolean } {
+  if (ms <= 0) return { txt: 'Conferindo o último lance', urg: false }
+  const s = Math.ceil(ms / 1000)
+  const d = Math.floor(s / 86400)
+  const h = Math.floor((s % 86400) / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (d >= 1) return { txt: `${d} ${d === 1 ? 'dia' : 'dias'} e ${h} h`, urg: false }
+  if (h >= 1) return { txt: `${h} h ${m} min`, urg: false }
+  return { txt: `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`, urg: ms < URGENTE_MS }
 }
 
-function quando(iso: string | null | undefined, agora: number): string {
-  if (!iso) return 'Em breve'
-  const t = new Date(iso)
-  const dia = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-  const hora = t.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
-  if (dia(t) === dia(new Date(agora))) return `Hoje, ${hora}`
-  if (dia(t) === dia(new Date(agora + 86_400_000))) return `Amanhã, ${hora}`
-  const sem = t.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long' }).split('-')[0]
-  return `${sem[0].toUpperCase()}${sem.slice(1)}, ${hora}`
-}
+const lancesTxt = (n: number) => (n === 0 ? 'Sem lance' : n === 1 ? '1 lance' : `${n} lances`)
 
 export default function LeilaoHome() {
   const [dados, setDados] = useState<Resumo | null>(null)
+  const [erro, setErro] = useState(false)
   const [offset, setOffset] = useState(0)
   const [agora, setAgora] = useState(0)
-  const raiz = useRef<HTMLDivElement>(null)
   const [visivel, setVisivel] = useState(false)
-  const [calmo, setCalmo] = useState(false)
+  const raiz = useRef<HTMLDivElement>(null)
 
   const buscar = useCallback(async () => {
     try {
       const r = await fetch('/api/leiloes/resumo-home')
-      if (!r.ok) return
+      if (!r.ok) { setErro(true); return }
       const j = (await r.json()) as Resumo
       setOffset(Date.parse(j.serverNow) - Date.now())
       setDados(j)
+      setErro(false)
     } catch {
-      // Sem conexao: mantem o que ja esta na tela.
+      setErro(true)
     }
   }, [])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCalmo(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
     buscar()
     const volta = () => { if (document.visibilityState === 'visible') buscar() }
     document.addEventListener('visibilitychange', volta)
     const el = raiz.current
-    const io = el ? new IntersectionObserver(([e]) => setVisivel(e.isIntersecting), { threshold: 0.1 }) : null
+    const io = el ? new IntersectionObserver(([e]) => setVisivel(e.isIntersecting), { threshold: 0.05 }) : null
     if (el && io) io.observe(el)
     return () => { document.removeEventListener('visibilitychange', volta); io?.disconnect() }
   }, [buscar])
 
-  // Rodada no ar muda em segundos; agendada so importa perto da hora. Fora da tela, nada.
   const estado = dados?.estado
   useEffect(() => {
     if (!visivel) return
-    const ms = estado === 'ao_vivo' ? 5_000 : estado === 'agendada' ? 30_000 : 0
+    const ms = estado === 'ao_vivo' ? 5_000 : estado === 'abertos' || estado === 'agendada' ? 30_000 : 0
     if (!ms) return
     const id = setInterval(() => { if (document.visibilityState === 'visible') buscar() }, ms)
     return () => clearInterval(id)
   }, [estado, visivel, buscar])
 
   useEffect(() => {
-    if (estado !== 'ao_vivo' && estado !== 'agendada') return
+    if (!visivel || !estado || estado === 'nada') return
     const tique = () => setAgora(Date.now() + offset)
     tique()
     const id = setInterval(tique, 1_000)
     return () => clearInterval(id)
-  }, [estado, offset])
+  }, [estado, offset, visivel])
 
-  const r = dados?.rodada
-  const titulo =
-    estado === 'ao_vivo' && r ? `${r.lojaNome} está ao vivo agora`
-    : estado === 'agendada' && r ? `${quando(r.iniciaEm, agora)}: rodada ao vivo de ${r.lojaNome}`
-    : 'Leilão de cartas Pokémon, ao vivo e em reais.'
-  const texto =
-    estado === 'ao_vivo' && r ? `Rodada ${r.numero}, com ${r.nLotes} ${r.nLotes === 1 ? 'carta' : 'cartas'} em disputa, uma por vez. Lance em reais.`
-    : estado === 'agendada' && r ? `${r.nLotes} ${r.nLotes === 1 ? 'carta' : 'cartas'} em disputa, uma por vez, no horário de Brasília.`
-    : 'A loja abre a rodada, as cartas passam uma por uma e o maior lance leva. Você paga pela Bynx, no cartão. Só paga quem vence.'
-  const destino = r ? urlRodada(r.numero) : '/leiloes'
+  // Um card vencido sai sozinho: o tick fecha em segundos, e isto evita esperar o
+  // proximo polling mostrando "Conferindo" a toa.
+  const lotesAbertos = dados?.lotes
+  useEffect(() => {
+    if (estado !== 'abertos' || !lotesAbertos?.length) return
+    const agoraMs = Date.now() + offset
+    const fins = lotesAbertos.map(l => (l.terminaEm ? Date.parse(l.terminaEm) : NaN)).filter(f => f > agoraMs)
+    if (!fins.length) return
+    const falta = Math.min(...fins) - agoraMs + 6_000
+    if (falta > 3_600_000) return
+    const id = setTimeout(buscar, falta)
+    return () => clearTimeout(id)
+  }, [estado, lotesAbertos, offset, buscar])
 
   return (
-    <div ref={raiz} className="lh">
+    <div ref={raiz} className="lh" style={{ minHeight: dados || erro ? undefined : 560 }}>
       <style>{CSS}</style>
-      <div className="lh-txt">
-        <span className="eyebrow"><IconLeilao size={16} /> Bynx Leilões</span>
-        <h2 className="sec-title">{titulo}</h2>
-        <p className="sec-sub">{texto}</p>
-      </div>
-      <div className="lh-acoes">
-        <div className="ctas">
-          <Link href={destino} prefetch={false} className="btn-primary">
-            {estado === 'ao_vivo' ? 'Entrar na rodada ao vivo' : estado === 'agendada' ? 'Ver a rodada' : 'Ver os leilões'}
-          </Link>
-          <Link href="/leiloes?aba=como-funciona" prefetch={false} className="btn-ghost">Como funciona</Link>
-        </div>
-        {estado === 'ao_vivo' && r && r.outrasNoAr > 0 && (
-          <Link href="/leiloes" prefetch={false} className="lh-mais">Mais {r.outrasNoAr} {r.outrasNoAr === 1 ? 'rodada' : 'rodadas'} ao vivo</Link>
-        )}
-      </div>
-      <div className="lh-palco-area">
-        {estado === 'ao_vivo' && <PalcoReal d={dados as Resumo} agora={agora} />}
-        {estado === 'agendada' && <PalcoAgendada d={dados as Resumo} agora={agora} />}
-        {estado === 'nada' && <PalcoDemo ativo={visivel && !calmo} />}
-      </div>
-    </div>
-  )
-}
-
-function Cartas({ imagens }: { imagens: string[] }) {
-  if (!imagens.length) return null
-  return (
-    <div className="lh-prox">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {imagens.map((src, i) => <img key={`${src}-${i}`} src={src} alt="" loading="lazy" />)}
-    </div>
-  )
-}
-
-function PalcoReal({ d, agora }: { d: Resumo; agora: number }) {
-  const l = d.lote
-  const restante = l?.terminaEm && agora ? (Date.parse(l.terminaEm) - agora) / 1000 : null
-  return (
-    <article className="lh-palco">
-      <span className="lh-selo lh-vivo"><i /> AO VIVO</span>
-      {l ? (
-        <div className="lh-lote">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {l.imagem && <img className="lh-carta" src={l.imagem} alt={l.nome} />}
-          <div className="lh-dados">
-            <b className="lh-nome">{l.nome}</b>
-            <span className="lh-rot">{l.nLances > 0 ? 'Lance atual' : 'Lance inicial'}</span>
-            <span className="lh-preco">{formatarBRL(l.precoCents)}</span>
-            <span className="lh-meta">{l.nLances === 1 ? '1 lance' : `${l.nLances} lances`}</span>
-            {restante !== null && <span className={`lh-rel${restante <= 10 ? ' lh-urg' : ''}`}>{restante > 0 ? relogio(restante) : 'Conferindo'}</span>}
+      {erro && !dados && (
+        <div className="lh-erro" role="status">
+          <p>Não foi possível carregar os lotes aqui. Na página de leilões, você vê o que está aberto.</p>
+          <div className="lh-ctas">
+            <Link href="/leiloes" prefetch={false} className="lh-bt lh-pri">Ver os leilões</Link>
+            <button type="button" onClick={buscar} className="lh-bt">Tentar de novo</button>
           </div>
         </div>
-      ) : (
-        <p className="lh-meta">Trocando de carta. A próxima abre em instantes.</p>
       )}
-      {(d.proximos?.length ?? 0) > 0 && <span className="lh-rot">A seguir</span>}
-      <Cartas imagens={d.proximos ?? []} />
-    </article>
+      {estado === 'abertos' && <div key="abertos" className="lh-troca"><Abertos lotes={dados?.lotes ?? []} total={dados?.totalAbertos ?? 0} noLimite={!!dados?.totalNoLimite} agora={agora} /></div>}
+      {estado === 'ao_vivo' && <div key="ao_vivo" className="lh-troca"><AoVivo d={dados as Resumo} agora={agora} /></div>}
+      {estado === 'agendada' && <div key="agendada" className="lh-troca"><Agendada d={dados as Resumo} agora={agora} /></div>}
+      {estado === 'nada' && <div key="nada" className="lh-troca"><Demonstracao visivel={visivel} /></div>}
+    </div>
   )
 }
 
-function PalcoAgendada({ d, agora }: { d: Resumo; agora: number }) {
-  const ini = d.rodada?.iniciaEm ? Date.parse(d.rodada.iniciaEm) : NaN
-  const falta = agora && Number.isFinite(ini) ? (ini - agora) / 1000 : null
+function CardLote({ l, agora, destaque }: { l: LoteHome; agora: number; destaque: boolean }) {
+  const fim = l.terminaEm ? Date.parse(l.terminaEm) : NaN
+  const t = agora && Number.isFinite(fim) ? tempo(fim - agora) : null
+  const preco = l.nLances > 0 && l.precoAtualCents != null ? l.precoAtualCents : l.lanceInicialCents
   return (
-    <article className="lh-palco">
-      <span className="lh-selo lh-ac">PRÓXIMA RODADA</span>
-      <span className="lh-rot">Começa em</span>
-      <span className="lh-preco">
-        {falta === null ? '--' : falta <= 0 ? 'instantes'
-          : falta >= 86_400 ? `${Math.floor(falta / 86_400)} d ${Math.floor((falta % 86_400) / 3600)} h`
-          : falta >= 3600 ? `${Math.floor(falta / 3600)} h ${Math.floor((falta % 3600) / 60)} min`
-          : relogio(falta)}
-      </span>
-      {(d.proximos?.length ?? 0) > 0 && <span className="lh-rot">Algumas cartas</span>}
-      <Cartas imagens={d.proximos ?? []} />
-    </article>
+    <Link href={urlLote(l.slug)} prefetch={false} className="lh-card">
+      <CardItem
+        card={cardDoLote(l)}
+        mode="readonly"
+        hidePriceTable
+        ocultarSemPreco
+        badge={t ? <span className={`lh-tempo${t.urg ? ' lh-urg' : ''}`}>{t.txt}</span> : undefined}
+        footerSlot={
+          <div className="lh-card-pe">
+            <span className="lh-rot">{l.nLances > 0 ? 'Lance atual' : 'Lance inicial'}</span>
+            <span className="lh-preco">{formatarBRL(preco)}</span>
+            <span className="lh-meta">{lancesTxt(l.nLances)}{l.lojaNome ? ` · ${l.lojaNome}` : ''}</span>
+            <span className={`lh-bt lh-card-bt${destaque ? ' lh-pri' : ''}`}>{l.nLances === 0 ? 'Dar o primeiro lance' : 'Dar lance'}</span>
+          </div>
+        }
+      />
+    </Link>
   )
 }
 
-/** Disputa simulada, so com o relogio local. Parada fora da tela e com menos movimento. */
-function PalcoDemo({ ativo }: { ativo: boolean }) {
-  const [i, setI] = useState(0)
-  const [seg, setSeg] = useState(0)
-  useEffect(() => {
-    if (!ativo) return
-    const id = setInterval(() => setSeg(s => s + 1), 1_000)
-    return () => clearInterval(id)
-  }, [ativo])
-  useEffect(() => {
-    if (seg < DEMO_SEG + DEMO_FIM_SEG) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSeg(0)
-    setI(n => (n + 1) % DEMO.length)
-  }, [seg])
-
-  const c = DEMO[i]
-  const a = Math.min(c.passos.length, Math.floor(seg / (DEMO_SEG / (c.passos.length + 1))))
-  const preco = a > 0 ? c.passos[a - 1] : c.inicial
-  const acabou = seg >= DEMO_SEG
-  const lances = Array.from({ length: a }, (_, k) => ({ v: c.passos[k], q: DEMO_APELIDOS[(k + i) % DEMO_APELIDOS.length] })).reverse().slice(0, 3)
+function UmLote({ l, agora }: { l: LoteHome; agora: number }) {
+  const fim = l.terminaEm ? Date.parse(l.terminaEm) : NaN
+  const t = agora && Number.isFinite(fim) ? tempo(fim - agora) : null
+  const preco = l.nLances > 0 && l.precoAtualCents != null ? l.precoAtualCents : l.lanceInicialCents
   return (
-    <article className="lh-palco" aria-label="Demonstração de como é uma rodada. Dados fictícios.">
-      <span className="lh-selo">*DEMONSTRAÇÃO</span>
-      <div className="lh-lote">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="lh-carta" src={c.imagem} alt="" />
-        <div className="lh-dados">
-          <b className="lh-nome">{c.nome}</b>
-          <span className="lh-rot">{acabou ? 'Arrematado por' : a > 0 ? 'Lance atual' : 'Lance inicial'}</span>
-          <span className="lh-preco" key={preco}>{formatarBRL(preco)}</span>
-          <span className="lh-meta">{a === 1 ? '1 lance' : `${a} lances`}</span>
-          <span className={`lh-rel${!acabou && DEMO_SEG - seg <= 8 ? ' lh-urg' : ''}`}>{acabou ? 'Encerrado' : relogio(DEMO_SEG - seg)}</span>
-        </div>
+    <Link href={urlLote(l.slug)} prefetch={false} className="lh-um">
+      <div className="lh-um-carta">
+        <CardItem card={cardDoLote(l)} mode="readonly" hidePriceTable ocultarSemPreco />
       </div>
-      <ul className="lh-feed">
-        {lances.map(l => <li key={l.v}><span>{l.q}</span><b>{formatarBRL(l.v)}</b></li>)}
-      </ul>
-      <p className="lh-aviso">*Demonstração com loja, lances e valores fictícios. Nenhum leilão está no ar agora.</p>
-    </article>
+      <div className="lh-um-dados">
+        <span className="lh-selo">Aberto agora</span>
+        <span className="lh-rot">{l.nLances > 0 ? 'Lance atual' : 'Lance inicial'}</span>
+        <span className="lh-preco">{formatarBRL(preco)}</span>
+        <span className="lh-meta">{lancesTxt(l.nLances)}</span>
+        {t && <span className="lh-meta">Termina em <b className={t.urg ? 'lh-urg-txt' : 'lh-forte'}>{t.txt}</b></span>}
+        {l.lojaNome && <span className="lh-meta">Vendido por {l.lojaNome}</span>}
+      </div>
+      <span className="lh-bt lh-pri lh-um-bt">{l.nLances === 0 ? 'Dar o primeiro lance' : 'Dar lance'}</span>
+    </Link>
+  )
+}
+
+function Passos() {
+  return (
+    <ol className="lh-passos" aria-label="Como funciona">
+      <li><b>1</b><span>Escolha a carta e informe até quanto aceita pagar.</span></li>
+      <li><b>2</b><span>Acompanhe os lances, que ficam visíveis até o fim.</span></li>
+      <li><b>3</b><span>Se o seu lance for o maior, pague em até 48 horas no cartão.</span></li>
+    </ol>
+  )
+}
+
+function Abertos({ lotes, total, noLimite, agora }: { lotes: LoteHome[]; total: number; noLimite: boolean; agora: number }) {
+  const n = lotes.length
+  const rotuloTodos = noLimite ? 'Ver todos os leilões' : n > 1 ? `Ver os ${total} leilões` : 'Ver os leilões'
+  return (
+    <>
+      {n === 1 && <div className="lh-comp"><UmLote l={lotes[0]} agora={agora} /><Passos /></div>}
+      {n === 2 && (
+        <div className="lh-comp">
+          <div className="lh-dois">{lotes.map((l, i) => <CardLote key={l.id} l={l} agora={agora} destaque={i === 0} />)}</div>
+          <Passos />
+        </div>
+      )}
+      {n > 2 && <div className="lh-trilho">{lotes.map((l, i) => <CardLote key={l.id} l={l} agora={agora} destaque={i === 0} />)}</div>}
+      <div className="lh-ctas">
+        {n > 1
+          ? <Link href="/leiloes" prefetch={false} className="lh-bt lh-pri">{rotuloTodos}</Link>
+          : <Link href="/marketplace" prefetch={false} className="lh-bt">Ver cartas à venda</Link>}
+        <Link href="/leiloes?aba=como-funciona" prefetch={false} className="lh-bt">Como funciona</Link>
+      </div>
+      <Confianca />
+    </>
+  )
+}
+
+function AoVivo({ d, agora }: { d: Resumo; agora: number }) {
+  const l = d.lote
+  const fim = l?.terminaEm ? Date.parse(l.terminaEm) : NaN
+  const t = agora && Number.isFinite(fim) ? tempo(fim - agora) : null
+  return (
+    <>
+      <article className="lh-faixa">
+        <span className="lh-selo lh-vivo">AO VIVO</span>
+        <b className="lh-nome">{d.rodada?.lojaNome} está ao vivo agora</b>
+        {l && (
+          <div className="lh-lote">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {l.imagem && <img className="lh-carta" src={l.imagem} alt={l.nome} />}
+            <div className="lh-dados">
+              <b className="lh-nome">{l.nome}</b>
+              <span className="lh-rot">{l.nLances > 0 ? 'Lance atual' : 'Lance inicial'}</span>
+              <span className="lh-preco">{formatarBRL(l.precoCents)}</span>
+              <span className="lh-meta">{lancesTxt(l.nLances)}</span>
+              {t && <span className={`lh-tempo${t.urg ? ' lh-urg' : ''}`}>{t.txt}</span>}
+            </div>
+          </div>
+        )}
+      </article>
+      <div className="lh-ctas">
+        <Link href={urlRodada(d.rodada?.numero ?? 0)} prefetch={false} className="lh-bt lh-pri">Entrar na rodada ao vivo</Link>
+        <Link href="/leiloes" prefetch={false} className="lh-bt">Ver os leilões</Link>
+      </div>
+      <Confianca />
+    </>
+  )
+}
+
+function Agendada({ d, agora }: { d: Resumo; agora: number }) {
+  const r = d.rodada
+  const ini = r?.iniciaEm ? Date.parse(r.iniciaEm) : NaN
+  const t = agora && Number.isFinite(ini) && ini > agora ? tempo(ini - agora) : null
+  return (
+    <>
+      <article className="lh-faixa">
+        <span className="lh-selo">PRÓXIMA RODADA</span>
+        <b className="lh-nome">Rodada ao vivo de {r?.lojaNome}, com {r?.nLotes} {r?.nLotes === 1 ? 'carta' : 'cartas'}</b>
+        <span className="lh-rot">Começa em</span>
+        <span className="lh-preco">{t ? t.txt : 'instantes'}</span>
+      </article>
+      <div className="lh-ctas">
+        <Link href={urlRodada(r?.numero ?? 0)} prefetch={false} className="lh-bt lh-pri">Ver a rodada</Link>
+        <Link href="/leiloes?aba=como-funciona" prefetch={false} className="lh-bt">Como funciona</Link>
+      </div>
+    </>
+  )
+}
+
+function Demonstracao({ visivel }: { visivel: boolean }) {
+  const [slots, setSlots] = useState([0, 1, 2])
+  const [feitas, setFeitas] = useState(0)
+  const [pausado, setPausado] = useState(false)
+  const [tocando, setTocando] = useState(false)
+  const [reduzido, setReduzido] = useState(false)
+  const passo = useRef({ prox: 3, slot: 0 })
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReduzido(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  }, [])
+
+  const trocar = useCallback(() => {
+    const colunas = window.matchMedia('(min-width: 900px)').matches ? 3 : 1
+    const { prox, slot } = passo.current
+    const alvo = slot % colunas
+    setSlots(a => a.map((v, i) => (i === alvo ? prox % DEMO.length : v)))
+    passo.current = { prox: prox + 1, slot: slot + 1 }
+  }, [])
+
+  // Uma volta nas cartas e para: nada contínuo disputando a atenção de quem lê.
+  const automatico = !reduzido && feitas < DEMO.length
+  useEffect(() => {
+    if (!automatico || !visivel || pausado || tocando) return
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      trocar()
+      setFeitas(f => f + 1)
+    }, TROCA_MS)
+    return () => clearInterval(id)
+  }, [automatico, visivel, pausado, tocando, trocar])
+
+  return (
+    <div data-nosnippet>
+      <p className="lh-aviso">*Demonstração: nenhum leilão aberto agora. As cartas abaixo são exemplos e não estão à venda.</p>
+      <div
+        className="lh-trilho lh-demo"
+        onMouseEnter={() => setTocando(true)}
+        onMouseLeave={() => setTocando(false)}
+        onFocusCapture={() => setTocando(true)}
+        onBlurCapture={() => setTocando(false)}
+        onTouchStart={() => setTocando(true)}
+        onTouchEnd={() => setTocando(false)}
+      >
+        {slots.map((idx, i) => {
+          const c = DEMO[idx]
+          return (
+            <Link key={`${i}-${c.id}`} href="/leiloes?aba=como-funciona" prefetch={false} className="lh-card lh-card-demo" aria-label={`Exemplo: ${c.nome}. Ver como funciona o leilão`}>
+              <CardItem
+                card={{ id: c.id, name: c.nome, set_name: c.set, image_small: c.imagem }}
+                mode="readonly"
+                hidePriceTable
+                ocultarSemPreco
+                ocultarIdioma
+                badge={<span className="lh-faixa-demo">*DEMONSTRAÇÃO</span>}
+                footerSlot={
+                  <div className="lh-card-pe">
+                    <span className="lh-forte">Não está à venda</span>
+                    <span className="lh-meta">{LEILAO_PRAZO_ATIVO ? 'Prazo no leilão real: 1, 3, 5 ou 7 dias' : 'No leilão real, o prazo fica aqui'}</span>
+                    <span className="lh-meta">No leilão real, o lance atual fica aqui</span>
+                    <span className="lh-bt lh-card-bt">Ver como funciona</span>
+                  </div>
+                }
+              />
+            </Link>
+          )
+        })}
+      </div>
+      <div className="lh-demo-ctrl">
+        <button type="button" className="lh-bt lh-bt-leve" onClick={trocar}>Ver outra carta</button>
+        {automatico && <button type="button" className="lh-bt lh-bt-leve" onClick={() => setPausado(p => !p)}>{pausado ? 'Retomar' : 'Pausar'}</button>}
+      </div>
+      <div className="lh-ctas lh-ctas-demo">
+        <BotaoAvisoLeilao className="lh-bt lh-pri" />
+        <Link href="/leiloes?aba=como-funciona" prefetch={false} className="lh-bt">Como funciona</Link>
+        <Link href="/marketplace" prefetch={false} className="lh-bt">Ver cartas à venda</Link>
+      </div>
+      <Link href="/para-lojistas" prefetch={false} className="lh-loja">Tenho loja e quero fazer um leilão</Link>
+    </div>
+  )
+}
+
+function Confianca() {
+  return (
+    <ul className="lh-conf">
+      <li>Lance é compromisso de compra: não pode ser cancelado, e quem vence precisa pagar.</li>
+      <li>Ao lance somam-se taxa de proteção de 5% (mínimo R$ 2), custo do cartão e frete.</li>
+      <li>Proteção Bynx: se a carta não chegar, vier diferente ou danificada, abra uma ocorrência na tela do pedido.</li>
+    </ul>
   )
 }
 
 const CSS = `
-.hm-root .lh{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:'txt' 'palco' 'acoes';gap:16px;padding-top:32px;padding-bottom:32px}
-.hm-root .lh-txt{grid-area:txt;min-width:0}
-.hm-root .lh-acoes{grid-area:acoes;min-width:0}
-.hm-root .lh-mais{display:inline-flex;align-items:center;min-height:44px;margin-top:6px;font-size:14px;font-weight:700;color:var(--ac-1);text-decoration:none}
-.hm-root .lh-palco-area{grid-area:palco;min-width:0;min-height:320px}
-.hm-root .lh-palco{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:var(--bx-bg-elev);border:1px solid var(--bx-border-2);box-shadow:var(--bx-shadow)}
-.hm-root .lh-selo{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.05em;background:var(--bx-surface-3);color:var(--bx-text-2)}
-.hm-root .lh-vivo{background:rgba(239,68,68,.15);color:var(--bx-red)}
-.hm-root .lh-vivo i{width:7px;height:7px;border-radius:50%;background:var(--bx-red)}
-.hm-root .lh-ac{background:rgba(var(--ac-1-rgb),.14);color:var(--ac-1)}
-.hm-root .lh-lote{display:flex;gap:14px;align-items:center;min-width:0}
-.hm-root .lh-carta{width:118px;aspect-ratio:63/88;flex:none;border-radius:8px;object-fit:cover;background:var(--bx-surface-2)}
-.hm-root .lh-dados{display:flex;flex-direction:column;gap:3px;min-width:0}
+.hm-root .lh{min-width:0}
+.hm-root .lh-troca,.hm-root .lh-troca>div[data-nosnippet]{display:flex;flex-direction:column;gap:16px;min-width:0}
+.hm-root .lh-troca{animation:lh-in .2s ease}
+.hm-root .lh-card-demo{animation:lh-in .2s ease}
+@keyframes lh-in{from{opacity:0}to{opacity:1}}
+.hm-root .lh-trilho{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,62%);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:6px 16px 10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.hm-root .lh-trilho::-webkit-scrollbar{display:none}
+.hm-root .lh-card{display:block;scroll-snap-align:center;min-width:0;border-radius:18px;background:var(--bx-bg-elev);color:inherit;text-decoration:none;transition:transform .2s ease}
+.hm-root .lh-trilho>.lh-card:nth-child(odd){transform:rotate(-1deg)}
+.hm-root .lh-trilho>.lh-card:nth-child(even){transform:rotate(1deg)}
+.hm-root .lh-card-pe{display:flex;flex-direction:column;gap:3px;min-width:0;padding-top:4px}
+.hm-root .lh-rot{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--bx-text-2)}
+.hm-root .lh-preco{font-size:24px;font-weight:800;line-height:1.15;color:var(--bx-text);font-variant-numeric:tabular-nums}
+.hm-root .lh-meta{font-size:13px;color:var(--bx-text-2);overflow-wrap:anywhere}
 .hm-root .lh-nome{font-size:15px;font-weight:800;color:var(--bx-text)}
-.hm-root .lh-rot{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--bx-text-3)}
-.hm-root .lh-preco{font-size:26px;font-weight:800;line-height:1.1;color:var(--bx-text);font-variant-numeric:tabular-nums;animation:lh-entra .2s ease}
-.hm-root .lh-meta{font-size:13px;color:var(--bx-text-2)}
-.hm-root .lh-rel{margin-top:4px;font-size:20px;font-weight:800;color:var(--bx-text);font-variant-numeric:tabular-nums}
-.hm-root .lh-urg{color:var(--bx-red)}
-.hm-root .lh-prox{display:flex;gap:6px;overflow:hidden}
-.hm-root .lh-prox img{width:52px;aspect-ratio:63/88;border-radius:5px;object-fit:cover;background:var(--bx-surface-2)}
-.hm-root .lh-feed{list-style:none;display:flex;flex-direction:column;gap:4px;min-height:84px;font-size:13px;color:var(--bx-text-2)}
-.hm-root .lh-feed li{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;border-radius:8px;background:var(--bx-surface);font-variant-numeric:tabular-nums}
-.hm-root .lh-feed li:first-child{background:rgba(var(--ac-1-rgb),.1);color:var(--bx-text)}
-.hm-root .lh-aviso{font-size:12px;line-height:1.45;color:var(--bx-text-2)}
-@keyframes lh-entra{from{opacity:.4}to{opacity:1}}
-@media(prefers-reduced-motion:reduce){.hm-root .lh-preco{animation:none}}
-@media(min-width:900px){.hm-root .lh{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:auto auto;grid-template-areas:'txt palco' 'acoes palco';column-gap:48px;row-gap:12px;padding-top:44px;padding-bottom:44px}.hm-root .lh-txt{align-self:end}.hm-root .lh-acoes{align-self:start}}
+.hm-root .lh-tempo{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;background:var(--bx-bg);border:1px solid var(--bx-border-2);font-size:12.5px;font-weight:800;color:var(--bx-text);font-variant-numeric:tabular-nums}
+.hm-root .lh-urg{color:var(--bx-red);border-color:rgba(239,68,68,.45)}
+.hm-root .lh-bt{display:flex;align-items:center;justify-content:center;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid rgba(var(--ac-1-rgb),.55);background:transparent;color:var(--bx-text);font-family:inherit;font-size:14px;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;transition:filter .15s ease,background .15s ease}
+.hm-root .lh-bt:hover{background:rgba(var(--ac-1-rgb),.1)}
+.hm-root .lh-pri{background:var(--ac-grad);border-color:transparent;color:var(--bx-brand-ink)}
+.hm-root .lh-pri:hover{background:var(--ac-grad);filter:brightness(1.08)}
+.hm-root .lh-card-bt{margin-top:8px}
+.hm-root .lh-ctas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.hm-root .lh-ctas-demo{grid-template-columns:minmax(0,1fr)}
+.hm-root .lh-conf{list-style:none;display:flex;flex-direction:column;gap:6px;font-size:12.5px;line-height:1.45;color:var(--bx-text-2)}
+.hm-root .lh-aviso{padding:10px 12px;border-radius:10px;border:1px dashed var(--bx-border-2);background:var(--bx-surface);font-size:13px;font-weight:600;line-height:1.45;color:var(--bx-text)}
+.hm-root .lh-card-demo{border:1.5px dashed var(--bx-border-2)}
+.hm-root .lh-demo{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:minmax(0,260px);justify-content:center;overflow:visible;margin:0;padding:6px 0 4px}
+.hm-root .lh-demo>.lh-card:nth-child(n+2){display:none}
+.hm-root .lh-faixa-demo{display:inline-flex;padding:4px 9px;border-radius:999px;background:var(--bx-bg);border:1px solid var(--bx-border-2);font-size:12px;font-weight:800;letter-spacing:.03em;color:var(--bx-text)}
+.hm-root .lh-demo-ctrl{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.hm-root .lh-bt-leve{border-color:var(--bx-border-2);font-size:13px;font-weight:700}
+.hm-root .lh-forte{font-size:13.5px;font-weight:800;color:var(--bx-text)}
+.hm-root .lh-urg-txt{color:var(--bx-red);font-weight:800}
+.hm-root .lh-comp{display:flex;flex-direction:column;gap:16px;min-width:0}
+.hm-root .lh-um{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:center;padding:12px;border-radius:16px;background:var(--bx-bg-elev);border:1px solid var(--bx-border-2);color:inherit;text-decoration:none}
+.hm-root .lh-um-carta{min-width:0}
+.hm-root .lh-um-dados{display:flex;flex-direction:column;gap:4px;min-width:0;align-items:flex-start}
+.hm-root .lh-um-bt{grid-column:1/-1}
+.hm-root .lh-dois{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.hm-root .lh-dois .lh-preco{font-size:20px}
+.hm-root .lh-dois .lh-card>*{height:100%}
+.hm-root .lh-passos{list-style:none;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:var(--bx-surface);border:1px solid var(--bx-border)}
+.hm-root .lh-passos li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.45;color:var(--bx-text-2)}
+.hm-root .lh-passos b{flex:none;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(var(--ac-1-rgb),.14);color:var(--ac-1);font-size:12.5px;font-weight:800}
+.hm-root .lh-loja{display:inline-flex;align-items:center;justify-content:center;min-height:44px;font-size:13.5px;font-weight:700;color:var(--ac-1);text-decoration:none}
+.hm-root .lh-faixa{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:16px;background:var(--bx-bg-elev);border:1px solid var(--bx-border-2)}
+.hm-root .lh-selo{align-self:flex-start;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.05em;background:rgba(var(--ac-1-rgb),.14);color:var(--ac-1)}
+.hm-root .lh-vivo{background:rgba(239,68,68,.15);color:var(--bx-red)}
+.hm-root .lh-lote{display:flex;gap:14px;align-items:center;min-width:0}
+.hm-root .lh-carta{width:118px;aspect-ratio:63/88;flex:none;border-radius:8px;object-fit:cover}
+.hm-root .lh-dados{display:flex;flex-direction:column;gap:4px;min-width:0;align-items:flex-start}
+.hm-root .lh-erro{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:12px;background:var(--bx-surface);font-size:14px;color:var(--bx-text-2)}
+@media(hover:hover){.hm-root .lh-trilho>.lh-card:hover{transform:rotate(0) translateY(-3px)}}
+@media(prefers-reduced-motion:reduce){.hm-root .lh-troca,.hm-root .lh-card-demo{animation:none}.hm-root .lh-card{transition:none}.hm-root .lh-trilho>.lh-card:nth-child(n){transform:none}}
+@media(min-width:900px){
+  .hm-root .lh-trilho{margin:0;padding:6px 0 10px;overflow:visible;grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hm-root .lh-trilho>.lh-card:nth-child(n+4){display:none}
+  .hm-root .lh-demo{justify-content:stretch}
+  .hm-root .lh-demo>.lh-card:nth-child(n+2){display:block}
+  .hm-root .lh-comp{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:start}
+  .hm-root .lh-um{grid-template-columns:220px minmax(0,1fr);gap:20px;padding:16px}
+  .hm-root .lh-ctas{max-width:460px}
+}
 `
