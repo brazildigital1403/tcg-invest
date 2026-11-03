@@ -3,7 +3,7 @@ import { enviarIsolando, type EmailLoteItem, type ResultadoEmail } from './email
 import { createClient } from '@supabase/supabase-js'
 import { formatarBRL } from './leilao'
 import { prazoCurtoBrasilia } from './leilao-avisos'
-import { urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
+import { urlHome as caminhoLeiloes, urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
 import { DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from './leilao-reclamacao'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -3402,6 +3402,7 @@ export interface LeilaoEmailArgs {
   minimoProximoCents?: number
   terminaEm?: string | null
   pagarAte?: string | null
+  maximoCents?: number
   /** Loja do vendedor, para o link de Pagamentos (null = vende sem loja). */
   lojaId?: string | null
 }
@@ -3441,6 +3442,20 @@ export function renderLeilaoVenceuEmail(a: LeilaoEmailArgs): EmailRenderizado {
       : `Você venceu: ${a.cardName}`),
     html,
   }
+}
+
+/** Participante: o lote terminou e outra pessoa venceu. */
+export function renderLeilaoNaoVenceuEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('Este lote terminou')}
+    ${p(`${escapeHtml(nome)}, outro participante venceu ${forte(a.cardName)}. Você não paga nada.`)}
+    ${blocoLeilao('Arrematado por', formatarBRL(a.precoCents))}
+    ${a.maximoCents ? p(`Seu máximo era ${forte(formatarBRL(a.maximoCents))}.`) : ''}
+    ${btn('Ver leilões abertos', addUtm(`${URL_CANONICA}${caminhoLeiloes()}`, 'leilao_nao_venceu'))}
+  `, `${a.cardName} foi arrematado por ${formatarBRL(a.precoCents)}`)
+  return { to: a.to, subject: subjUser(`Este lote terminou: ${a.cardName}`), html }
 }
 
 /** Vendedor: lote terminou sem nenhum lance. */

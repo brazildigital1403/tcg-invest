@@ -14,7 +14,10 @@
  *                Quem ja voltou a liderar nao recebe nada.
  *   venceu    -> sino + e-mail imediato com o prazo. So se o lote ainda
  *                aguarda pagamento deste usuario.
- *   encerrado -> so quando terminou sem lances: sino + e-mail ao vendedor.
+ *   encerrado -> terminou sem lances: sino + e-mail ao vendedor. Terminou com
+ *                vencedor, em lote com prazo: sino + e-mail a quem deu lance e nao
+ *                venceu, com o valor final e o proprio maximo. Lote de rodada nao
+ *                avisa: dura segundos e a pessoa esta na sala.
  *   calote    -> sino + e-mail ao vencedor e ao vendedor. So se o lote ainda
  *                esta em calote (pagamento tardio reverte para vendido).
  *   cancelado -> so sino ao SEGUIDOR (user_id do evento), sem e-mail. Nasce
@@ -73,10 +76,18 @@ export interface LoteAviso {
   /** Para o link de Pagamentos no aviso de bloqueio (null = vendedor sem loja). */
   loja_id?: string | null
   cancelado_motivo?: string | null
+  /** Preenchido = lote de rodada ao vivo. */
+  rodada_id?: string | null
+}
+
+/** Quem deu lance no lote, com o proprio maximo (leilao_proxy). */
+export interface ParticipanteLote {
+  user_id: string
+  maximo_cents: number
 }
 
 export type ModeloEmail =
-  | 'superado' | 'venceu' | 'sem_lances' | 'calote_vencedor' | 'calote_vendedor'
+  | 'superado' | 'venceu' | 'nao_venceu' | 'sem_lances' | 'calote_vencedor' | 'calote_vendedor'
   | 'bloqueio_vendedor' | 'cancelado_vendedor_comprador' | 'cancelado_vendedor_loja'
 
 export interface SinoPlanejado {
@@ -94,6 +105,7 @@ export interface EmailPlanejado {
   precoCents: number
   minimoProximoCents?: number
   pagarAte?: string | null
+  maximoCents?: number
 }
 
 export interface PlanoEvento {
@@ -159,6 +171,7 @@ export function planejarAvisos(
   eventos: EventoReservado[],
   lotes: Map<string, LoteAviso>,
   agoraMs: number,
+  participantes: Map<string, ParticipanteLote[]> = new Map(),
 ): PlanoEvento[] {
   // superado: so o mais recente de cada usuario + lote conta.
   const ultimoSuperado = new Map<string, number>()
@@ -225,7 +238,25 @@ export function planejarAvisos(
       }
 
       case 'encerrado': {
-        if (payload.resultado !== 'sem_lances' || lote.status !== 'sem_lances') return vazio('com_vencedor')
+        if (payload.resultado !== 'sem_lances' || lote.status !== 'sem_lances') {
+          // Evento velho na fila nao avisa: o lote pode ter sido cancelado depois.
+          const arrematado = lote.status === 'aguardando_pagamento' || lote.status === 'vendido'
+          const perderam = arrematado && !lote.rodada_id
+            ? (participantes.get(lote.id) ?? []).filter(x => x.user_id !== lote.lider_user_id)
+            : []
+          if (perderam.length === 0) return vazio('com_vencedor')
+          const preco = lote.preco_atual_cents ?? num(payload.preco_cents) ?? 0
+          return {
+            id: e.id,
+            sinos: perderam.map(x => sino(
+              x.user_id, lote, `Você não venceu: ${nome}`,
+              `Arrematado por ${formatarBRL(preco)}. Seu máximo era ${formatarBRL(x.maximo_cents)}.`, e.id,
+            )),
+            emails: e.email_em ? [] : perderam.map(x => ({
+              modelo: 'nao_venceu' as const, userId: x.user_id, lote, precoCents: preco, maximoCents: x.maximo_cents,
+            })),
+          }
+        }
         return {
           id: e.id,
           sinos: [sino(

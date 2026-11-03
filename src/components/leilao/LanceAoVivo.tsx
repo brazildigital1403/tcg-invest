@@ -17,6 +17,7 @@ import {
   type LotePublico,
   type StatusPublico,
 } from '@/lib/leilao'
+import OutrosLotes from '@/components/leilao/OutrosLotes'
 import { calcularArremate } from '@/lib/leilao-taxas'
 import { urlPagar } from '@/lib/leilao-urls'
 import { atalhosLance, textoProrrogacao } from '@/lib/leilao-rodada'
@@ -715,6 +716,7 @@ export default function LanceAoVivo({
   const devePagar = lote.status === 'aguardando_pagamento' && !!posicao?.voceLidera && !!pagarAte
   const vendidoParaMim = lote.status === 'vendido' && !!posicao?.voceLidera
   const perdi = st === 'arrematado' && !posicao?.voceLidera && posicao?.seuMaximoCents != null
+  const terminou = st === 'arrematado' || st === 'sem_lances' || st === 'cancelado'
   const totalArremate = estouGanhando && lote.status === 'aguardando_pagamento' ? calcularArremate(precoCents) : null
 
   let cta: ReactNode
@@ -1003,10 +1005,14 @@ export default function LanceAoVivo({
       </div>
       {prorrogacaoRodada && <p style={S.prorrogacao}>{prorrogacaoRodada}</p>}
 
-      <p style={S.protecao}>
-        <IconShield size={14} />
-        Só paga quem vence, no cartão, em até 48 horas.
-      </p>
+      {terminou ? (
+        variante !== 'rodada' && !devePagar && !vendidoParaMim && <OutrosLotes loteAtualId={lote.id} />
+      ) : (
+        <p style={S.protecao}>
+          <IconShield size={14} />
+          Só paga quem vence, no cartão, em até 48 horas.
+        </p>
+      )}
 
       {aberta && (
         <div

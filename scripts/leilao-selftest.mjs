@@ -291,6 +291,23 @@ try {
     const plano = (evs, l = lote()) => A.planejarAvisos(evs, new Map([[l.id, l]]), agora)
 
     ok(() => {
+      const fim = (o = {}) => lote({ status: 'aguardando_pagamento', lider_user_id: 'U1', preco_atual_cents: 750, ...o })
+      const evFim = ev(1, 'encerrado', { user_id: null, payload: { resultado: 'aguardando_pagamento' } })
+      const quem = new Map([['L1', [{ user_id: 'U1', maximo_cents: 900 }, { user_id: 'U2', maximo_cents: 700 }]]])
+      const planoFim = (l, evento = evFim) => A.planejarAvisos([evento], new Map([[l.id, l]]), agora, quem)[0]
+      let p = planoFim(fim())
+      assert.deepEqual(p.sinos.map(s => s.user_id), ['U2'])
+      assert.deepEqual(p.emails.map(e => [e.modelo, e.userId, e.precoCents, e.maximoCents]), [['nao_venceu', 'U2', 750, 700]])
+      p = planoFim(fim({ rodada_id: 'R1' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+      p = planoFim(fim({ status: 'cancelado' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+      p = planoFim(fim(), { ...evFim, email_em: iso(agora) })
+      assert.equal(p.sinos.length, 1)
+      assert.equal(p.emails.length, 0)
+    }, 'avisos: quem perdeu lote com prazo recebe sino e e-mail, sem repetir e sem rodada')
+
+    ok(() => {
       assert.equal(A.prazoCurtoBrasilia('2026-09-30T00:30:00Z'), '29/09 21:30')
       assert.equal(A.prazoCurtoBrasilia('2026-01-01T03:00:00Z'), '01/01 00:00')
       assert.equal(A.prazoCurtoBrasilia(null), '')
