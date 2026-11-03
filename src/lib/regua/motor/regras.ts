@@ -20,7 +20,7 @@ import { DIA_MS } from './tempo'
 function contaNoModo(ctx: Contexto, e: EnvioLog): boolean {
   if (e.campanha && e.campanha.endsWith(SUFIXO_TESTE)) return false
   if (STATUS_QUE_CONTAM.includes(e.status)) return true
-  return ctx.modo === 'simulacao' && e.status === 'simulado'
+  return !ctx.regrasComoReal && ctx.modo === 'simulacao' && e.status === 'simulado'
 }
 
 /** Envios desta pessoa que valem para teto/dedup no modo atual. */
