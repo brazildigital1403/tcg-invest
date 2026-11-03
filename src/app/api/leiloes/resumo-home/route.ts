@@ -1,13 +1,13 @@
 import { NextResponse, connection } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { buscarLojasPorId, buscarRodadasAoVivo, lerLotesDaRodada, listarRodadasAgendadas } from '@/app/leiloes/_dados'
+import { buscarLojasPorId, buscarRodadasAoVivo, lerLotesDaRodada, listarLotesVitrine, listarRodadasAgendadas } from '@/app/leiloes/_dados'
 
 /**
  * GET /api/leiloes/resumo-home
  *
- * O que a secao de leilao da home mostra: a rodada no ar (com o lote da vez), a
- * proxima agendada ou nada. A home tem ISR de 10 min e lote dura segundos, entao
+ * O que a secao de leilao da home mostra: rodada no ar, leiloes com prazo abertos,
+ * a proxima rodada agendada ou nada. A home tem ISR de 10 min e lote dura segundos, entao
  * isto nao entra no getData: quem le e uma ilha no navegador.
  *
  * Igual para todos, sem Bearer. Le so os indices parciais de rodada e os lotes
@@ -30,7 +30,16 @@ export async function GET() {
 
   try {
     const serverNow = new Date().toISOString()
-    const noAr = await buscarRodadasAoVivo()
+    const [noAr, abertos] = await Promise.all([buscarRodadasAoVivo(), listarLotesVitrine('terminando')])
+    // Leilao com prazo vem antes da agenda: e o que da para comprar agora. O lote
+    // que esta no ar numa rodada fica na propria rodada.
+    const comPrazo = abertos.filter(l => !l.rodadaId)
+    if (!noAr.length && comPrazo.length) {
+      const seis = comPrazo.slice(0, 6)
+      const lojasDosLotes = await buscarLojasPorId(seis.map(l => l.lojaId ?? ''))
+      const abertosHome = seis.map(l => ({ ...l, lojaNome: (l.lojaId && lojasDosLotes.get(l.lojaId)?.nome) || null }))
+      return NextResponse.json({ estado: 'abertos', serverNow, lotes: abertosHome, totalAbertos: comPrazo.length }, { headers: cacheCurto })
+    }
     const agendada = noAr.length ? null : (await listarRodadasAgendadas(1))[0] ?? null
     const rodada = noAr[0] ?? agendada
     if (!rodada) return NextResponse.json({ estado: 'nada', serverNow }, { headers: cacheCurto })
