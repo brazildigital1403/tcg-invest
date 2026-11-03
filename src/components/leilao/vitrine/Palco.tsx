@@ -13,6 +13,7 @@ import BotaoAgenda from './BotaoAgenda'
 import ComecaEm from './ComecaEm'
 import LogoLoja from './LogoLoja'
 import { DURACOES_LOTE } from '@/lib/leilao-painel'
+import BotaoAvisoLeilao from './BotaoAvisoLeilao'
 
 function nomeDaLoja(loja: LojaDoLote | null): string | null {
   return loja ? loja.nome ?? loja.slug : null
@@ -204,7 +205,8 @@ export function HeroSemRodada() {
         e o maior lance leva. Quando houver agenda, o horário aparece aqui.
       </p>
       <div className="vt-acoes">
-        <Link href="/leiloes?aba=como-funciona" prefetch={false} className="vt-cta">Entender como funciona</Link>
+        <BotaoAvisoLeilao />
+        <Link href="/leiloes?aba=como-funciona" prefetch={false} className="vt-cta-sec">Entender como funciona</Link>
         <Link href="/marketplace" prefetch={false} className="vt-cta-sec">Ver cartas com preço fixo</Link>
       </div>
     </section>

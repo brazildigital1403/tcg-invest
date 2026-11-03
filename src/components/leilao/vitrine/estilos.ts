@@ -44,6 +44,8 @@ export const CSS_VITRINE = `
   transition: background 0.15s ease;
 }
 .vt-cta-sec:hover { background: var(--bx-surface-2); }
+.vt-aviso-ok { margin: 0; flex-basis: 100%; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--bx-text); background: rgba(var(--ac-1-rgb), 0.1); border: 1px solid rgba(var(--ac-1-rgb), 0.3); }
+.vt-aviso-erro { margin: 0; flex-basis: 100%; font-size: 13px; color: var(--bx-red); }
 .vt a:focus-visible, .vt button:focus-visible, .vt summary:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
 
 /* Logo da loja */
