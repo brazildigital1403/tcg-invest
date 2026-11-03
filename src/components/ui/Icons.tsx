@@ -812,3 +812,11 @@ export function IconCopy({ size = 20, color = defaultColor, strokeWidth = defaul
     </svg>
   )
 }
+
+export function IconLeilao({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style}>
+      <path d="M14.5 3.5l6 6" /><path d="M11 7l6 6" /><path d="M12.5 5.5l-5 5 6 6 5-5" /><path d="M10 13l-6.5 6.5" /><path d="M3 21h8" />
+    </svg>
+  )
+}

@@ -1,3 +1,4 @@
+import { separarEndereco } from '@/lib/etiquetaReversa'
 import { NextRequest } from 'next/server'
 import { ANTECEDENCIA_MIN_AGENDAR, erroDoPainel, validarRodada } from '@/lib/leilao-painel'
 import {
@@ -124,6 +125,11 @@ export async function POST(req: NextRequest, ctx: Params) {
       if (c.loja.status !== 'ativa') return json(403, { error: 'Sua loja precisa estar ativa para agendar.' })
       const rec = await recebimentoDaLoja(c.sb, c.loja)
       if (!rec.podeReceber) return json(409, { error: rec.motivo })
+      // A carta volta para este endereco numa desistencia: sem rua, o Melhor
+      // Envio recusa a etiqueta e a devolucao trava na primeira desistencia.
+      if (!separarEndereco(c.loja.endereco).rua) {
+        return json(409, { error: 'Para agendar, cadastre o endereço para devoluções em Minha vitrine.' })
+      }
       const { data, error } = await c.sb.rpc('leilao_agendar_rodada', {
         p_rodada: rodadaId,
         p_loja: lojaId,

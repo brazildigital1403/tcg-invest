@@ -23,7 +23,7 @@ export const metadata = {
   },
 }
 
-const UPDATED = '30 de agosto de 2026'
+const UPDATED = '2 de novembro de 2026'
 
 export default function TermosPage() {
   return (
@@ -100,6 +100,7 @@ export default function TermosPage() {
 
           <SubTitle>4.1.3 Aprovação Manual</SubTitle>
           <P>Cada cadastro de loja passa por aprovação manual da equipe Bynx, com prazo de até 48 (quarenta e oito) horas úteis. A Bynx pode solicitar documentação adicional (como CNPJ, comprovante de atividade) e reserva-se o direito de recusar cadastros que não atendam aos critérios de qualidade da plataforma.</P>
+          <P>A loja informa no painel se vende como <strong>empresa</strong> (CNPJ e razão social) ou como <strong>pessoa física</strong>. Essa identificação aparece ao comprador conforme a seção 5.5.</P>
         </Section>
 
         <Section title="4.2 Produtos Digitais Avulsos (Páginas Lendárias)">
@@ -154,11 +155,34 @@ export default function TermosPage() {
 
           <SubTitle>5.2.3 Cancelamento, devolução e estorno</SubTitle>
           <P>Por se tratar de compra realizada fora de estabelecimento físico, o comprador tem <strong>direito de arrependimento de 7 (sete) dias corridos</strong> a contar do recebimento do produto, nos termos do art. 49 do Código de Defesa do Consumidor, sem necessidade de justificativa. Nesse caso, o valor pago é <strong>estornado integralmente, incluindo o frete de envio</strong>, cabendo ao comprador devolver a carta nas mesmas condições em que a recebeu.</P>
-          <P>No arrependimento, <strong>o custo da devolução é do vendedor</strong>: exercer um direito garantido por lei não pode gerar despesa para você. As instruções de envio da devolução são passadas pelo suporte.</P>
+          <P>No arrependimento, <strong>o custo da devolução é do vendedor</strong>: exercer um direito garantido por lei não pode gerar despesa para você. Na desistência, a Bynx gera um <strong>código de postagem dos Correios</strong>, sem custo para o comprador: basta mostrar o código numa agência, sem imprimir etiqueta, no prazo indicado na tela do pedido. Para gerar o código, o comprador informa o CPF, exigência dos Correios.</P>
           <P>O comprador também pode solicitar reembolso quando o produto <strong>não for entregue</strong> no prazo informado, quando <strong>não corresponder à descrição</strong> do anúncio ou quando apresentar vício não informado. Nessas hipóteses o custo da devolução também é do vendedor.</P>
           <P>Independentemente do arrependimento, você tem a <strong>garantia legal do art. 26 do Código de Defesa do Consumidor</strong>: 90 (noventa) dias para reclamar de vício na carta, contados da entrega quando o defeito for aparente, ou do momento em que ele se tornar evidente quando for oculto.</P>
-          <P>A solicitação deve ser feita pelo <strong>suporte@bynx.gg</strong> a partir do e-mail cadastrado. Havendo estorno, a comissão da Bynx é <strong>igualmente estornada</strong> — a plataforma não retém valor sobre venda desfeita — e o lançamento correspondente é revertido. Se o repasse ao vendedor já tiver ocorrido, o valor é compensado em repasses futuros ou cobrado do vendedor.</P>
-          <P>A Bynx pode reter o repasse de um pedido enquanto houver disputa aberta sobre ele, até a conclusão da análise.</P>
+          <P>A solicitação pode ser feita em <strong>Precisa de ajuda?</strong>, na tela do pedido, ou pelo <strong>suporte@bynx.gg</strong> a partir do e-mail cadastrado. Havendo estorno, o comprador recebe de volta o valor integral que pagou, e o lançamento correspondente é revertido.</P>
+          <P>A comissão da Bynx sobre a venda desfeita é devolvida ao vendedor, <strong>descontados os custos que o estorno gera e que não retornam</strong>: a tarifa do processador de pagamento, que não é devolvida no estorno, e, quando houver, o custo da etiqueta de devolução. Se esses custos passarem do valor da comissão, a diferença fica registrada como saldo devedor do vendedor e é <strong>descontada automaticamente da sua próxima venda</strong> na plataforma, na ordem em que os débitos surgiram. O vendedor vê o saldo devedor no painel de pedidos.</P>
+
+          <SubTitle>5.4 Bynx Leilões</SubTitle>
+          <P><strong>O que é.</strong> A Bynx Leilões permite que lojas aprovadas façam <strong>rodadas de leilão ao vivo</strong>: uma sequência de lotes, cada um aberto por 30, 45, 60 ou 90 segundos, no horário marcado pela loja. A loja pode transmitir a rodada nas redes dela. Os lances são dados na Bynx.</P>
+          <P><strong>Quem pode dar lance.</strong> Usuários com cadastro completo (CPF e CEP) e <strong>18 anos ou mais</strong>. A Bynx recusa lances de quem não cumpre esses requisitos. A loja não pode dar lance nos próprios lotes.</P>
+          <P><strong>Como funciona o lance.</strong> O usuário pode dar um lance rápido ou informar o máximo que aceita pagar: a Bynx cobre os lances por ele até esse valor, e ninguém vê o máximo. Um lance nos últimos segundos prorroga o fim do lote. O lance inicial mínimo é de R$ 1,00. <strong>Lance é compromisso de compra:</strong> quem tiver o maior lance quando o lote fechar é o arrematante e se obriga a pagar.</P>
+          <P><strong>Pagamento do arremate.</strong> O prazo é de <strong>48 horas</strong> a partir do fechamento do lote, só no cartão, pelo processador de pagamento da Bynx. O comprador paga o lance vencedor, a <strong>Taxa de Proteção</strong> (5% do arremate, mínimo de R$ 2,00 por pedido), o custo do cartão e o frete, todos destacados antes da confirmação.</P>
+          <P><strong>Arremate não pago.</strong> Sem pagamento em 48 horas, o arremate é cancelado e a loja é avisada. A Bynx pode restringir novos lances de quem deixar de pagar arremates.</P>
+          <P><strong>Obrigações da loja que leiloa.</strong></P>
+          <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
+            <li>Descrever cada lote com fidelidade (nome, número, idioma, condição e, se for graduada, a graduadora e a nota), com pelo menos 2 fotos;</li>
+            <li>Manter a conta de recebimento ativa, com repasse em 30 dias, o CEP de envio e o endereço para devoluções informados. Se o comprador não puder pagar por pendência da loja, o lote é cancelado sem culpa do comprador;</li>
+            <li>Enviar em até <strong>3 dias úteis</strong> após o pagamento, com o rastreio informado no painel. Em lote de R$ 150,00 ou mais, é obrigatório enviar foto da frente e do verso da carta no envio;</li>
+            <li>Atender às ocorrências nos prazos abaixo;</li>
+            <li>Pagar a comissão de <strong>6,99% + R$ 0,40 por pedido</strong> sobre o arremate. A parcela fixa incide apenas em pedidos a partir de R$ 20,00, e o frete não entra na base de cálculo.</li>
+          </ul>
+          <P><strong>Encerramento antecipado.</strong> A loja pode encerrar uma rodada que já está ao vivo. O lote no ar termina no tempo dele, com o vencedor que tiver. Os lotes seguintes da rodada são cancelados, e quem seguia esses lotes é avisado.</P>
+          <P><strong>Proteção Bynx.</strong> O comprador pode abrir uma ocorrência por <strong>não ter recebido</strong>, por <strong>carta diferente do anúncio</strong>, por <strong>suspeita de falsificação</strong> ou por <strong>carta danificada</strong>; exceto em &quot;não chegou&quot;, é obrigatório enviar fotos da frente, do verso e da embalagem. O comprador também pode desistir da compra em até <strong>7 dias corridos do recebimento</strong> (art. 49 do CDC), sem justificativa, e tem 7 dias para postar a devolução com o código da seção 5.2.3.</P>
+          <P>A loja tem <strong>2 dias úteis</strong> para responder à ocorrência ou contestar a devolução recebida; sem resposta no prazo, o estorno sai automaticamente. Havendo contestação, a Bynx decide em até 2 dias úteis. A devolução só é considerada improcedente quando a loja comprova, <strong>por vídeo da abertura da embalagem</strong>, que a carta devolvida não é a enviada ou voltou em estado diferente. Cada pedido aceita <strong>uma única</strong> ocorrência ou desistência.</P>
+          <P>Pedido enviado e não confirmado pelo comprador em <strong>10 dias</strong> é dado como entregue, com aviso antes. O estorno ao cartão pode levar de 5 a 10 dias úteis para aparecer na fatura, conforme o banco emissor. Os custos do estorno seguem a seção 5.2.3.</P>
+          <P><strong>Papel da Bynx.</strong> A Bynx oferece a ferramenta, processa o pagamento e media as ocorrências. A carta é vendida pela loja, que responde pela descrição, autenticidade, estado e envio.</P>
+
+          <SubTitle>5.5 Identificação de quem vende</SubTitle>
+          <P>Conforme o Decreto 7.962/2013, toda tela de compra mostra quem vende. Loja que informou CNPJ aparece com razão social e CNPJ. Pessoa física, ou loja que não informou CNPJ, aparece com o nome do responsável e o <strong>CPF parcialmente mascarado</strong>. O CPF completo aparece só para o comprador, no pedido, depois de pago, para fins de nota fiscal e reclamação.</P>
 
           <SubTitle>5.3 Programa de Parceiros</SubTitle>
           <P>A Bynx pode manter programa de parceria com criadores de conteúdo, no qual um cupom de desconto identificado gera comissão ao parceiro sobre planos contratados por meio dele. Os percentuais e prazos devidos ao parceiro são definidos em acordo individual e não afetam o assinante.</P>

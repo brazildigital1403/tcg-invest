@@ -16,6 +16,7 @@
  * (já está no layout root).
  */
 
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { useContactModal } from './ContactModalProvider'
 import { IconInstagram } from './Icons'
 
@@ -78,6 +79,17 @@ export default function PublicFooter({ hideTopBorder = false }: Props) {
           Blog
         </a>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        {LEILAO_ATIVO && (
+          <>
+            <a
+              href="/leiloes"
+              style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}
+            >
+              Leilões
+            </a>
+            <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+          </>
+        )}
         <a
           href="/cartas-graduadas"
           style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}

@@ -17,7 +17,9 @@ import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconBalanca, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
   IconChat, IconStar, IconStarFilled, IconEye, IconArticle, IconTarget, IconBox, IconRestauro, IconCentralizacao, IconClock,
+  IconLeilao,
 } from '@/components/ui/Icons'
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { useMetasVisivel } from '@/components/metas/useMetasVisivel'
 import MuroPosTrial from '@/components/ui/MuroPosTrial'
 import OfertaHalloweenModal from '@/components/ui/OfertaHalloweenModal'
@@ -189,6 +191,9 @@ const comMetas = (arr: MenuItem[], visivel: boolean): MenuItem[] => {
 }
 const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex, group: 'explorar' }
 const ITEM_MARKETPLACE: MenuItem = { name: 'Mercado', full: 'Mercado', href: '/marketplace', Icon: IconMarketplace, group: 'explorar' }
+const ITEM_LEILOES: MenuItem = { name: 'Leilões', full: 'Leilões ao vivo', href: '/leiloes', Icon: IconLeilao, group: 'explorar' }
+// Flag publica: desligada, o item some junto com as paginas (que dao 404).
+const LEILOES_NO_MENU: MenuItem[] = LEILAO_ATIVO ? [ITEM_LEILOES] : []
 const ITEM_COMPARADOR: MenuItem = { name: 'Comparador', full: 'Comparador de troca', href: '/comparador', Icon: IconBalanca, group: 'explorar' }
 const ITEM_CENTRALIZACAO: MenuItem = { name: 'Centralização', full: 'Medir centralização', href: '/centralizacao', Icon: IconCentralizacao, group: 'explorar' }
 const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', href: '/separadores', Icon: IconSeparador, group: 'imprimir' }
@@ -352,17 +357,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_CENTRALIZACAO, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_SUPORTE]), metasVisivel)
+      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ...LEILOES_NO_MENU, ITEM_COMPARADOR, ITEM_CENTRALIZACAO, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_SUPORTE]), metasVisivel)
     }
     if (isLojistaPuro) {
-      const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
+      const lojista = [ITEM_MINHA_LOJA, ...LEILOES_NO_MENU, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
       // Lojista que vendeu sem loja ANTES de abrir a dela ainda precisa chegar
       // naqueles pedidos: eles nao aparecem no painel da loja.
       if (temVenda) lojista.splice(3, 0, ITEM_VENDAS)
       if (ehParceiro) lojista.push(ITEM_PARCEIROS)
       return comServicos(lojista, temServico)
     }
-    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_CENTRALIZACAO, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
+    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ...LEILOES_NO_MENU, ITEM_COMPARADOR, ITEM_CENTRALIZACAO, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
     if (ehParceiro) base.push(ITEM_PARCEIROS)
