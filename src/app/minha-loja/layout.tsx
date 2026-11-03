@@ -224,7 +224,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
         .lj-mobtop { display: none; }
         .lj-mobnav { display: none; }
         @media (max-width: 860px) {
-          .lj-shell { grid-template-columns: minmax(0, 1fr); }
+          .lj-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
           .lj-side { display: none !important; }
           .lj-mobhead { display: block !important; position: sticky; top: 0; z-index: 21; }
           .lj-mobtop { display: flex !important; }

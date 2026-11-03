@@ -189,6 +189,27 @@ export function Recolhido({ titulo, children, aberto = false }: { titulo: ReactN
   )
 }
 
+/** Filtro em chips sem mudar de pagina. O estado fica com quem chama. */
+export function AbasFiltro<T extends string>({
+  itens, ativa, rotulo, aoEscolher,
+}: {
+  itens: ReadonlyArray<{ chave: T; rotulo: string; n?: number }>
+  ativa: T
+  rotulo: string
+  aoEscolher: (chave: T) => void
+}) {
+  return (
+    <div className="lk-abas" role="group" aria-label={rotulo}>
+      {itens.map(a => (
+        <button key={a.chave} type="button" className="lk-aba lk-aba-b" aria-current={a.chave === ativa ? 'page' : undefined} onClick={() => aoEscolher(a.chave)}>
+          {a.rotulo}
+          {a.n != null && <b>{a.n}</b>}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function Esqueleto({ altura = 64 }: { altura?: number }) {
   return <span className="lk-esq" style={{ height: altura }} aria-hidden />
 }

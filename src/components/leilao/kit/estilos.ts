@@ -82,7 +82,7 @@ export const CSS_KIT = `
 .lk-btn-leve { background: transparent; color: var(--ac-1); padding: 0 8px; min-height: 44px; }
 .lk-btn-cheio { width: 100%; }
 .lk-acoes { display: flex; flex-direction: column; gap: 10px; }
-@media (min-width: 769px) { .lk-acoes-l { flex-direction: row; flex-wrap: wrap; } .lk-acoes-l .lk-btn { min-width: 200px; } }
+@media (min-width: 769px) { .lk-acoes-l { flex-direction: row; flex-wrap: wrap; } .lk-acoes-l .lk-btn { flex: 1 1 200px; width: auto; } }
 
 .lk-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px; border-radius: 18px; border: 1px solid var(--bx-border); background: var(--bx-surface); }
 .lk-card-d { border-color: rgba(var(--ac-1-rgb), 0.34); background: var(--bx-hero-wash), var(--bx-surface); }
@@ -111,6 +111,9 @@ a.lk-linha:hover { background: var(--bx-surface-2); border-color: var(--bx-borde
 .lk-linha-c small { font-size: 12.5px; color: var(--bx-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lk-linha-v { flex-shrink: 0; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--bx-text); }
 .lk-linha-s { flex-shrink: 0; color: var(--bx-text-3); display: flex; }
+.lk-item { display: flex; flex-direction: column; gap: 8px; }
+.lk-item-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: -2px; }
+.lk-item-acoes .lk-btn { min-height: 44px; padding: 0 14px; font-size: 13.5px; }
 .lk-mini { width: 44px; height: auto; flex-shrink: 0; border-radius: 5px; display: block; }
 
 .lk-aviso { display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--lk-c) 34%, transparent); background: color-mix(in srgb, var(--lk-c) 8%, transparent); font-size: 13.5px; line-height: 1.45; color: var(--bx-text-2); }
@@ -134,6 +137,7 @@ a.lk-linha:hover { background: var(--bx-surface-2); border-color: var(--bx-borde
   display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--bx-border);
   color: var(--bx-text-2); font-size: 13.5px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+.lk-aba-b { background: transparent; cursor: pointer; font-family: inherit; }
 .lk-aba:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
 .lk-aba[aria-current="page"] { border-color: var(--ac-1); color: var(--ac-1); background: rgba(var(--ac-1-rgb), 0.12); }
 .lk-aba b { font-size: 12px; font-weight: 800; color: var(--bx-text-3); font-variant-numeric: tabular-nums; }

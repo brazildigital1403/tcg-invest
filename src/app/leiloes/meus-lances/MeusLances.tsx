@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { IconClock, IconHistory, IconPokeball } from '@/components/ui/Icons'
-import { Acoes, Botao, Esqueleto, Linhas, Resumo, Resumos, Selo, TelaEstado, Titulo } from '@/components/leilao/kit'
+import { AbasFiltro, Acoes, Botao, Esqueleto, Linhas, Resumo, Resumos, Selo, TelaEstado, Titulo } from '@/components/leilao/kit'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia, statusPublico } from '@/lib/leilao'
 import type { ItemMeu, RespostaMeus } from '@/lib/leilao-meus'
@@ -130,9 +130,6 @@ export default function MeusLances() {
     <div className="ml">
       <style>{`
         .ml { max-width: 760px; margin: 0 auto; padding-bottom: 32px; display: flex; flex-direction: column; gap: 18px; }
-        .ml-abas { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; }
-        .ml-abas::-webkit-scrollbar { display: none; }
-        .ml-abas .lk-aba { background: transparent; cursor: pointer; font-family: inherit; }
         .ml-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
         @media (min-width: 720px) { .ml-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .ml-cartao .lk-resumos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -182,19 +179,12 @@ export default function MeusLances() {
 
       {estado.tipo === 'pronto' && grupoAtual && (
         <>
-          <div className="ml-abas" role="group" aria-label="Filtrar meus lances">
-            {estado.dados.grupos.map(g => (
-              <button
-                key={g.grupo}
-                type="button"
-                className="lk-aba"
-                aria-current={g.grupo === grupoAtual.grupo ? 'page' : undefined}
-                onClick={() => setAba(g.grupo)}
-              >
-                {g.titulo}<b>{g.itens.length}</b>
-              </button>
-            ))}
-          </div>
+          <AbasFiltro
+            rotulo="Filtrar meus lances"
+            ativa={grupoAtual.grupo as string}
+            aoEscolher={setAba}
+            itens={estado.dados.grupos.map(g => ({ chave: g.grupo as string, rotulo: g.titulo, n: g.itens.length }))}
+          />
           <ul className="ml-lista">
             {grupoAtual.itens.map(it => (
               <li key={it.lote.id}>
