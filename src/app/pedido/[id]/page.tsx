@@ -19,6 +19,7 @@ import { casoComprador, ocorrenciaDoPedido, type ReclamacaoPainel } from '@/lib/
 import { prazoReclamacao } from '@/lib/leilao-reclamacao'
 import { protecaoCompradorCents } from '@/lib/leilao-taxas'
 import VendidoPor from '@/components/ui/VendidoPor'
+import { ehTransportadora, TRANSPORTADORAS } from '@/lib/rastreio'
 import type { Identificacao } from '@/lib/vendedorIdentificado'
 
 /**
@@ -57,6 +58,7 @@ interface Pedido {
   total_comprador_cents: number
   metodo: string
   rastreio: string | null
+  transportadora?: string | null
   endereco: Record<string, string | null> | null
   created_at: string
   pago_em: string | null
@@ -415,7 +417,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
             <div className="pd-rastreio">
               <IcTruck size={18} color="var(--bx-text-3)" />
               <div className="pd-rastreio-txt">
-                <span className="pd-rastreio-rot">Código de rastreio{pedido.enviado_em ? ` · enviado ${diaCurto(pedido.enviado_em)}` : ''}</span>
+                <span className="pd-rastreio-rot">Código de rastreio{ehTransportadora(pedido.transportadora) ? ` · ${TRANSPORTADORAS[pedido.transportadora]}` : ''}{pedido.enviado_em ? ` · enviado ${diaCurto(pedido.enviado_em)}` : ''}</span>
                 <b>{pedido.rastreio}</b>
               </div>
               <button type="button" className="pd-copiar" aria-label="Copiar código de rastreio" onClick={copiarRastreio}>

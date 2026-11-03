@@ -5,7 +5,7 @@ import { registrarFaltaComoDebito } from '@/lib/debitoVendedor'
 import { sendPedidoEnviadoEmail, sendReembolsoCompradorEmail } from '@/lib/email'
 import { exigeFotoEnvio, validarFotosEnvio, VALOR_FOTO_ENVIO_CENTS } from '@/lib/leilao-reclamacao'
 import { ehPedidoDeLeilao, pastaEnvio, arquivosNaPasta } from '@/lib/reclamacaoServer'
-import { validarRastreioEnvio } from '@/lib/rastreio'
+import { validarRastreioEnvio, ehTransportadora, TRANSPORTADORAS } from '@/lib/rastreio'
 
 /**
  * O pos-venda de um pedido, do lado de quem VENDEU -- loja ou pessoa.
@@ -132,7 +132,7 @@ export async function marcarEnviado(
   const { data: enviou, error: upErr } = await sb
     .from('pedidos')
     .update({
-      status: 'enviado', rastreio, enviado_em: new Date().toISOString(), updated_at: new Date().toISOString(),
+      status: 'enviado', rastreio, transportadora, enviado_em: new Date().toISOString(), updated_at: new Date().toISOString(),
       ...(fotos.length ? { envio_fotos: fotos } : {}),
     })
     .eq('id', pedido.id)
@@ -153,7 +153,7 @@ export async function marcarEnviado(
       user_id: pedido.comprador_user_id,
       type: 'aviso',
       title: 'Seu pedido foi enviado!',
-      message: `${pedido.item_nome} está a caminho${rastreio ? ` · rastreio ${rastreio}` : ''}.`,
+      message: `${pedido.item_nome} está a caminho${rastreio ? ` · ${ehTransportadora(transportadora) ? `${TRANSPORTADORAS[transportadora]}, ` : ''}rastreio ${rastreio}` : ''}.`,
       data: { link: `/pedido/${pedido.id}` },
     })
 
@@ -167,6 +167,7 @@ export async function marcarEnviado(
         itemNome: pedido.item_nome,
         nomeLoja: ctx.nomeExibido,
         rastreio,
+        transportadora: ehTransportadora(transportadora) ? TRANSPORTADORAS[transportadora] : null,
       })
     }
   } catch (err) {

@@ -68,8 +68,10 @@ export default function FaixaComprador({ caso, processando, entregueEm, protecao
       break
     case 'confirmar_recebimento':
       selo = 'SUA VEZ'; Ic = IconLoja
-      titulo = 'A carta chegou? Confirme o recebimento'
-      sub = fechaEm
+      titulo = paraComprador ? 'A carta chegou? Confirme o recebimento' : 'O comprador confirma o recebimento'
+      sub = !paraComprador
+        ? (fechaEm ? `Se ele não confirmar, o pedido fecha sozinho em ${dia(fechaEm)}.` : 'Nada a fazer agora.')
+        : fechaEm
         ? `Se não confirmar, o pedido fecha sozinho em ${dia(fechaEm)}. Depois da entrega você ainda tem 7 dias para reclamar ou desistir.`
         : 'Confirmar fecha a compra, avisa a loja e libera a sua avaliação.'
       break
@@ -116,7 +118,9 @@ export default function FaixaComprador({ caso, processando, entregueEm, protecao
     case 'entregue':
       Ic = IconCheck
       titulo = entregueEm ? `Pedido entregue em ${dia(entregueEm)}` : 'Pedido entregue'
-      sub = protecaoAte && protecaoAte.getTime() > agora
+      sub = !paraComprador
+        ? (protecaoAte && protecaoAte.getTime() > agora ? `O comprador pode reclamar ou desistir até ${fmtPrazo(protecaoAte)}.` : 'Venda concluída.')
+        : protecaoAte && protecaoAte.getTime() > agora
         ? `Até ${fmtPrazo(protecaoAte)} você pode reclamar ou desistir em "Precisa de ajuda?".`
         : 'Que bom que chegou. Conte como foi a compra.'
       break

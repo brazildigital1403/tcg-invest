@@ -3249,6 +3249,8 @@ export async function sendPedidoEnviadoEmail(args: {
   itemNome: string
   nomeLoja: string
   rastreio: string | null
+  /** Nome pronto para exibir (Jadlog, Correios...). */
+  transportadora?: string | null
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/pedido/${args.pedidoId}`
@@ -3258,7 +3260,7 @@ export async function sendPedidoEnviadoEmail(args: {
     ${h1('Seu pedido foi enviado!')}
     ${p(`${escapeHtml(firstName)}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> despachou <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong>. Agora é só aguardar a entrega.`)}
     ${args.rastreio
-      ? `${divider()}${p(`<strong style="color:#f0f0f0;">Código de rastreio</strong>`)}${p(`<span style="font-family:monospace;font-size:16px;color:#60a5fa;letter-spacing:0.05em;">${escapeHtml(args.rastreio)}</span>`)}`
+      ? `${divider()}${p(`<strong style="color:#f0f0f0;">Código de rastreio${args.transportadora ? ` · ${escapeHtml(args.transportadora)}` : ''}</strong>`)}${p(`<span style="font-family:monospace;font-size:16px;color:#60a5fa;letter-spacing:0.05em;">${escapeHtml(args.rastreio)}</span>`)}`
       : ''}
     ${divider()}
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_enviado'))}
