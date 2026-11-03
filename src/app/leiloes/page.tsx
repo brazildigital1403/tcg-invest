@@ -7,10 +7,14 @@ import SeloTempo from '@/components/leilao/SeloTempo'
 import LeilaoAbas from '@/components/leilao/casca/LeilaoAbas'
 import { cardDoLote } from '@/components/leilao/cardDoLote'
 import { CSS_VITRINE } from '@/components/leilao/vitrine/estilos'
+import BotaoAvisoLeilao from '@/components/leilao/vitrine/BotaoAvisoLeilao'
 import { HeroSemRodada, PalcoAoVivo, PalcoProxima } from '@/components/leilao/vitrine/Palco'
 import CardHoje from '@/components/leilao/vitrine/CardHoje'
 import FaixaGarantia from '@/components/leilao/vitrine/FaixaGarantia'
+import LinhaAgenda from '@/components/leilao/vitrine/LinhaAgenda'
+import LinhaResultado from '@/components/leilao/vitrine/LinhaResultado'
 import LoteDestaque from '@/components/leilao/vitrine/LoteDestaque'
+import PassosCurtos from '@/components/leilao/vitrine/PassosCurtos'
 import SelosGarantia from '@/components/leilao/vitrine/SelosGarantia'
 import Arrematados from '@/components/leilao/vitrine/Arrematados'
 import AgendaSemana from '@/components/leilao/vitrine/AgendaSemana'
@@ -23,7 +27,7 @@ import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
 import type { RodadaPublica } from '@/lib/leilao-rodada'
 import { abaValida, urlHome, urlLote } from '@/lib/leilao-urls'
-import { agruparSemana, escolherPalcoAoVivo, horaCurtaBrasilia, quandoRodada, semanaVazia } from '@/lib/leilao-vitrine'
+import { agruparSemana, escolherPalcoAoVivo, quandoRodada, semanaVazia } from '@/lib/leilao-vitrine'
 import {
   buscarLojasPorId,
   buscarLotesDaRodada,
@@ -80,6 +84,12 @@ export const metadata: Metadata = {
 
 const DIA_MS = 24 * 60 * 60 * 1000
 
+const TITULO_ABA = {
+  agenda: 'Agenda de leilões de cartas Pokémon',
+  resultados: 'Resultados de leilões de cartas Pokémon',
+  'como-funciona': 'Como funciona o leilão de cartas Pokémon',
+} as const
+
 // ─── Pagina ─────────────────────────────────────────────────────────────────
 
 export default async function LeiloesPage({
@@ -103,7 +113,7 @@ export default async function LeiloesPage({
       <style>{CSS_VITRINE}</style>
       <LeilaoAbas ativa={aba} />
       <div className="vt">
-        {aba !== 'ao-vivo' && <TituloPagina />}
+        {aba !== 'ao-vivo' && <h1 className="vt-sr">{TITULO_ABA[aba]}</h1>}
         {conteudo}
       </div>
     </div>
@@ -183,7 +193,7 @@ async function abaAoVivo() {
 
   return (
     <>
-      {loteDestaque ? <h1 className="vt-sr">Leilão de cartas Pokémon</h1> : <TituloPagina />}
+      {loteDestaque || semNada ? <h1 className="vt-sr">Leilão de cartas Pokémon</h1> : <TituloPagina />}
       <div className={hoje.length > 0 ? 'vt-dobra vt-com-hoje' : 'vt-dobra'}>
         {loteDestaque && <LoteDestaque lote={loteDestaque} renderizadoEm={renderizadoEm} />}
         {palco}
@@ -197,8 +207,8 @@ async function abaAoVivo() {
         </section>
       )}
 
-      {semNada && <ComoFunciona />}
-      {semNada ? <FaixaGarantia /> : <SelosGarantia />}
+      <SelosGarantia />
+      {semNada && <PassosCurtos />}
 
       {lotesGrade.length > 0 && (
         <section className="vt-sec" aria-labelledby="vt-terminando-t">
@@ -254,11 +264,16 @@ async function abaAgenda() {
   const agora = Date.now()
   const rodadas = await listarRodadasAgendadas(40)
   if (!rodadas.length) {
-    return <Vazio titulo="Nenhuma rodada agendada" texto="Quando uma loja agendar uma rodada ao vivo, ela aparece aqui com o dia e o horário." />
+    return (
+      <Vazio titulo="Nenhuma rodada agendada">
+        <BotaoAvisoLeilao />
+        <Link href={urlHome()} prefetch={false} className="vt-cta-sec">Ver leilões abertos</Link>
+      </Vazio>
+    )
   }
-  const [lojas, contagem] = await Promise.all([
+  const [lojas, resumo] = await Promise.all([
     buscarLojasPorId(rodadas.map(r => r.lojaId ?? '')),
-    contarLotesPorRodada(rodadas.map(r => r.id)),
+    resumirLotesPorRodada(rodadas.map(r => r.id)),
   ])
   // Agrupa por dia (Brasilia), na ordem do horario.
   const grupos: Array<{ dia: string; rodadas: RodadaPublica[] }> = []
@@ -272,8 +287,12 @@ async function abaAgenda() {
     <>
       {grupos.map(g => (
         <section key={g.dia} aria-label={g.dia} className="vt-sec">
-          <p className="vt-rot">{g.dia}</p>
-          <ListaRodadas rodadas={g.rodadas} lojas={lojas} contagem={contagem} quando={r => horaCurtaBrasilia(r.iniciaEm)} />
+          <div className="vt-sec-t"><h2>{g.dia}</h2></div>
+          <div className="vt-res-lista">
+            {g.rodadas.map(r => (
+              <LinhaAgenda key={r.id} rodada={r} loja={lojas.get(r.lojaId ?? '') ?? null} resumo={resumo.get(r.id) ?? null} />
+            ))}
+          </div>
         </section>
       ))}
       <p className="vt-fraco" style={{ fontSize: 12, margin: 0 }}>Horários de Brasília.</p>
@@ -287,25 +306,51 @@ async function abaResultados() {
   const agora = Date.now()
   const hojeISO = dataBrasiliaISO(agora)
   const ontemISO = dataBrasiliaISO(agora - DIA_MS)
-  const rodadas = await listarRodadasEncerradas(20)
-  if (!rodadas.length) {
-    return <Vazio titulo="Nenhuma rodada encerrada ainda" texto="O resultado de cada rodada ao vivo fica aqui depois que ela termina." />
+  const [rodadas, arrematados] = await Promise.all([listarRodadasEncerradas(20), listarArrematadosRecentes(30)])
+  if (!rodadas.length && !arrematados.length) {
+    return (
+      <Vazio titulo="Nenhum arremate ainda">
+        <Link href={urlHome()} prefetch={false} className="vt-cta">Ver leilões abertos</Link>
+      </Vazio>
+    )
   }
   const [lojas, contagem] = await Promise.all([
-    buscarLojasPorId(rodadas.map(r => r.lojaId ?? '')),
+    buscarLojasPorId([...rodadas.map(r => r.lojaId ?? ''), ...arrematados.map(a => a.lote.lojaId ?? '')]),
     contarLotesPorRodada(rodadas.map(r => r.id)),
   ])
-  const quando = (r: RodadaPublica) => {
-    if (!r.iniciaEm) return '--'
-    const dia = dataBrasiliaISO(r.iniciaEm)
+  const nomeDia = (iso: string | null) => {
+    if (!iso) return 'Antes'
+    const dia = dataBrasiliaISO(iso)
     if (dia === hojeISO) return 'Hoje'
     if (dia === ontemISO) return 'Ontem'
     return `${dia.slice(8, 10)}/${dia.slice(5, 7)}`
   }
+  const dias: Array<{ dia: string; lotes: LotePublico[] }> = []
+  for (const { lote } of arrematados) {
+    const dia = nomeDia(lote.encerradoEm)
+    const ultimo = dias[dias.length - 1]
+    if (ultimo && ultimo.dia === dia) ultimo.lotes.push(lote)
+    else dias.push({ dia, lotes: [lote] })
+  }
+  const quando = (r: RodadaPublica) => (r.iniciaEm ? nomeDia(r.iniciaEm) : '--')
   return (
-    <section aria-label="Rodadas encerradas" className="vt-sec">
-      <ListaRodadas rodadas={rodadas} lojas={lojas} contagem={contagem} quando={quando} />
-    </section>
+    <>
+      {dias.map(d => (
+        <section key={d.dia} aria-label={d.dia} className="vt-sec">
+          <div className="vt-sec-t"><h2>{d.dia}</h2></div>
+          <div className="vt-res-lista">
+            {d.lotes.map(l => <LinhaResultado key={l.id} lote={l} loja={lojas.get(l.lojaId ?? '') ?? null} />)}
+          </div>
+        </section>
+      ))}
+      {rodadas.length > 0 && (
+        <section aria-labelledby="vt-rod-enc-t" className="vt-sec">
+          <div className="vt-sec-t"><h2 id="vt-rod-enc-t">Rodadas encerradas</h2></div>
+          <ListaRodadas rodadas={rodadas} lojas={lojas} contagem={contagem} quando={quando} />
+        </section>
+      )}
+      <Link href={urlHome()} prefetch={false} className="vt-cta-sec">Ver leilões abertos</Link>
+    </>
   )
 }
 
@@ -331,7 +376,7 @@ function TituloPagina() {
   )
 }
 
-function Vazio({ titulo, texto }: { titulo: string; texto: string }) {
+function Vazio({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
     <div className="vt-heroi" style={{ alignItems: 'center', textAlign: 'center' }}>
       <span
@@ -343,8 +388,7 @@ function Vazio({ titulo, texto }: { titulo: string; texto: string }) {
         <IconClock size={22} />
       </span>
       <h2>{titulo}</h2>
-      <p>{texto}</p>
-      <Link href={urlHome()} prefetch={false} className="vt-cta-sec">Voltar ao início</Link>
+      <div className="vt-acoes" style={{ justifyContent: 'center' }}>{children}</div>
     </div>
   )
 }

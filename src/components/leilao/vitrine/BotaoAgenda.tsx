@@ -21,7 +21,7 @@ export default function BotaoAgenda({
   titulo: string
   iniciaEm: string
   descricao?: string | null
-  variante?: 'link' | 'caixa'
+  variante?: 'link' | 'caixa' | 'icone'
   /** Fora da vitrine (sem o CSS vt-agendar): estilo inline no lugar da classe. */
   estilo?: CSSProperties
 }) {
@@ -44,12 +44,12 @@ export default function BotaoAgenda({
     <button
       type="button"
       onClick={baixar}
-      className={estilo ? undefined : variante === 'caixa' ? 'vt-agendar vt-agendar-caixa' : 'vt-agendar'}
+      className={estilo ? undefined : variante === 'icone' ? 'vt-agendar-i' : variante === 'caixa' ? 'vt-agendar vt-agendar-caixa' : 'vt-agendar'}
       style={estilo}
       aria-label={`Adicionar à agenda: ${titulo}`}
     >
-      <IconCalendar size={15} />
-      Adicionar à agenda
+      <IconCalendar size={variante === 'icone' ? 18 : 15} />
+      {variante !== 'icone' && 'Adicionar à agenda'}
     </button>
   )
 }

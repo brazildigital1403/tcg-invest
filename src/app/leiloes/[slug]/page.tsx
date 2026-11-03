@@ -298,14 +298,14 @@ export default async function LotePage({ params }: Params) {
                   <LancesRecentes loteId={l.id} aberto={l.status === 'ativo'} semTitulo />
                 </Recolhido>
               )}
-              <Recolhido titulo="O que você recebe">
+              {l.status !== 'cancelado' && l.status !== 'sem_lances' && <Recolhido titulo="O que você recebe">
                 <p>A loja envia em até {DIAS_UTEIS_ENVIO} dias úteis depois do pagamento, e você recebe o rastreio.</p>
                 <p>Proteção Bynx: não chegou, veio diferente, danificada ou com suspeita de falsificação, abra uma ocorrência no pedido em até {DIAS_RECLAMAR} dias depois da entrega. Desistiu nesse prazo: a postagem da devolução não tem custo.</p>
-              </Recolhido>
-              <Recolhido titulo="Como o tempo funciona">
-                <p>Lance nos últimos {l.softCloseSeg} segundos estende o fim, para todo mundo ter tempo de responder.</p>
+              </Recolhido>}
+              {(l.status === 'ativo' || l.status === 'agendado') && <Recolhido titulo="Como o tempo funciona">
+                <p>Lance nos últimos {l.softCloseSeg % 60 === 0 ? `${l.softCloseSeg / 60} minutos` : `${l.softCloseSeg} segundos`} estende o fim, para todo mundo ter tempo de responder.</p>
                 <p>Só paga quem vence, no cartão, em até 48 horas.</p>
-              </Recolhido>
+              </Recolhido>}
               <Recolhido titulo="Detalhes da carta">
                 {ficha.filter(([, v]) => !!v).map(([k, v]) => <Ficha key={k} k={k} v={v as string} />)}
               </Recolhido>

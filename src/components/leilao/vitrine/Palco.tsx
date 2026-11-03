@@ -4,7 +4,7 @@ import SeloVerificado from '@/components/ui/SeloVerificado'
 import { IconClock } from '@/components/ui/Icons'
 import { formatarBRL, type LotePublico } from '@/lib/leilao'
 import { separarLotesRodada, tituloRodada, type RodadaPublica } from '@/lib/leilao-rodada'
-import { urlRodada } from '@/lib/leilao-urls'
+import { urlHome, urlRodada } from '@/lib/leilao-urls'
 import { quandoRodada } from '@/lib/leilao-vitrine'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import type { LojaDoLote, ResumoRodada } from '@/app/leiloes/_dados'
@@ -194,17 +194,20 @@ export function PalcoProxima({
   )
 }
 
+const EXEMPLOS = ['base1/4', 'swsh7/215', 'sv3pt5/151'].map(c => `https://images.pokemontcg.io/${c}.png`)
+
 /** Nada no ar e nada agendado. */
 export function HeroSemRodada() {
   return (
     <section className="vt-heroi" aria-labelledby="vt-heroi-t">
+      <div className="vt-leque" data-nosnippet>
+        {EXEMPLOS.map(src => <Image key={src} src={src} alt="" width={256} height={357} sizes="(min-width: 769px) 140px, 96px" />)}
+      </div>
+      <span className="vt-exemplo" data-nosnippet>Exemplos, não estão à venda</span>
       <h2 id="vt-heroi-t">Nenhum leilão aberto agora</h2>
-      <p>
-        A loja publica a carta, o leilão fica aberto de 1 a 7 dias e o maior lance leva. Assim que abrir o próximo, ele aparece aqui.
-      </p>
       <div className="vt-acoes">
         <BotaoAvisoLeilao />
-        <Link href="/leiloes?aba=como-funciona" prefetch={false} className="vt-cta-sec">Entender como funciona</Link>
+        <Link href={urlHome('agenda')} prefetch={false} className="vt-cta-sec">Ver a agenda</Link>
         <Link href="/marketplace" prefetch={false} className="vt-cta-sec">Ver cartas com preço fixo</Link>
       </div>
     </section>
