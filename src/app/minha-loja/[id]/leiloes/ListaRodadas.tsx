@@ -141,6 +141,8 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
     : !enderecoOk ? 'Falta o endereço para devoluções. Ele não aparece na sua página.' : null
 
   const base = `/minha-loja/${lojaId}/leiloes`
+  // A lista vem do pagamento mais antigo para o mais novo: o primeiro e o mais urgente.
+  const enviosAtrasados = envios.filter(e => e.enviar_ate && Date.parse(e.enviar_ate) < Date.now()).length
   const linhaLote = (l: LotePrazo) => {
     const aberto = l.status === 'ativo'
     const preco = l.preco_atual_cents ?? l.lance_inicial_cents
@@ -200,13 +202,24 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
       )}
 
       {envios.length > 0 && (
-        <section style={S.vez} aria-label="Sua vez">
-          <span style={S.vezRot}><IconTruck size={14} /> Sua vez</span>
+        <section style={{ ...S.vez, ...(enviosAtrasados > 0 ? S.vezAtrasada : null) }} aria-label="Sua vez">
+          <span style={{ ...S.vezRot, ...(enviosAtrasados > 0 ? { color: 'var(--bx-red)' } : null) }}>
+            {enviosAtrasados > 0 ? <IconWarning size={14} /> : <IconTruck size={14} />}
+            {enviosAtrasados > 0 ? 'Envio atrasado' : 'Sua vez'}
+          </span>
           <div style={S.vezCarta}>
             {envios[0].item_imagem && <Image src={envios[0].item_imagem} alt="" width={84} height={117} sizes="42px" style={S.vezImg} />}
             <div style={{ minWidth: 0 }}>
               <b style={{ display: 'block', fontSize: 14 }}>{envios.length === 1 ? `Enviar ${envios[0].item_nome ?? 'a carta arrematada'}` : `${envios.length} arremates para enviar`}</b>
-              {envios[0].enviar_ate && <span style={S.vezPrazo}>Postar até {horarioBrasilia(envios[0].enviar_ate)}</span>}
+              {envios[0].enviar_ate && (
+                <span style={{ ...S.vezPrazo, ...(enviosAtrasados > 0 ? { color: 'var(--bx-red)', fontWeight: 700 } : null) }}>
+                  {enviosAtrasados > 1
+                    ? `${enviosAtrasados} atrasados. O mais antigo era até ${horarioBrasilia(envios[0].enviar_ate)}`
+                    : enviosAtrasados === 1
+                      ? `O prazo era até ${horarioBrasilia(envios[0].enviar_ate)}`
+                      : `Postar até ${horarioBrasilia(envios[0].enviar_ate)}`}
+                </span>
+              )}
             </div>
           </div>
           <Link href={`/minha-loja/${lojaId}/pedidos`} style={S.btnPrim}>Ver envio</Link>
@@ -308,6 +321,7 @@ const S: Record<string, CSSProperties> = {
     display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 14,
     border: '1px solid rgba(var(--ac-1-rgb), 0.4)', background: 'rgba(var(--ac-1-rgb), 0.08)',
   },
+  vezAtrasada: { borderColor: 'var(--bx-red)', background: 'color-mix(in srgb, var(--bx-red) 8%, transparent)' },
   vezRot: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ac-1)' },
   vezTxt: { margin: 0, fontSize: 14, color: 'var(--bx-text)', lineHeight: 1.45 },
   vezCarta: { display: 'flex', alignItems: 'center', gap: 10, color: 'var(--bx-text)' },
