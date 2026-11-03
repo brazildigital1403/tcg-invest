@@ -712,13 +712,13 @@ export default function LanceAoVivo({
       <div style={S.lanceLinha}>
         <div style={S.lanceCol}>
           <span style={S.precoRotulo}>
-            {lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : 'Lance atual') : 'Lance inicial'}
+            {lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : st === 'cancelado' ? 'Último lance' : 'Lance atual') : 'Lance inicial'}
           </span>
           <span style={{ ...S.preco, fontSize: variante === 'rodada' ? 40 : 34 }}>{formatarBRL(precoCents)}</span>
           <span style={S.precoMeta}>
             {lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`}
             {lote.nParticipantes > 1 ? ` · ${lote.nParticipantes} participantes` : ''}
-            {lote.liderApelido && lote.nLances > 0 ? ` · liderando: ${lote.liderApelido}` : ''}
+            {lote.liderApelido && lote.nLances > 0 && st !== 'cancelado' ? ` · liderando: ${lote.liderApelido}` : ''}
           </span>
           {horaAbsoluta && <span style={S.horaAbs}>{horaAbsoluta}</span>}
         </div>
@@ -751,7 +751,7 @@ export default function LanceAoVivo({
             ) : (
               <strong style={S.mercadoValor}>{formatarBRL(referenciaMercadoCents)}</strong>
             )}
-            {lote.nLances > 0 && (() => {
+            {lote.nLances > 0 && st !== 'cancelado' && (() => {
               const pct = Math.round((precoCents / referenciaMercadoCents - 1) * 100)
               if (pct === 0) return ' · no valor de mercado'
               return pct < 0 ? ` · ${-pct}% abaixo` : ` · ${pct}% acima`

@@ -63,6 +63,17 @@ export const metadata: Metadata = {
   description:
     'Lotes de cartas Pokémon em leilão ao vivo, com lance em reais e pagamento protegido pela Bynx.',
   alternates: { canonical: urlHome() },
+  // Sem isto o link herdava o preview da home, que fala da coleção.
+  openGraph: {
+    title: 'Leilão de cartas Pokémon ao vivo, com lance em reais',
+    description: 'Rodadas ao vivo das lojas, com lance em reais. Quem vence paga pela Bynx, no cartão.',
+    url: `https://bynx.gg${urlHome()}`,
+    type: 'website',
+  },
+  twitter: {
+    title: 'Leilão de cartas Pokémon ao vivo, com lance em reais',
+    description: 'Rodadas ao vivo das lojas, com lance em reais. Quem vence paga pela Bynx, no cartão.',
+  },
 }
 
 const DIA_MS = 24 * 60 * 60 * 1000

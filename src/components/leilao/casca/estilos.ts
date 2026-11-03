@@ -5,7 +5,8 @@
  * menos movimento).
  */
 export const CSS_CASCA = `
-.lc-casca { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--bx-bg); color: var(--bx-text); }
+.lc-casca { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--bx-bg); color: var(--bx-text); font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif; }
+/* O body do site e Arial: fora do AppLayout, cada casca declara a DM Sans na propria raiz. */
 .lc-main { flex: 1; width: 100%; padding-top: 16px; padding-bottom: 32px; }
 @media (min-width: 769px) { .lc-main { padding-top: 24px; padding-bottom: 48px; } }
 

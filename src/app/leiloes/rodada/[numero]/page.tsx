@@ -108,6 +108,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       type: 'website',
       images: imagem ? [{ url: imagem.fotos[0] || (imagem.cardImage as string) }] : undefined,
     },
+    twitter: { title: titulo, description: descricao, images: imagem ? [imagem.fotos[0] || (imagem.cardImage as string)] : undefined },
   }
 }
 

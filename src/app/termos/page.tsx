@@ -23,7 +23,7 @@ export const metadata = {
   },
 }
 
-const UPDATED = '2 de novembro de 2026'
+const UPDATED = '3 de novembro de 2026'
 
 export default function TermosPage() {
   return (
@@ -165,7 +165,7 @@ export default function TermosPage() {
           <P><strong>O que é.</strong> A Bynx Leilões permite que lojas aprovadas façam <strong>rodadas de leilão ao vivo</strong>: uma sequência de lotes, cada um aberto por 30, 45, 60 ou 90 segundos, no horário marcado pela loja. A loja pode transmitir a rodada nas redes dela. Os lances são dados na Bynx.</P>
           <P><strong>Quem pode dar lance.</strong> Usuários com cadastro completo (CPF e CEP) e <strong>18 anos ou mais</strong>. A Bynx recusa lances de quem não cumpre esses requisitos. A loja não pode dar lance nos próprios lotes.</P>
           <P><strong>Como funciona o lance.</strong> O usuário pode dar um lance rápido ou informar o máximo que aceita pagar: a Bynx cobre os lances por ele até esse valor, e ninguém vê o máximo. Um lance nos últimos segundos prorroga o fim do lote. O lance inicial mínimo é de R$ 1,00. <strong>Lance é compromisso de compra:</strong> quem tiver o maior lance quando o lote fechar é o arrematante e se obriga a pagar.</P>
-          <P><strong>Pagamento do arremate.</strong> O prazo é de <strong>48 horas</strong> a partir do fechamento do lote, só no cartão, pelo processador de pagamento da Bynx. O comprador paga o lance vencedor, a <strong>Taxa de Proteção</strong> (5% do arremate, mínimo de R$ 2,00 por pedido), o custo do cartão e o frete, todos destacados antes da confirmação.</P>
+          <P><strong>Pagamento do arremate.</strong> O prazo é de <strong>48 horas</strong> a partir do fechamento do lote, só no cartão, pelo processador de pagamento da Bynx. Cada lote arrematado gera um pagamento próprio. O comprador paga o lance vencedor, a <strong>Taxa de Proteção</strong> (5% do arremate, mínimo de R$ 2,00 por lote), o custo do cartão e o frete, todos destacados antes da confirmação.</P>
           <P><strong>Arremate não pago.</strong> Sem pagamento em 48 horas, o arremate é cancelado e a loja é avisada. A Bynx pode restringir novos lances de quem deixar de pagar arremates.</P>
           <P><strong>Obrigações da loja que leiloa.</strong></P>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
@@ -173,7 +173,7 @@ export default function TermosPage() {
             <li>Manter a conta de recebimento ativa, com repasse em 30 dias, o CEP de envio e o endereço para devoluções informados. Se o comprador não puder pagar por pendência da loja, o lote é cancelado sem culpa do comprador;</li>
             <li>Enviar em até <strong>3 dias úteis</strong> após o pagamento, com o rastreio informado no painel. Em lote de R$ 150,00 ou mais, é obrigatório enviar foto da frente e do verso da carta no envio;</li>
             <li>Atender às ocorrências nos prazos abaixo;</li>
-            <li>Pagar a comissão de <strong>6,99% + R$ 0,40 por pedido</strong> sobre o arremate. A parcela fixa incide apenas em pedidos a partir de R$ 20,00, e o frete não entra na base de cálculo.</li>
+            <li>Pagar a comissão de <strong>6,99% + R$ 0,40 por lote</strong> sobre o arremate. A parcela fixa incide apenas em lotes a partir de R$ 20,00, e o frete não entra na base de cálculo.</li>
           </ul>
           <P><strong>Encerramento antecipado.</strong> A loja pode encerrar uma rodada que já está ao vivo. O lote no ar termina no tempo dele, com o vencedor que tiver. Os lotes seguintes da rodada são cancelados, e quem seguia esses lotes é avisado.</P>
           <P><strong>Proteção Bynx.</strong> O comprador pode abrir uma ocorrência por <strong>não ter recebido</strong>, por <strong>carta diferente do anúncio</strong>, por <strong>suspeita de falsificação</strong> ou por <strong>carta danificada</strong>; exceto em &quot;não chegou&quot;, é obrigatório enviar fotos da frente, do verso e da embalagem. O comprador também pode desistir da compra em até <strong>7 dias corridos do recebimento</strong> (art. 49 do CDC), sem justificativa, e tem 7 dias para postar a devolução. Na desistência, a Bynx gera um <strong>código de postagem dos Correios</strong>, sem custo para o comprador: basta mostrar o código numa agência, sem imprimir etiqueta. Para gerar o código, o comprador informa o CPF, exigência dos Correios.</P>

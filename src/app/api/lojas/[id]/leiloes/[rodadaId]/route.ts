@@ -61,7 +61,7 @@ export async function GET(req: NextRequest, ctx: Params) {
       console.error('[lojas/leiloes/rodada GET] lotes', error.code, error.message)
       return json(500, { error: 'Erro ao carregar os lotes.' })
     }
-    return json(200, { rodada, lotes: lotes ?? [], recebimento })
+    return json(200, { rodada, lotes: lotes ?? [], recebimento, enderecoOk: !!separarEndereco(c.loja.endereco).rua })
   } catch (err) {
     console.error('[lojas/leiloes/rodada GET] erro:', (err as Error)?.message)
     return json(500, { error: 'Erro interno.' })

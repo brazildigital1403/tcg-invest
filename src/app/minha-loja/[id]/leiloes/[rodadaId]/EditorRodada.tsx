@@ -34,6 +34,7 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
   const [recebimento, setRecebimento] = useState<Recebimento | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [enderecoOk, setEnderecoOk] = useState(true)
   const [ocupado, setOcupado] = useState(false)
   const [novoAberto, setNovoAberto] = useState(false)
   // Lote a caminho do servidor: o Agendar espera (o banco serializa os dois
@@ -60,12 +61,13 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
 
   const carregar = useCallback(async () => {
     try {
-      const j = await chamarPainel<{ rodada: RodadaResumo; lotes: LotePainel[]; recebimento: Recebimento }>(
+      const j = await chamarPainel<{ rodada: RodadaResumo; lotes: LotePainel[]; recebimento: Recebimento; enderecoOk?: boolean }>(
         `/api/lojas/${lojaId}/leiloes/${rodadaId}`
       )
       setRodada(j.rodada)
       setLotes(j.lotes || [])
       setRecebimento(j.recebimento)
+      setEnderecoOk(j.enderecoOk !== false)
       preencher(j.rodada)
       setErro(null)
     } catch (e) {
@@ -121,6 +123,8 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
     }
     return p
   }, [rodada, lotes, recebimento, agora])
+  // A rota de agendar recusa sem endereco: a tela nao pode dizer "Tudo pronto".
+  const bloqueado = pendencias.length > 0 || !enderecoOk
 
   async function salvarRodada() {
     if (!rodada) return
@@ -202,8 +206,9 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
       await carregar()
       showAlert('Rodada agendada. Os lotes já aparecem na vitrine de leilões como "em breve".', 'success')
     } catch (e) {
-      setErro((e as Error).message)
+      // Nesta ordem: carregar() limpa o erro quando da certo, e a mensagem sumia.
       await carregar()
+      setErro((e as Error).message)
     } finally {
       setOcupado(false)
     }
@@ -389,19 +394,28 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
                 <>
                   {sujo ? (
                     <p style={S.aviso}><IconWarning size={16} /> Salve os dados da rodada antes de agendar.</p>
-                  ) : pendencias.length > 0 ? (
+                  ) : bloqueado ? (
                     <ul style={S.lista}>
                       {pendencias.map(p => (
                         <li key={p} style={S.aviso}><IconWarning size={16} /> <span>{p}</span></li>
                       ))}
+                      {!enderecoOk && (
+                        <li style={S.aviso}>
+                          <IconWarning size={16} />
+                          <span>
+                            Falta o endereço para devoluções. Ele não aparece na sua página.{' '}
+                            <Link href={`/minha-loja/${lojaId}/vitrine`} style={{ color: 'inherit', fontWeight: 700 }}>Cadastrar endereço</Link>
+                          </span>
+                        </li>
+                      )}
                     </ul>
                   ) : (
                     <p style={S.okMsg}><IconCheck size={16} /> Tudo pronto para agendar.</p>
                   )}
                   <button
                     onClick={agendar}
-                    disabled={ocupado || enviandoLote || sujo || pendencias.length > 0}
-                    style={{ ...S.btnPrim, width: '100%', marginTop: 12, opacity: ocupado || enviandoLote || sujo || pendencias.length > 0 ? 0.55 : 1 }}
+                    disabled={ocupado || enviandoLote || sujo || bloqueado}
+                    style={{ ...S.btnPrim, width: '100%', marginTop: 12, opacity: ocupado || enviandoLote || sujo || bloqueado ? 0.55 : 1 }}
                   >
                     {enviandoLote ? 'Salvando o lote…' : 'Agendar rodada'}
                   </button>

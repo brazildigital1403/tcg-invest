@@ -96,7 +96,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       robots: { index: false, follow: false },
     }
   }
-  const titulo = `${nomeCompleto(l)} — leilão ${l.nLances > 0 ? 'com lance de' : 'a partir de'} ${formatarBRL(precoVitrine(l))}`
+  // O titulo diz o estado: "com lance de" em lote encerrado promete uma disputa que acabou.
+  const situacao =
+    l.status === 'cancelado' ? 'leilão cancelado'
+    : l.status === 'sem_lances' ? 'encerrado sem lances'
+    : l.status === 'vendido' ? `arrematado por ${formatarBRL(precoVitrine(l))}`
+    : `leilão ${l.nLances > 0 ? 'com lance de' : 'a partir de'} ${formatarBRL(precoVitrine(l))}`
+  const titulo = `${nomeCompleto(l)}: ${situacao}`
   const imagem = l.fotos[0] || l.cardImage
   return {
     title: titulo,
@@ -110,6 +116,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       type: 'website',
       images: imagem ? [{ url: imagem }] : undefined,
     },
+    twitter: { title: titulo, description: resumo(l), images: imagem ? [imagem] : undefined },
   }
 }
 
