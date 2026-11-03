@@ -2502,6 +2502,21 @@ export async function sendDisputeAdminEmail(args: {
 }
 
 
+/** Carteira do Melhor Envio abaixo do minimo: as etiquetas de devolucao saem dela. */
+export async function sendSaldoMelhorEnvioAdminEmail(args: { to: string; saldoCents: number; paradas: number }) {
+  const saldo = (args.saldoCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const html = baseLayout(`
+    ${badge('Melhor Envio', '#ef4444', 'rgba(239,68,68,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Carteira com saldo baixo')}
+    ${p(`O saldo está em <strong>${saldo}</strong>, abaixo do mínimo de R$ 50,00. As etiquetas de devolução são pagas com esse saldo.`)}
+    ${args.paradas > 0 ? p(`<strong>${args.paradas} ${args.paradas === 1 ? 'etiqueta está parada' : 'etiquetas estão paradas'}</strong> esperando a recarga. Elas saem sozinhas na hora seguinte à recarga.`) : ''}
+    ${btn('Recarregar no Melhor Envio', 'https://melhorenvio.com.br')}
+  `, `Carteira do Melhor Envio: ${saldo}`)
+
+  return enviar({ template: 'saldo-melhor-envio-admin', from: FROM, to: args.to, subject: subjInterno('Alerta', `Melhor Envio com ${saldo} na carteira`), html })
+}
+
 // ── Marketplace: marcos da negociacao + nao lidas ────────────────────────────
 
 function fmtBRLemail(v: number | null | undefined): string {

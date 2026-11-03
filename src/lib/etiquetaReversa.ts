@@ -17,6 +17,28 @@
  *   em producao confirmar.
  */
 
+/** Abaixo disto a carteira do Melhor Envio avisa o admin (decisao do Du, 29/10). */
+export const SALDO_MINIMO_AVISO_CENTS = 5000
+/** Vai em etiqueta_erro: a etiqueta espera a recarga, nao e falha. */
+export const ERRO_SEM_SALDO = 'aguardando saldo na carteira do Melhor Envio'
+
+/** GET /api/v2/me/balance -> centavos. null = resposta que nao da para confiar. */
+export function lerSaldoCents(j: unknown): number | null {
+  const v = (j as { balance?: unknown } | null)?.balance
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n * 100) : null
+}
+
+/**
+ * A etiqueta cabe no saldo? Saldo desconhecido nao trava: o pagamento tenta e
+ * o Melhor Envio responde. Custo desconhecido so trava com a carteira zerada.
+ */
+export function faltaSaldo(saldoCents: number | null, custoCents: number | null | undefined): boolean {
+  if (saldoCents === null) return false
+  return custoCents ? saldoCents < custoCents : saldoCents <= 0
+}
+
 export const SERVICO_PAC = 1
 export const SERVICO_SEDEX = 2
 /** Tentativas automaticas do cron antes de deixar so para o admin. */
