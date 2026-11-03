@@ -57,7 +57,7 @@ const COLUNAS_LOTE = [
   'lance_inicial_cents', 'preco_atual_cents',
   'n_lances', 'n_participantes', 'duracao_seg', 'soft_close_seg',
   'inicia_em', 'termina_em', 'prorrogacoes', 'status', 'encerrado_em', 'versao', 'game',
-  'lider_user_id', 'vendedor_user_id', 'pagar_ate',
+  'lider_user_id', 'vendedor_user_id', 'pagar_ate', 'pedido_id',
   'lider:users!leiloes_lider_user_id_fkey(username, name)',
 ].join(', ')
 
@@ -71,8 +71,9 @@ function separar(r: Linha): {
   liderUserId: string | null
   vendedorUserId: string | null
   pagarAte: string | null
+  pedidoId: string | null
 } {
-  const { lider_user_id, vendedor_user_id, pagar_ate, lider, ...resto } = r
+  const { lider_user_id, vendedor_user_id, pagar_ate, pedido_id, lider, ...resto } = r
   const u = (Array.isArray(lider) ? lider[0] : lider) as { username?: unknown; name?: unknown } | null | undefined
   const username = typeof u?.username === 'string' ? u.username.trim() : ''
   const nome = username || (typeof u?.name === 'string' ? u.name : '')
@@ -81,6 +82,7 @@ function separar(r: Linha): {
     liderUserId: typeof lider_user_id === 'string' ? lider_user_id : null,
     vendedorUserId: typeof vendedor_user_id === 'string' ? vendedor_user_id : null,
     pagarAte: typeof pagar_ate === 'string' ? pagar_ate : null,
+    pedidoId: typeof pedido_id === 'string' ? pedido_id : null,
   }
 }
 
@@ -167,7 +169,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ erro: 'nao_encontrado', server_now: serverNow }, { status: 404, headers: semCache })
   }
 
-  const { publica, liderUserId, vendedorUserId, pagarAte } = separar(data as unknown as Linha)
+  const { publica, liderUserId, vendedorUserId, pagarAte, pedidoId } = separar(data as unknown as Linha)
   const voceLidera = !!eu && !!liderUserId && liderUserId === eu.userId
 
   const corpo: EstadoLote = {
@@ -178,6 +180,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     proprio: !!eu && !!vendedorUserId && vendedorUserId === eu.userId,
     // Prazo do arremate: so para quem venceu, e so enquanto falta pagar.
     pagarAte: voceLidera && publica.status === 'aguardando_pagamento' ? pagarAte : null,
+    pedidoId: voceLidera && publica.status === 'vendido' ? pedidoId : null,
   }
   return NextResponse.json(corpo, { headers: semCache })
 }
