@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
-import { IconArrowRight, IconCard, IconClock, IconLoja, IconPokeball, IconShield, IconWarning } from '@/components/ui/Icons'
+import { IconCard, IconCheck, IconClock, IconKey, IconLoja, IconPokeball, IconShield, IconWarning } from '@/components/ui/Icons'
+import { Acoes, Botao, Esqueleto, Etapas, IconeBloco, Linhas, Preco, Recolhido, Selo, TelaEstado, Titulo } from '@/components/leilao/kit'
+import { DIAS_UTEIS_ENVIO } from '@/lib/leilao-reclamacao'
 import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
 import { calcularArremate } from '@/lib/leilao-taxas'
 import VendidoPor from '@/components/ui/VendidoPor'
@@ -231,35 +233,32 @@ export default function PagarLote({
 
   // ── Estados sem pagamento ────────────────────────────────────────────────
   if (estado.tipo === 'carregando') {
-    return <div style={S.card} role="status">Carregando o pagamento...</div>
+    return <Linhas><Esqueleto altura={110} /><Esqueleto altura={64} /><Esqueleto altura={200} /></Linhas>
   }
   if (estado.tipo === 'deslogado') {
     return (
-      <div style={S.card}>
-        <p style={S.aviTitulo}>Entre para pagar o lote</p>
-        <p style={S.aviTexto}>O pagamento fica disponível para a conta que venceu o lote.</p>
-        <Link href={loginHref} prefetch={false} className="pg-cta" style={S.cta}>
-          Entrar <IconArrowRight size={16} />
-        </Link>
-      </div>
+      <TelaEstado
+        icone={<IconKey size={36} />} selo={<Selo tom="acento">Pagamento</Selo>}
+        titulo="Entre para pagar."
+        texto="O pagamento fica com a conta que venceu o lote."
+        acoes={<Botao cheio href={loginHref}>Entrar</Botao>}
+      />
     )
   }
   if (estado.tipo === 'bloqueado') {
     return (
-      <div style={S.card}>
-        <p style={S.aviTitulo}>{estado.titulo}</p>
-        <p style={S.aviTexto}>{estado.texto}</p>
-        <div style={S.acoes}>
-          {estado.pedidoId && (
-            <Link href={`/pedido/${estado.pedidoId}`} prefetch={false} className="pg-cta" style={S.cta}>
-              Ver o pedido <IconArrowRight size={16} />
-            </Link>
-          )}
-          <Link href={urlLote} prefetch={false} className="pg-ghost" style={S.ghost}>
-            Voltar para o lote
-          </Link>
-        </div>
-      </div>
+      <TelaEstado
+        tom={estado.pedidoId ? 'frente' : 'neutro'}
+        icone={estado.pedidoId ? <IconCheck size={38} strokeWidth={2} /> : <IconWarning size={38} />}
+        titulo={estado.titulo}
+        texto={estado.texto}
+        acoes={
+          <Acoes>
+            {estado.pedidoId && <Botao cheio href={`/pedido/${estado.pedidoId}`}>Ver o pedido</Botao>}
+            <Botao tipo="sec" cheio href={urlLote}>Voltar para o lote</Botao>
+          </Acoes>
+        }
+      />
     )
   }
 
@@ -309,26 +308,35 @@ export default function PagarLote({
         </div>
       )}
 
-      <div style={S.arrem}>
+      <Titulo nivel={2} titulo="O lote é seu." />
+
+      <div className="lk-card lk-card-d" style={S.arrem}>
         <div style={S.thumb}>
           {imagem ? (
-            <Image src={imagem} alt={dados.lote.nome || nomeInicial} width={54} height={75} sizes="64px" style={S.thumbImg} />
+            <Image src={imagem} alt={dados.lote.nome || nomeInicial} width={192} height={268} sizes="96px" style={S.thumbImg} />
           ) : (
             <IconPokeball size={22} color="var(--bx-text-3)" />
           )}
         </div>
-        <div style={{ minWidth: 0 }}>
+        <div style={S.arremInfo}>
           <p style={S.itemNome}>{dados.lote.nome || nomeInicial}</p>
-          <p style={S.itemMeta}>Você arrematou por {formatarBRL(precoCents)}</p>
-          {(dados.lote.condicao || (v && !dados.identificacao)) && (
-            <p style={S.itemFraco}>
-              {[dados.lote.condicao, v && !dados.identificacao ? `Vendido por ${v.nome}` : null].filter(Boolean).join(' · ')}
-            </p>
-          )}
+          {dados.lote.condicao && <p style={S.itemFraco}>{dados.lote.condicao}</p>}
+          <Preco medio rotulo="Arrematado por" valor={formatarBRL(precoCents)} />
+          {dados.pagar_ate && <Selo tom="acento" tempo icone={<IconClock size={13} />}>Pague até {horarioBrasilia(dados.pagar_ate).replace(/\/\d{4},/, '').replace(' (Brasília)', '')}</Selo>}
         </div>
       </div>
-      <VendidoPor ident={dados.identificacao ?? null} style={{ marginTop: 10 }} />
-      {dados.pagar_ate && <p style={S.prazo}>Pague até {horarioBrasilia(dados.pagar_ate)}</p>}
+
+      <Etapas
+        direcao="h"
+        itens={[
+          { titulo: 'Pagar', estado: 'atual' },
+          { titulo: 'Loja envia' },
+          { titulo: 'Você recebe' },
+        ]}
+      />
+
+      {v && !dados.identificacao && <p style={S.itemFraco}>Vendido por {v.nome}</p>}
+      <VendidoPor ident={dados.identificacao ?? null} />
 
       {!v || !v.pode_vender ? (
         <EmEspera
@@ -421,14 +429,13 @@ export default function PagarLote({
               </span>
             </div>
             <div style={S.total}>
-              <span>Total</span>
-              <span style={S.totalValor}>{total == null ? '—' : formatarBRL(total)}</span>
+              <Preco medio rotulo="Total" valor={total == null ? 'Informe o CEP' : formatarBRL(total)} />
             </div>
           </section>
 
           <p style={S.nota}>
             <IconShield size={14} />
-            <span>Os dados do cartão não passam pela Bynx.</span>
+            <span>Depois de pagar, a loja envia em até {DIAS_UTEIS_ENVIO} dias úteis. Os dados do cartão não passam pela Bynx.</span>
           </p>
 
           <div className="pg-cta-fixo">
@@ -522,14 +529,13 @@ function EmEspera({
 
   return (
     <section aria-labelledby="pg-espera" style={S.espera}>
-      <div style={S.esperaIc} aria-hidden="true">
-        {falhaLeitura ? <IconWarning size={24} color="var(--ac-1)" /> : <IconClock size={24} color="var(--ac-1)" />}
+      <div style={{ alignSelf: 'center' }}>
+        <IconeBloco tom="atencao">{falhaLeitura ? <IconWarning size={36} /> : <IconClock size={36} />}</IconeBloco>
       </div>
       <h2 id="pg-espera" style={S.esperaTitulo}>{titulo}</h2>
       <p style={S.esperaTexto}>{texto}</p>
 
-      <div style={S.passos}>
-        <p style={S.rot}>O que acontece agora</p>
+      <Recolhido titulo="O que acontece agora">
         <ol style={S.passosLista}>
           {passos.map((t, i) => (
             <li key={i} style={S.passo}>
@@ -538,7 +544,7 @@ function EmEspera({
             </li>
           ))}
         </ol>
-      </div>
+      </Recolhido>
 
       <div style={S.acoes}>
         <button
@@ -572,7 +578,7 @@ const S: Record<string, CSSProperties> = {
     width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
     alignSelf: 'center', background: 'rgba(var(--ac-1-rgb), 0.12)',
   },
-  esperaTitulo: { fontSize: 18, fontWeight: 800, margin: 0, textAlign: 'center', lineHeight: 1.3 },
+  esperaTitulo: { fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', margin: 0, textAlign: 'center', lineHeight: 1.15 },
   esperaTexto: {
     fontSize: 14, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.5, textAlign: 'center',
     maxWidth: 440, alignSelf: 'center',
@@ -590,10 +596,8 @@ const S: Record<string, CSSProperties> = {
   },
   conferido: { fontSize: 12, color: 'var(--bx-text-3)', margin: 0, textAlign: 'center' },
   coluna: { display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 24 },
-  arrem: {
-    display: 'flex', gap: 12, alignItems: 'center', padding: 10, borderRadius: 12,
-    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
-  },
+  arrem: { flexDirection: 'row', alignItems: 'center' },
+  arremInfo: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 },
   bloco: { display: 'flex', flexDirection: 'column', gap: 8 },
   rot: {
     fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: 0,
@@ -610,11 +614,11 @@ const S: Record<string, CSSProperties> = {
   aviTexto: { fontSize: 14, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.5 },
   acoes: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 },
   thumb: {
-    width: 54, height: 75, borderRadius: 6, overflow: 'hidden', flexShrink: 0, display: 'flex',
+    width: 96, height: 134, borderRadius: 8, overflow: 'hidden', flexShrink: 0, display: 'flex',
     alignItems: 'center', justifyContent: 'center', background: 'var(--bx-surface-2)',
   },
   thumbImg: { width: '100%', height: '100%', objectFit: 'contain' },
-  itemNome: { fontSize: 15, fontWeight: 700, color: 'var(--bx-text)', margin: 0, lineHeight: 1.3, overflowWrap: 'anywhere' },
+  itemNome: { fontSize: 17, fontWeight: 800, color: 'var(--bx-text)', margin: 0, lineHeight: 1.3, overflowWrap: 'anywhere' },
   itemMeta: { fontSize: 12.5, color: 'var(--bx-text-2)', margin: '2px 0 0', fontVariantNumeric: 'tabular-nums' },
   itemFraco: { fontSize: 12, color: 'var(--bx-text-3)', margin: '2px 0 0' },
   prazo: {

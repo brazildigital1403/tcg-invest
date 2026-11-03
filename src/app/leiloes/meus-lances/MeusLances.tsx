@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
-import { IconArrowRight, IconClock, IconHistory, IconPokeball, IconWarning } from '@/components/ui/Icons'
+import { IconClock, IconHistory, IconPokeball } from '@/components/ui/Icons'
+import { Acoes, Botao, Esqueleto, Linhas, Resumo, Resumos, Selo, TelaEstado, Titulo } from '@/components/leilao/kit'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia, statusPublico } from '@/lib/leilao'
 import type { ItemMeu, RespostaMeus } from '@/lib/leilao-meus'
@@ -50,6 +51,7 @@ export default function MeusLances() {
   const { openLogin } = useAuthModal()
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' })
   const [agora, setAgora] = useState<number>(() => Date.now())
+  const [aba, setAba] = useState<string | null>(null)
   const deslocamento = useRef(0)
   const emVoo = useRef(false)
 
@@ -107,20 +109,11 @@ export default function MeusLances() {
     }
   }, [carregar])
 
-  // Ancora (#ml-a_pagar, vinda de "Arremates a pagar"): a secao so existe
-  // depois da primeira resposta, entao o navegador nao rola sozinho. Rola uma
-  // vez, no primeiro estado pronto; o polling nao puxa a tela de novo.
-  const ancoraFeita = useRef(false)
+  // Ancora (#ml-a_pagar, vinda de "Arremates a pagar"): abre a aba do grupo.
   useEffect(() => {
-    if (estado.tipo !== 'pronto' || ancoraFeita.current) return
-    ancoraFeita.current = true
-    const id = decodeURIComponent(window.location.hash.slice(1))
-    if (!id) return
-    const alvo = document.getElementById(id)
-    if (!alvo) return
-    const reduzir = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    alvo.scrollIntoView({ behavior: reduzir ? 'auto' : 'smooth', block: 'start' })
-  }, [estado.tipo])
+    const m = decodeURIComponent(window.location.hash.slice(1)).match(/^ml-(.+)$/)
+    if (m) setAba(m[1])
+  }, [])
 
   // Relogio da tela (1s), acertado pelo servidor.
   useEffect(() => {
@@ -128,36 +121,41 @@ export default function MeusLances() {
     return () => clearInterval(t)
   }, [])
 
+  // O servidor ja manda primeiro o que pede acao: sem escolha, abre esse grupo.
+  const grupoAtual = estado.tipo === 'pronto' && estado.dados.grupos.length > 0
+    ? estado.dados.grupos.find(g => g.grupo === aba) ?? estado.dados.grupos[0]
+    : null
+
   return (
-    <div style={S.pagina}>
+    <div className="ml">
       <style>{`
-        .ml-acao { transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
-        .ml-acao:hover { transform: translateY(-2px); }
-        .ml-acao:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
-        .ml-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; }
-        .ml-item .ml-acoes { grid-column: 1 / -1; }
-        @media (min-width: 640px) {
-          .ml-item { grid-template-columns: 56px minmax(0, 1fr) auto; }
-          .ml-item .ml-acoes { grid-column: auto; }
-        }
-        @media (prefers-reduced-motion: reduce) { .ml-acao, .ml-acao:hover { transition: none; transform: none; } }
+        .ml { max-width: 760px; margin: 0 auto; padding-bottom: 32px; display: flex; flex-direction: column; gap: 18px; }
+        .ml-abas { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; }
+        .ml-abas::-webkit-scrollbar { display: none; }
+        .ml-abas .lk-aba { background: transparent; cursor: pointer; font-family: inherit; }
+        .ml-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 720px) { .ml-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .ml-cartao .lk-resumos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .ml-topo { display: flex; gap: 14px; align-items: center; min-width: 0; }
+        .ml-foto { flex: 0 0 80px; display: grid; place-items: center; min-height: 110px; border-radius: 8px; overflow: hidden; background: var(--bx-surface-2); }
+        .ml-foto img { display: block; width: 100%; height: auto; }
+        .ml-info { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+        .ml-nome { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; color: var(--bx-text); text-decoration: none; overflow-wrap: anywhere; }
+        .ml-tempo { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--bx-text-2); }
+        .ml-tempo-u { color: var(--bx-red); }
+        .ml-aviso { margin: 0; font-size: 14px; color: var(--bx-text-3); }
       `}</style>
 
-      <header style={S.cabeca}>
-        <h1 style={S.titulo}>Meus lances</h1>
-        <p style={S.sub}>Os lotes em que você deu lance. O que pede ação aparece primeiro.</p>
-      </header>
+      <Titulo rotulo="Sua disputa" titulo="Meus lances" />
 
-      {estado.tipo === 'carregando' && <p style={S.aviso}>Carregando seus lances...</p>}
+      {estado.tipo === 'carregando' && <Linhas><Esqueleto /><Esqueleto /></Linhas>}
 
       {estado.tipo === 'deslogado' && (
         <Vazio
           titulo="Entre para ver seus lances"
           texto="Aqui ficam os lotes em que você está liderando, os que alguém cobriu e os arremates a pagar."
           acao={
-            <button type="button" className="ml-acao" style={S.cta} onClick={() => openLogin({ next: URL_PAGINA })}>
-              Entrar
-            </button>
+            <Botao cheio onClick={() => openLogin({ next: URL_PAGINA })}>Entrar</Botao>
           }
         />
       )}
@@ -167,9 +165,7 @@ export default function MeusLances() {
           titulo="Não foi possível carregar"
           texto="Tente de novo em instantes."
           acao={
-            <button type="button" className="ml-acao" style={S.ghost} onClick={() => carregar()}>
-              Tentar de novo
-            </button>
+            <Botao tipo="sec" cheio onClick={() => carregar()}>Tentar de novo</Botao>
           }
         />
       )}
@@ -179,41 +175,41 @@ export default function MeusLances() {
           titulo="Você ainda não deu lance"
           texto="Quando der lance em um lote, ele aparece aqui com o preço atual e o seu máximo."
           acao={
-            <Link href={URL_VITRINE} className="ml-acao" style={S.cta}>
-              Ver leilões <IconArrowRight size={16} />
-            </Link>
+            <Botao cheio href={URL_VITRINE}>Ver leilões</Botao>
           }
         />
       )}
 
-      {estado.tipo === 'pronto' &&
-        estado.dados.grupos.map(g => (
-          <section key={g.grupo} style={S.secao} aria-labelledby={`ml-${g.grupo}`}>
-            <h2 id={`ml-${g.grupo}`} style={S.secaoTitulo}>
-              {g.titulo} <span style={S.contagem}>{g.itens.length}</span>
-            </h2>
-            <ul style={S.lista}>
-              {g.itens.map(it => (
-                <li key={it.lote.id}>
-                  <Cartao item={it} agora={agora} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+      {estado.tipo === 'pronto' && grupoAtual && (
+        <>
+          <div className="ml-abas" role="group" aria-label="Filtrar meus lances">
+            {estado.dados.grupos.map(g => (
+              <button
+                key={g.grupo}
+                type="button"
+                className="lk-aba"
+                aria-current={g.grupo === grupoAtual.grupo ? 'page' : undefined}
+                onClick={() => setAba(g.grupo)}
+              >
+                {g.titulo}<b>{g.itens.length}</b>
+              </button>
+            ))}
+          </div>
+          <ul className="ml-lista">
+            {grupoAtual.itens.map(it => (
+              <li key={it.lote.id}>
+                <Cartao item={it} agora={agora} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   )
 }
 
 function Vazio({ titulo, texto, acao }: { titulo: string; texto: string; acao: ReactNode }) {
-  return (
-    <div style={S.vazio}>
-      <IconHistory size={28} color="var(--bx-text-3)" />
-      <p style={S.vazioTitulo}>{titulo}</p>
-      <p style={S.vazioTexto}>{texto}</p>
-      {acao}
-    </div>
-  )
+  return <TelaEstado tom="acento" icone={<IconHistory size={36} />} titulo={titulo} texto={texto} acoes={<Acoes>{acao}</Acoes>} />
 }
 
 function linhaDeEstado(it: ItemMeu, agora: number): { texto: string; tom: 'normal' | 'urgente' | 'apagado' | 'alerta' } {
@@ -245,32 +241,29 @@ function linhaDeEstado(it: ItemMeu, agora: number): { texto: string; tom: 'norma
 function Acao({ it }: { it: ItemMeu }) {
   const l = it.lote
   if (it.grupo === 'superado' && l.status === 'ativo') {
-    return (
-      <Link href={urlLote(l.slug)} className="ml-acao" style={S.cta}>
-        Cobrir
-      </Link>
-    )
+    return <Botao cheio href={urlLote(l.slug)}>Cobrir</Botao>
   }
   if (it.pagamento?.estado === 'aguardando') {
     const ate = diaHora(it.pagamento.pagarAte)
     return (
-      <Link href={urlPagar(l.slug)} className="ml-acao" style={S.cta}>
-        {ate ? `Pagar até ${ate}` : 'Pagar'}
-      </Link>
+      <div className="bx-ctx-comprador">
+        <Botao cheio href={urlPagar(l.slug)}>{ate ? `Pagar até ${ate}` : 'Pagar'}</Botao>
+      </div>
     )
   }
   if (it.pagamento?.estado === 'pago' && it.pagamento.pedidoId) {
-    return (
-      <Link href={urlPedido(it.pagamento.pedidoId)} className="ml-acao" style={S.ghost}>
-        Ver pedido
-      </Link>
-    )
+    return <Botao tipo="sec" cheio href={urlPedido(it.pagamento.pedidoId)}>Ver pedido</Botao>
   }
-  return (
-    <Link href={urlLote(l.slug)} className="ml-acao" style={S.ghost}>
-      Ver lote
-    </Link>
-  )
+  return <Botao tipo="sec" cheio href={urlLote(l.slug)}>Ver lote</Botao>
+}
+
+function seloDoItem(it: ItemMeu, tom: 'normal' | 'urgente' | 'apagado' | 'alerta') {
+  if (it.grupo === 'liderando') return <Selo tom="frente">Na frente</Selo>
+  if (it.grupo === 'superado') return <Selo tom="atencao">Superado</Selo>
+  if (it.pagamento?.estado === 'aguardando') return <Selo tom="atencao">A pagar</Selo>
+  if (it.pagamento?.estado === 'pago') return <Selo tom="frente">Pago</Selo>
+  if (tom === 'urgente') return <Selo tom="perigo">Prazo vencido</Selo>
+  return <Selo tom="neutro">Encerrado</Selo>
 }
 
 function Cartao({ item: it, agora }: { item: ItemMeu; agora: number }) {
@@ -279,103 +272,28 @@ function Cartao({ item: it, agora }: { item: ItemMeu; agora: number }) {
   const nome = [l.cardName, l.cardNumero, rotuloGraduacao(l)].filter(Boolean).join(' ')
   const preco = l.precoAtualCents ?? l.lanceInicialCents
   const linha = linhaDeEstado(it, agora)
-  const corLinha =
-    linha.tom === 'urgente' ? 'var(--bx-red)' : linha.tom === 'alerta' ? 'var(--ac-1)' : linha.tom === 'apagado' ? 'var(--bx-text-3)' : 'var(--bx-text-2)'
   const aberto = it.grupo === 'liderando' || it.grupo === 'superado'
 
   return (
-    <div className="ml-item" style={S.cartao}>
-      <Link href={urlLote(l.slug)} style={S.thumb} aria-label={nome}>
-        {img ? (
-          <Image src={img} alt="" width={56} height={78} sizes="56px" style={S.thumbImg} />
-        ) : (
-          <IconPokeball size={22} color="var(--bx-text-3)" />
-        )}
-      </Link>
-      <div style={{ minWidth: 0 }}>
-        <Link href={urlLote(l.slug)} style={S.nome}>
-          {nome}
+    <article className="lk-card ml-cartao">
+      <div className="ml-topo">
+        <Link href={urlLote(l.slug)} className="ml-foto" aria-label={nome}>
+          {img ? <Image src={img} alt="" width={160} height={223} sizes="80px" /> : <IconPokeball size={22} color="var(--bx-text-3)" />}
         </Link>
-        <div style={S.valores}>
-          <span>
-            <span style={S.rotulo}>{aberto ? 'Preço atual' : 'Final'}</span>{' '}
-            <strong style={S.valor}>{formatarBRL(preco)}</strong>
-          </span>
-          <span>
-            <span style={S.rotulo}>Seu máximo</span> <strong style={S.valor}>{formatarBRL(it.seuMaximoCents)}</strong>
-          </span>
-        </div>
-        <p style={{ ...S.estado, color: corLinha }}>
-          {linha.tom === 'urgente' && it.grupo !== 'liderando' && it.grupo !== 'superado' ? (
-            <IconWarning size={12} />
-          ) : (
-            <IconClock size={12} />
+        <div className="ml-info">
+          {seloDoItem(it, linha.tom)}
+          <Link href={urlLote(l.slug)} className="ml-nome">{nome}</Link>
+          {aberto && linha.tom !== 'apagado' && (
+            <span className={`ml-tempo${linha.tom === 'urgente' ? ' ml-tempo-u' : ''}`}><IconClock size={13} />{linha.texto.replace('Termina em ', '')}</span>
           )}
-          {linha.texto}
-        </p>
+        </div>
       </div>
-      <div className="ml-acoes">
-        <Acao it={it} />
-      </div>
-    </div>
+      <Resumos>
+        <Resumo rotulo={aberto ? 'Lance atual' : 'Valor final'} valor={formatarBRL(preco)} />
+        <Resumo rotulo="Seu máximo" valor={formatarBRL(it.seuMaximoCents)} />
+      </Resumos>
+      <Acao it={it} />
+    </article>
   )
 }
 
-const S: Record<string, CSSProperties> = {
-  pagina: { maxWidth: 760, margin: '0 auto', paddingBottom: 32 },
-  cabeca: { margin: '8px 0 20px' },
-  titulo: { fontSize: 24, fontWeight: 800, color: 'var(--bx-text)', margin: 0 },
-  sub: { fontSize: 14, color: 'var(--bx-text-2)', margin: '6px 0 0', lineHeight: 1.5 },
-  aviso: { fontSize: 14, color: 'var(--bx-text-3)' },
-  secao: { marginBottom: 24 },
-  secaoTitulo: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    fontSize: 15, fontWeight: 800, color: 'var(--bx-text)', margin: '0 0 10px',
-    // Cabecalho fixo da casca tem 56px: a ancora nao pode parar debaixo dele.
-    scrollMarginTop: 72,
-  },
-  contagem: {
-    fontSize: 12, fontWeight: 700, color: 'var(--bx-text-3)', fontVariantNumeric: 'tabular-nums',
-    padding: '2px 8px', borderRadius: 999, background: 'var(--bx-surface-2)',
-  },
-  lista: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 },
-  cartao: {
-    padding: 12, borderRadius: 14,
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)',
-    background: 'var(--bx-surface)',
-  },
-  thumb: {
-    width: 56, height: 78, borderRadius: 8, overflow: 'hidden', background: 'var(--bx-surface-2)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  thumbImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  nome: {
-    display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--bx-text)', textDecoration: 'none',
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-  },
-  valores: { display: 'flex', flexWrap: 'wrap', columnGap: 14, rowGap: 2, marginTop: 4, fontSize: 13 },
-  rotulo: { color: 'var(--bx-text-3)' },
-  valor: { color: 'var(--bx-text)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
-  estado: {
-    display: 'flex', alignItems: 'center', gap: 5, margin: '6px 0 0',
-    fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-  },
-  cta: {
-    minHeight: 44, width: '100%', padding: '0 16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 800,
-    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', textDecoration: 'none', whiteSpace: 'nowrap',
-  },
-  ghost: {
-    minHeight: 44, width: '100%', padding: '0 16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 10, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)',
-    background: 'var(--bx-surface)', color: 'var(--bx-text)', cursor: 'pointer', fontFamily: 'inherit',
-    fontSize: 14, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
-  },
-  vazio: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 8,
-    padding: '32px 16px', borderRadius: 14,
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)', background: 'var(--bx-surface)',
-  },
-  vazioTitulo: { fontSize: 16, fontWeight: 800, color: 'var(--bx-text)', margin: '4px 0 0' },
-  vazioTexto: { fontSize: 14, color: 'var(--bx-text-2)', margin: '0 0 8px', maxWidth: 360, lineHeight: 1.5 },
-}

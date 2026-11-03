@@ -56,9 +56,7 @@ export default async function PagarLotePage({ params, searchParams }: Props) {
 
   return (
       <div className="bx-ctx-comprador" style={{ maxWidth: 560, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--bx-text)', margin: '0 0 12px', letterSpacing: '-0.01em' }}>
-          Pagar lote arrematado
-        </h1>
+        <h1 className="lk-rotulo" style={{ marginBottom: 8 }}>Pagar lote arrematado</h1>
         <PagarLote
           loteId={l.id}
           urlLote={urlDoLote}
