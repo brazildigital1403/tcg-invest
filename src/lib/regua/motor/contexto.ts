@@ -20,6 +20,13 @@ export type Contexto = {
   prazoMs: number
   /** Ignora o calendario (so na simulacao): conta quem receberia se fosse o dia. */
   forcar: boolean
+  /**
+   * Contagem seca e simulacao de editorial: as regras (teto, dedup, winback)
+   * olham so o que SAIU de verdade, como o envio real faz. Sem isto, com a
+   * chave desligada no ambiente local, as linhas `simulado` de 08/10 contavam
+   * como "ja recebeu" e a simulacao dizia 47 onde o envio real mandou 65.
+   */
+  regrasComoReal: boolean
   usuarios: Map<string, Usuario>
   envios: Map<string, EnvioLog[]>
   catalogo: Map<string, CartaCatalogo>
@@ -35,7 +42,7 @@ export type Contexto = {
  * `forcar` (ignorar o calendario) so vale na simulacao ou numa contagem
  * `seca` (que nunca envia nem grava). Com a chave ligada, o cron respeita as datas.
  */
-export async function criarContexto(opts: { forcar?: boolean; seco?: boolean; prazoMs?: number; inicioMs?: number; so?: string[] } = {}): Promise<Contexto> {
+export async function criarContexto(opts: { forcar?: boolean; seco?: boolean; regrasComoReal?: boolean; prazoMs?: number; inicioMs?: number; so?: string[] } = {}): Promise<Contexto> {
   const c = db()
   const inicio = opts.inicioMs ?? Date.now()
   const modo = modoAtual()
@@ -48,6 +55,7 @@ export async function criarContexto(opts: { forcar?: boolean; seco?: boolean; pr
     prazoMs: opts.prazoMs ?? inicio + ORCAMENTO_MS,
     // Forcar o calendario e ferramenta de SIMULACAO: com a chave ligada, nunca.
     forcar: opts.forcar === true && (modo === 'simulacao' || opts.seco === true),
+    regrasComoReal: opts.regrasComoReal === true,
     usuarios, envios, catalogo: new Map(), historico: new Historico(hoje), _lojas: new Map(),
   }
 }

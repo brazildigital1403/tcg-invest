@@ -519,7 +519,7 @@ export async function dispararEditorial(args: {
   const erro = def.validar(args.edicao)
   if (erro) throw new ErroDisparo(erro)
 
-  const ctx = args.ctx ?? await criarContexto()
+  const ctx = args.ctx ?? await criarContexto({ regrasComoReal: args.acao === 'simular' })
   const bloqueio = BLOQUEIO_ENVIO[args.template] ?? null
   if (args.acao === 'enviar') {
     if (ctx.modo !== 'real') throw new ErroDisparo('A régua está desligada (REGUA_ATIVA diferente de 1): só simulação.')

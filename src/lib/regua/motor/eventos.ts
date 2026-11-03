@@ -1133,7 +1133,7 @@ export async function rodarEventos(ctx: Contexto, so?: string[]): Promise<Resumo
 export async function contarEvento(id: string, forcar = true) {
   const item = ORDEM_EVENTOS.find((x) => x.id === id)
   if (!item) return null
-  const ctx = await criarContexto({ forcar, seco: true })
+  const ctx = await criarContexto({ forcar, seco: true, regrasComoReal: true })
   const a = await item.avaliar(ctx)
   const amostra: { email: string; assunto: string }[] = []
   for (const c of a.cands.slice(0, 3)) {
