@@ -1,7 +1,6 @@
 import { IconPlus } from '@/components/ui/Icons'
 import { PRAZO_PAGAMENTO_ARREMATE_HORAS, rotuloTaxaProtecao } from '@/lib/leilao-vitrine'
 import { calcularArremate } from '@/lib/leilao-taxas'
-import { DURACOES_LOTE } from '@/lib/leilao-painel'
 import { formatarBRL } from '@/lib/leilao'
 
 const H = PRAZO_PAGAMENTO_ARREMATE_HORAS
@@ -18,7 +17,7 @@ const H = PRAZO_PAGAMENTO_ARREMATE_HORAS
  * Textos revistos no estudo de 03/11 contra /termos, secao 5.4.
  */
 const PASSOS = [
-  { titulo: 'Escolha a carta', texto: `A loja abre uma carta por vez, por ${DURACOES_LOTE[0]} a ${DURACOES_LOTE[DURACOES_LOTE.length - 1]} segundos. Dar lance é grátis e não pede cartão.` },
+  { titulo: 'Escolha a carta', texto: 'A loja publica a carta e o leilão fica aberto de 1 a 7 dias. Dar lance não pede cartão.' },
   { titulo: 'Dê seu lance', texto: 'Informe até quanto aceita pagar: a Bynx cobre os outros lances por você, só até esse limite. Se vencer, você se compromete a pagar.' },
   { titulo: `Pague em ${H} horas`, texto: 'No cartão, com taxa de proteção, custo do cartão e frete mostrados antes. Só paga quem vence.' },
 ] as const
@@ -49,8 +48,8 @@ const exemplo10 = calcularArremate(1_000)
 
 const PERGUNTAS: ReadonlyArray<{ q: string; r: string }> = [
   {
-    q: 'O que é leilão ao vivo?',
-    r: 'A loja coloca cartas em disputa, uma por vez, no horário marcado. Ela pode transmitir em vídeo, mas o lance é dado na Bynx. Vale o relógio da tela, não o vídeo.',
+    q: 'Como funciona o leilão?',
+    r: 'A loja publica a carta com um prazo de 1 a 7 dias. Você acompanha os lances e pode cobrir até o fim. Lance nos últimos 2 minutos estende o fim em 2 minutos. Quem tiver o maior lance leva. A loja também pode fazer uma rodada ao vivo, com lotes curtos.',
   },
   {
     q: 'Dar lance custa alguma coisa?',
@@ -86,7 +85,7 @@ const PERGUNTAS: ReadonlyArray<{ q: string; r: string }> = [
   },
   {
     q: 'Como minha loja faz um leilão?',
-    r: 'Pelo painel da loja na Bynx: em Leilões, você monta a rodada com os lotes e agenda o horário. A loja precisa estar com os recebimentos ativos e o endereço para devoluções cadastrado.',
+    r: 'Pelo painel da loja na Bynx: em Leilões, você publica a carta e escolhe 1, 3, 5 ou 7 dias. A loja precisa estar com os recebimentos ativos e o endereço para devoluções cadastrado.',
   },
 ]
 

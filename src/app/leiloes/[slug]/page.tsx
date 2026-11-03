@@ -10,6 +10,7 @@ import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { IconChevronRight } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import VendidoPor from '@/components/ui/VendidoPor'
+import LancesRecentes from '@/components/leilao/LancesRecentes'
 import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 import { codigoDoSlug, dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
 import { tituloRodada } from '@/lib/leilao-rodada'
@@ -228,6 +229,8 @@ export default async function LotePage({ params }: Params) {
               referenciaMercadoCents={referenciaMercadoCents}
               urlLote={url}
             />
+
+            {l.duracaoSeg > 3600 && <LancesRecentes loteId={l.id} aberto={l.status === 'ativo'} />}
 
             {loja && (
               <Link href={`/lojas/${loja.slug}`} prefetch={false} className="lt-ghost" style={S.loja}>

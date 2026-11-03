@@ -12,7 +12,6 @@ import AnelVitrine from './AnelVitrine'
 import BotaoAgenda from './BotaoAgenda'
 import ComecaEm from './ComecaEm'
 import LogoLoja from './LogoLoja'
-import { DURACOES_LOTE } from '@/lib/leilao-painel'
 import BotaoAvisoLeilao from './BotaoAvisoLeilao'
 
 function nomeDaLoja(loja: LojaDoLote | null): string | null {
@@ -199,10 +198,9 @@ export function PalcoProxima({
 export function HeroSemRodada() {
   return (
     <section className="vt-heroi" aria-labelledby="vt-heroi-t">
-      <h2 id="vt-heroi-t">Nenhum leilão ao vivo agora</h2>
+      <h2 id="vt-heroi-t">Nenhum leilão aberto agora</h2>
       <p>
-        A loja coloca uma carta por vez em disputa, por {DURACOES_LOTE[0]} a {DURACOES_LOTE[DURACOES_LOTE.length - 1]} segundos,
-        e o maior lance leva. Quando houver agenda, o horário aparece aqui.
+        A loja publica a carta, o leilão fica aberto de 1 a 7 dias e o maior lance leva. Assim que abrir o próximo, ele aparece aqui.
       </p>
       <div className="vt-acoes">
         <BotaoAvisoLeilao />

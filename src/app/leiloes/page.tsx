@@ -59,20 +59,20 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 20
 
 export const metadata: Metadata = {
-  title: 'Leilão de cartas Pokémon ao vivo, com lance em reais',
+  title: 'Leilão de cartas Pokémon, com lance em reais',
   description:
-    'Lotes de cartas Pokémon em leilão ao vivo, com lance em reais e Proteção Bynx na compra.',
+    'Lotes de cartas Pokémon em leilão, com lance em reais e Proteção Bynx na compra.',
   alternates: { canonical: urlHome() },
   // Sem isto o link herdava o preview da home, que fala da coleção.
   openGraph: {
-    title: 'Leilão de cartas Pokémon ao vivo, com lance em reais',
-    description: 'Rodadas ao vivo das lojas, com lance em reais. Quem vence paga pela Bynx, no cartão.',
+    title: 'Leilão de cartas Pokémon, com lance em reais',
+    description: 'Lojas colocam cartas em leilão, com lance em reais. Quem vence paga pela Bynx, no cartão.',
     url: `https://bynx.gg${urlHome()}`,
     type: 'website',
   },
   twitter: {
-    title: 'Leilão de cartas Pokémon ao vivo, com lance em reais',
-    description: 'Rodadas ao vivo das lojas, com lance em reais. Quem vence paga pela Bynx, no cartão.',
+    title: 'Leilão de cartas Pokémon, com lance em reais',
+    description: 'Lojas colocam cartas em leilão, com lance em reais. Quem vence paga pela Bynx, no cartão.',
   },
 }
 
@@ -102,8 +102,8 @@ export default async function LeiloesPage({
       <LeilaoAbas ativa={aba} />
       <div className="vt">
         <header className="vt-hero">
-          <h1>Leilão de cartas Pokémon ao vivo</h1>
-          <p>Lojas disputam cartas ao vivo, com lance em reais. Só paga quem vence.</p>
+          <h1>Leilão de cartas Pokémon</h1>
+          <p>Dê seu lance em reais até o fim do prazo. Só paga quem vence.</p>
         </header>
         {conteudo}
       </div>
@@ -172,8 +172,8 @@ async function abaAoVivo() {
       />
     )
   } else {
-    palco = <HeroSemRodada />
-    semNada = true
+    semNada = lotes.length === 0
+    palco = semNada ? <HeroSemRodada /> : null
   }
 
   return (
@@ -195,7 +195,7 @@ async function abaAoVivo() {
 
       {lotes.length > 0 && (
         <section className="vt-sec" aria-labelledby="vt-terminando-t">
-          <div className="vt-sec-t"><h2 id="vt-terminando-t">Terminando</h2></div>
+          <div className="vt-sec-t"><h2 id="vt-terminando-t">Leilões abertos</h2></div>
           <div className="vt-grade vt-grade-auto">
             {lotes.map(l => (
               <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="vt-lote">

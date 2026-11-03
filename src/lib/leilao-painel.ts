@@ -25,6 +25,10 @@ export type IdiomaLote = (typeof IDIOMAS_LOTE)[number]
 export const DURACOES_LOTE = [30, 45, 60, 90] as const
 export type DuracaoLote = (typeof DURACOES_LOTE)[number]
 
+/** Leilao com prazo: dias que a loja pode escolher (a SQL confere os mesmos). */
+export const DIAS_LOTE = [1, 3, 5, 7] as const
+export type DiasLote = (typeof DIAS_LOTE)[number]
+
 /** Antecedencia minima para agendar (espelho do p_antecedencia_min do SQL). */
 export const ANTECEDENCIA_MIN_AGENDAR = 10
 
@@ -248,6 +252,8 @@ export function validarLote(
   opts: {
     fotosDaLoja: { origemSupabase: string; lojaId: string } | null
     graduadorasValidas: readonly string[]
+    /** Leilao com prazo: quem define a duracao sao os dias, nao os segundos da rodada. */
+    prazo?: boolean
   }
 ): Resultado<LoteInput> {
   const cardId = texto(b.card_id)
@@ -294,7 +300,7 @@ export function validarLote(
   }
 
   const duracao = Number(b.duracao_seg) as DuracaoLote
-  if (!DURACOES_LOTE.includes(duracao)) return { ok: false, erro: 'Escolha a duração do lote: 30, 45, 60 ou 90 segundos.' }
+  if (!opts.prazo && !DURACOES_LOTE.includes(duracao)) return { ok: false, erro: 'Escolha a duração do lote: 30, 45, 60 ou 90 segundos.' }
 
   return {
     ok: true,

@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { IconCalendar, IconChevronRight, IconClock, IconPlus } from '@/components/ui/Icons'
-import { horarioBrasilia } from '@/lib/leilao'
+import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
+import NovoLote from './[rodadaId]/NovoLote'
 import { STATUS_RODADA, chamarPainel, type RodadaResumo } from './_rodada'
 
 /**
@@ -21,6 +22,14 @@ const GRUPOS: Array<{ status: string; titulo: string }> = [
   { status: 'cancelada', titulo: 'Canceladas' },
 ]
 
+interface LotePrazo {
+  id: string; slug: string; card_name: string; status: string; n_lances: number
+  preco_atual_cents: number | null; lance_inicial_cents: number; termina_em: string | null
+}
+const STATUS_LOTE: Record<string, string> = {
+  aguardando_pagamento: 'aguardando pagamento', vendido: 'vendido', sem_lances: 'encerrado sem lances', cancelado: 'cancelado', calote: 'não pago',
+}
+
 export default function ListaRodadas({ lojaId }: { lojaId: string }) {
   const router = useRouter()
   const { estado, loja } = useLojaOwner(lojaId)
@@ -28,12 +37,22 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
   const [carregando, setCarregando] = useState(true)
   const [criando, setCriando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [lotes, setLotes] = useState<LotePrazo[]>([])
+  const [novoLeilao, setNovoLeilao] = useState(false)
+  const [enderecoOk, setEnderecoOk] = useState(true)
+  const [recebimento, setRecebimento] = useState<{ podeReceber: boolean; motivo: string | null } | null>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
     try {
-      const j = await chamarPainel<{ rodadas: RodadaResumo[] }>(`/api/lojas/${lojaId}/leiloes`)
+      const [j, p] = await Promise.all([
+        chamarPainel<{ rodadas: RodadaResumo[] }>(`/api/lojas/${lojaId}/leiloes`),
+        chamarPainel<{ lotes: LotePrazo[]; enderecoOk: boolean; recebimento: { podeReceber: boolean; motivo: string | null } }>(`/api/lojas/${lojaId}/leiloes/lotes`),
+      ])
       setRodadas(j.rodadas || [])
+      setLotes(p.lotes || [])
+      setEnderecoOk(p.enderecoOk)
+      setRecebimento(p.recebimento)
       setErro(null)
     } catch (e) {
       setErro((e as Error).message)
@@ -43,6 +62,16 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
   }, [lojaId])
 
   useEffect(() => { if (estado === 'pronto') carregar() }, [estado, carregar])
+
+  async function cancelarLote(id: string) {
+    setErro(null)
+    try {
+      await chamarPainel(`/api/lojas/${lojaId}/leiloes/lotes?lote_id=${id}`, { method: 'DELETE' })
+      await carregar()
+    } catch (e) {
+      setErro((e as Error).message)
+    }
+  }
 
   async function novaRodada() {
     setCriando(true)
@@ -61,6 +90,10 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
 
   if (estado !== 'pronto' || !loja) return <LojaEstadoFallback estado={estado} />
 
+  const pendencia = recebimento && !recebimento.podeReceber
+    ? recebimento.motivo
+    : !enderecoOk ? 'Falta o endereço para devoluções. Ele não aparece na sua página.' : null
+
   const base = `/minha-loja/${lojaId}/leiloes`
   const botaoNova = (
     <button onClick={novaRodada} disabled={criando} style={{ ...S.btnPrim, opacity: criando ? 0.6 : 1 }}>
@@ -75,13 +108,57 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
         <div style={{ minWidth: 0 }}>
           <h1 style={SH.title}>Leilões</h1>
           <p style={SH.subtitle}>
-            Monte uma rodada ao vivo: você transmite, o público dá lance na Bynx e cada lote dura de 30 a 90 segundos.
+            Publique uma carta e escolha 1, 3, 5 ou 7 dias. O público dá lance na Bynx até o fim do prazo.
           </p>
         </div>
-        {rodadas.length > 0 && <div style={S.headAcao}>{botaoNova}</div>}
+        {!novoLeilao && (
+          <div style={S.headAcao}>
+            <button onClick={() => setNovoLeilao(true)} disabled={!!pendencia} style={{ ...S.btnPrim, opacity: pendencia ? 0.6 : 1 }}>
+              <IconPlus size={16} /> Novo leilão
+            </button>
+          </div>
+        )}
       </header>
 
       {erro && <div style={S.erro} role="alert">{erro}</div>}
+      {pendencia && (
+        <div style={S.erro} role="status">
+          {pendencia}{' '}
+          {!enderecoOk && recebimento?.podeReceber && (
+            <Link href={`/minha-loja/${lojaId}/vitrine`} style={{ color: 'inherit', fontWeight: 700 }}>Cadastrar endereço</Link>
+          )}
+        </div>
+      )}
+
+      {novoLeilao && (
+        <NovoLote lojaId={lojaId} onCancelar={() => setNovoLeilao(false)} onCriado={() => { setNovoLeilao(false); carregar() }} />
+      )}
+
+      {lotes.length > 0 && (
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <h2 style={SH.cardH3}>Seus leilões · {lotes.length}</h2>
+          {lotes.map(l => {
+            const aberto = l.status === 'ativo'
+            const preco = l.preco_atual_cents ?? l.lance_inicial_cents
+            return (
+              <div key={l.id} style={S.item}>
+                <Link href={`/leiloes/${l.slug}`} prefetch={false} style={{ flex: 1, minWidth: 0, color: 'inherit', textDecoration: 'none' }}>
+                  <b>{l.card_name}</b>
+                  <div style={{ fontSize: 12.5, color: 'var(--bx-text-2)' }}>
+                    {formatarBRL(preco)} · {l.n_lances === 1 ? '1 lance' : `${l.n_lances} lances`} · {aberto && l.termina_em ? `termina em ${horarioBrasilia(l.termina_em)}` : (STATUS_LOTE[l.status] ?? l.status)}
+                  </div>
+                </Link>
+                {aberto && l.n_lances === 0 && (
+                  <button onClick={() => cancelarLote(l.id)} style={{ flex: 'none', minHeight: 44, padding: '0 12px', borderRadius: 10, border: '1px solid var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+                )}
+              </div>
+            )
+          })}
+        </section>
+      )}
+
+      <h2 style={{ ...SH.cardH3, marginTop: 8 }}>Rodada ao vivo (opcional)</h2>
+      {rodadas.length > 0 && <div>{botaoNova}</div>}
 
       {carregando ? (
         <div style={{ ...SH.card, textAlign: 'center', color: 'var(--bx-text-3)' }}>Carregando…</div>

@@ -297,7 +297,10 @@ export default function LanceAoVivo({
   const fimMs = lote.terminaEm ? Date.parse(lote.terminaEm) : NaN
   const restanteMs = Number.isFinite(fimMs) ? fimMs - agora : Infinity
   const intervalo =
-    conferindo || (aberto && restanteMs <= JANELA_FINAL_MS) ? INTERVALO_FINAL_MS : INTERVALO_NORMAL_MS
+    conferindo || (aberto && restanteMs <= JANELA_FINAL_MS) ? INTERVALO_FINAL_MS
+    // Faltando mais de 5 min nao ha pressa: lote de dias nao pode custar request a cada instante.
+    : lote.duracaoSeg > 3600 && restanteMs > 300_000 ? 30_000
+    : INTERVALO_NORMAL_MS
 
   // Versao que entrou por fora tambem conta para descartar leitura atrasada.
   useEffect(() => {
@@ -622,6 +625,7 @@ export default function LanceAoVivo({
   const fracaoAnel =
     aberto && Number.isFinite(restanteMs) && totalMs > 0 ? Math.min(1, Math.max(0, restanteMs / totalMs)) : 0
   const anelUrgente = conferindo || (aberto && restanteMs <= ANEL_URGENTE_MS)
+  const longo = lote.duracaoSeg > 3600
   const horaAbsoluta =
     st === 'em_breve' && lote.iniciaEm
       ? `Começa em ${horarioBrasilia(lote.iniciaEm)}`
@@ -793,7 +797,12 @@ export default function LanceAoVivo({
           </span>
           {horaAbsoluta && <span style={S.horaAbs}>{horaAbsoluta}</span>}
         </div>
-        {relogio ? (
+        {relogio && longo && aberto ? (
+          <span style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <span style={S.precoRotulo}>Termina em</span>
+            <span style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: restanteMs < 3_600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</span>
+          </span>
+        ) : relogio ? (
           <Anel
             fracao={st === 'em_breve' ? 0 : fracaoAnel}
             texto={relogioAnel}
