@@ -59,8 +59,24 @@ function cardDaLinha(row: Linha): CardItemData {
   }
 }
 
+/** "Outra carta igual": tudo preenchido, menos as fotos, que sao do exemplar. */
+export interface LoteInicial {
+  card_id: string
+  card_name: string
+  card_numero?: string | null
+  set_nome?: string | null
+  card_image?: string | null
+  condicao?: string | null
+  idioma?: string | null
+  graduadora?: string | null
+  nota?: string | number | null
+  descricao?: string | null
+  lance_inicial_cents: number
+  dias?: number
+}
+
 export default function NovoLote({
-  lojaId, rodadaId, onCriado, onCancelar, onEnviando,
+  lojaId, rodadaId, onCriado, onCancelar, onEnviando, inicial,
 }: {
   lojaId: string
   /** Sem rodada: leilao com prazo, publicado direto. */
@@ -69,22 +85,25 @@ export default function NovoLote({
   onCancelar: () => void
   /** true enquanto o POST do lote esta no ar: o editor trava o Agendar. */
   onEnviando?: (enviando: boolean) => void
+  inicial?: LoteInicial | null
 }) {
   const [aba, setAba] = useState<'catalogo' | 'colecao'>('catalogo')
-  const [escolhida, setEscolhida] = useState<Escolhida | null>(null)
+  const [escolhida, setEscolhida] = useState<Escolhida | null>(inicial
+    ? { row: { id: inicial.card_id, name: inicial.card_name, number: inicial.card_numero?.split('/')[0], set_name: inicial.set_nome, image_small: inicial.card_image }, variante: null }
+    : null)
 
   // detalhes
   const [frente, setFrente] = useState<string | null>(null)
   const [verso, setVerso] = useState<string | null>(null)
   const [subindo, setSubindo] = useState<'frente' | 'verso' | null>(null)
-  const [condicao, setCondicao] = useState<CondicaoLote | null>(null)
-  const [idioma, setIdioma] = useState<IdiomaLote>('pt')
-  const [graduadora, setGraduadora] = useState('')
-  const [nota, setNota] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [lanceTxt, setLanceTxt] = useState('')
+  const [condicao, setCondicao] = useState<CondicaoLote | null>((inicial?.condicao as CondicaoLote) || null)
+  const [idioma, setIdioma] = useState<IdiomaLote>((inicial?.idioma as IdiomaLote) || 'pt')
+  const [graduadora, setGraduadora] = useState(inicial?.graduadora || '')
+  const [nota, setNota] = useState(inicial?.nota != null ? String(inicial.nota) : '')
+  const [descricao, setDescricao] = useState(inicial?.descricao || '')
+  const [lanceTxt, setLanceTxt] = useState(inicial ? (inicial.lance_inicial_cents / 100).toFixed(2).replace('.', ',') : '')
   const [duracao, setDuracao] = useState<DuracaoLote>(45)
-  const [dias, setDias] = useState<DiasLote>(3)
+  const [dias, setDias] = useState<DiasLote>(((DIAS_LOTE as readonly number[]).includes(inicial?.dias ?? 0) ? inicial!.dias : 3) as DiasLote)
   const prazo = !rodadaId
   const lanceCents = reaisParaCents(lanceTxt) || 0
   const [salvando, setSalvando] = useState(false)

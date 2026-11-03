@@ -1,4 +1,4 @@
-import { LEILAO_ATIVO } from '@/lib/leilao-flag'
+import { LEILAO_ATIVO, LEILAO_PRAZO_ATIVO } from '@/lib/leilao-flag'
 import LeilaoHome from '@/components/leilao/home/LeilaoHome'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -304,7 +304,7 @@ export default async function HomePage() {
             <div className="wrap hm-lei-in">
               <div className="reveal hm-lei-txt">
                 <h2 className="sec-title">A próxima carta do seu fichário pode estar em leilão</h2>
-                <p className="sec-sub">Lojas colocam cartas Pokémon em leilão por 1, 3, 5 ou 7 dias. Os lances ficam visíveis até o fim, e o maior leva. Você paga pela Bynx, no cartão.</p>
+                <p className="sec-sub">Lojas colocam cartas Pokémon em leilão{LEILAO_PRAZO_ATIVO ? ' por 1, 3, 5 ou 7 dias' : ''}. Os lances ficam visíveis até o fim, e o maior leva. Você paga pela Bynx, no cartão.</p>
                 <Link href="/leiloes" prefetch={false} className="hm-lei-link">Ver os leilões de cartas Pokémon <IcArrow /></Link>
               </div>
               <LeilaoHome />

@@ -3,6 +3,7 @@ import { GRADUADORAS } from '@/lib/graduadoras'
 import { slugBaseLote } from '@/lib/leilao'
 import { DIAS_LOTE, validarLote, erroDoPainel } from '@/lib/leilao-painel'
 import { separarEndereco } from '@/lib/etiquetaReversa'
+import { avisarInteressadosDoLote } from '@/lib/leilaoAvisoInteresse'
 import { contextoPainel, json, origemSupabase, recebimentoDaLoja, UUID_RE, COLUNAS_LOTE_PAINEL } from '../_comum'
 
 /**
@@ -67,6 +68,19 @@ export async function POST(req: NextRequest, ctx: Params) {
     if (!v.ok) return json(400, { error: v.erro })
     const l = v.valor
 
+    // Duplo clique em "Publicar de novo" nao pode abrir dois lotes da mesma carta
+    // fisica: a foto e do exemplar, e so pode estar em um lote vivo da loja.
+    const { data: vivos, error: eVivos } = await c.sb.from('leiloes').select('fotos')
+      .eq('loja_id', lojaId).in('status', ['agendado', 'ativo', 'aguardando_pagamento', 'vendido']).limit(500)
+    if (eVivos) {
+      console.error('[lojas/leiloes/lotes-prazo POST] vivos', eVivos.code, eVivos.message)
+      return json(500, { error: 'Erro ao publicar o leilão.' })
+    }
+    const fotosEmUso = new Set((vivos ?? []).flatMap(r => (Array.isArray(r.fotos) ? (r.fotos as string[]) : [])))
+    if (l.fotos.some(f => fotosEmUso.has(f))) {
+      return json(409, { error: 'Esta foto já está em outro leilão seu. Cada lote precisa das fotos da própria carta.' })
+    }
+
     const { data: cartas, error: eCarta } = await c.sb
       .from('pokemon_cards')
       .select('id, slug, name, number, set_name, set_total, image_small, image_large')
@@ -104,6 +118,13 @@ export async function POST(req: NextRequest, ctx: Params) {
       const e = erroDoPainel(eRpc.message)
       if (e.status === 500) console.error('[lojas/leiloes/lotes-prazo POST] rpc', eRpc.code, eRpc.message)
       return json(e.status, { error: e.status === 500 ? 'Erro ao publicar o leilão.' : e.mensagem })
+    }
+    const { data: criado } = await c.sb.from('leiloes').select('codigo, slug, termina_em').eq('id', novoId as string).maybeSingle()
+    if (criado) {
+      await avisarInteressadosDoLote(c.sb, {
+        codigo: criado.codigo as string, slug: criado.slug as string, cartaNome: nome,
+        terminaEm: criado.termina_em as string | null, lojaNome: c.loja.nome as string,
+      })
     }
     return json(200, { ok: true, id: novoId })
   } catch (err) {

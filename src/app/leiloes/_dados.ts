@@ -42,17 +42,20 @@ export async function listarLotesVitrine(ordem: OrdemVitrine): Promise<LotePubli
   const db = getServiceSupabase()
   if (!db) throw new Error('[leiloes] service role ausente')
 
+  // Lote vencido que o tick ainda nao fechou nao e mais oferta: dar_lance ja o
+  // recusa, entao nao aparece como aberto.
+  const agora = new Date().toISOString()
   let q = db.from('leiloes_publico').select('*')
   if (ordem === 'sem_lance') {
-    q = q.eq('status', 'ativo').eq('n_lances', 0).order('termina_em', { ascending: true, nullsFirst: false })
+    q = q.eq('status', 'ativo').eq('n_lances', 0).gt('termina_em', agora).order('termina_em', { ascending: true, nullsFirst: false })
   } else if (ordem === 'novos') {
-    q = q.in('status', ['agendado', 'ativo']).order('inicia_em', { ascending: false, nullsFirst: false })
+    q = q.in('status', ['agendado', 'ativo']).or(`termina_em.is.null,termina_em.gt.${agora}`).order('inicia_em', { ascending: false, nullsFirst: false })
   } else {
     // Terminando: so lote ABERTO (status 'ativo') e com prazo. Lote 'agendado'
     // de rodada ainda esta na fila, nao termina em nada; entrava aqui antes.
     q = q
       .eq('status', 'ativo')
-      .not('termina_em', 'is', null)
+      .gt('termina_em', agora)
       .order('termina_em', { ascending: true })
   }
 

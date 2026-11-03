@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { IconCalendar, IconChevronRight, IconClock, IconPlus } from '@/components/ui/Icons'
 import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
-import NovoLote from './[rodadaId]/NovoLote'
+import NovoLote, { type LoteInicial } from './[rodadaId]/NovoLote'
 import { STATUS_RODADA, chamarPainel, type RodadaResumo } from './_rodada'
 
 /**
@@ -25,7 +25,11 @@ const GRUPOS: Array<{ status: string; titulo: string }> = [
 interface LotePrazo {
   id: string; slug: string; card_name: string; status: string; n_lances: number
   preco_atual_cents: number | null; lance_inicial_cents: number; termina_em: string | null
+  card_id: string | null; card_numero: string | null; set_nome: string | null; card_image: string | null
+  fotos: string[]; condicao: string | null; idioma: string | null; graduadora: string | null
+  nota: string | number | null; descricao: string | null; duracao_seg: number | null
 }
+const diasDoLote = (l: LotePrazo) => Math.round((l.duracao_seg ?? 0) / 86400) || 3
 const STATUS_LOTE: Record<string, string> = {
   aguardando_pagamento: 'aguardando pagamento', vendido: 'vendido', sem_lances: 'encerrado sem lances', cancelado: 'cancelado', calote: 'não pago',
 }
@@ -39,6 +43,8 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
   const [erro, setErro] = useState<string | null>(null)
   const [lotes, setLotes] = useState<LotePrazo[]>([])
   const [novoLeilao, setNovoLeilao] = useState(false)
+  const [inicial, setInicial] = useState<LoteInicial | null>(null)
+  const [republicando, setRepublicando] = useState<string | null>(null)
   const [enderecoOk, setEnderecoOk] = useState(true)
   const [recebimento, setRecebimento] = useState<{ podeReceber: boolean; motivo: string | null } | null>(null)
 
@@ -71,6 +77,35 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
     } catch (e) {
       setErro((e as Error).message)
     }
+  }
+
+  // Mesma carta fisica e mesmas fotos, que continuam sem lote vivo: o servidor
+  // recusa se a foto ja estiver em outro leilao, entao clique duplo nao duplica.
+  async function publicarDeNovo(l: LotePrazo) {
+    if (republicando) return
+    setRepublicando(l.id)
+    setErro(null)
+    try {
+      await chamarPainel(`/api/lojas/${lojaId}/leiloes/lotes`, {
+        method: 'POST',
+        body: JSON.stringify({
+          card_id: l.card_id, fotos: l.fotos, condicao: l.condicao, idioma: l.idioma, graduadora: l.graduadora,
+          nota: l.nota, descricao: l.descricao, lance_inicial_cents: l.lance_inicial_cents, dias: diasDoLote(l),
+        }),
+      })
+      await carregar()
+    } catch (e) {
+      setErro((e as Error).message)
+    } finally {
+      setRepublicando(null)
+    }
+  }
+
+  function outraIgual(l: LotePrazo) {
+    if (!l.card_id) return
+    setInicial({ ...l, card_id: l.card_id, dias: diasDoLote(l) })
+    setNovoLeilao(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function novaRodada() {
@@ -113,7 +148,7 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
         </div>
         {!novoLeilao && (
           <div style={S.headAcao}>
-            <button onClick={() => setNovoLeilao(true)} disabled={!!pendencia} style={{ ...S.btnPrim, opacity: pendencia ? 0.6 : 1 }}>
+            <button onClick={() => { setInicial(null); setNovoLeilao(true) }} disabled={!!pendencia} style={{ ...S.btnPrim, opacity: pendencia ? 0.6 : 1 }}>
               <IconPlus size={16} /> Novo leilão
             </button>
           </div>
@@ -131,7 +166,7 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
       )}
 
       {novoLeilao && (
-        <NovoLote lojaId={lojaId} onCancelar={() => setNovoLeilao(false)} onCriado={() => { setNovoLeilao(false); carregar() }} />
+        <NovoLote key={inicial?.card_id ?? 'novo'} lojaId={lojaId} inicial={inicial} onCancelar={() => setNovoLeilao(false)} onCriado={() => { setNovoLeilao(false); setInicial(null); carregar() }} />
       )}
 
       {lotes.length > 0 && (
@@ -141,15 +176,23 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
             const aberto = l.status === 'ativo'
             const preco = l.preco_atual_cents ?? l.lance_inicial_cents
             return (
-              <div key={l.id} style={S.item}>
-                <Link href={`/leiloes/${l.slug}`} prefetch={false} style={{ flex: 1, minWidth: 0, color: 'inherit', textDecoration: 'none' }}>
+              <div key={l.id} style={{ ...S.item, flexWrap: 'wrap' }}>
+                <Link href={`/leiloes/${l.slug}`} prefetch={false} style={{ flex: '1 1 180px', minWidth: 0, color: 'inherit', textDecoration: 'none' }}>
                   <b>{l.card_name}</b>
                   <div style={{ fontSize: 12.5, color: 'var(--bx-text-2)' }}>
                     {formatarBRL(preco)} · {l.n_lances === 1 ? '1 lance' : `${l.n_lances} lances`} · {aberto && l.termina_em ? `termina em ${horarioBrasilia(l.termina_em)}` : (STATUS_LOTE[l.status] ?? l.status)}
                   </div>
                 </Link>
                 {aberto && l.n_lances === 0 && (
-                  <button onClick={() => cancelarLote(l.id)} style={{ flex: 'none', minHeight: 44, padding: '0 12px', borderRadius: 10, border: '1px solid var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+                  <button onClick={() => cancelarLote(l.id)} style={S.btnLeve}>Cancelar</button>
+                )}
+                {!aberto && l.card_id && (l.status === 'sem_lances' || l.status === 'cancelado') && (
+                  <button onClick={() => publicarDeNovo(l)} disabled={!!pendencia || !!republicando} style={{ ...S.btnLeve, opacity: pendencia || republicando ? 0.6 : 1 }}>
+                    {republicando === l.id ? 'Publicando…' : 'Publicar de novo'}
+                  </button>
+                )}
+                {l.card_id && (
+                  <button onClick={() => outraIgual(l)} disabled={!!pendencia} style={{ ...S.btnLeve, opacity: pendencia ? 0.6 : 1 }}>Outra carta igual</button>
                 )}
               </div>
             )
@@ -220,6 +263,7 @@ const S: Record<string, CSSProperties> = {
     background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700,
     border: 0, cursor: 'pointer',
   },
+  btnLeve: { flex: 'none', minHeight: 44, padding: '0 12px', borderRadius: 10, border: '1px solid var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' },
   item: {
     display: 'flex', alignItems: 'center', gap: 10, minHeight: 64, boxSizing: 'border-box', padding: '12px 14px',
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', borderRadius: 12,

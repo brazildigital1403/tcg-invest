@@ -38,7 +38,7 @@ export async function GET() {
       const seis = comPrazo.slice(0, 6)
       const lojasDosLotes = await buscarLojasPorId(seis.map(l => l.lojaId ?? ''))
       const abertosHome = seis.map(l => ({ ...l, lojaNome: (l.lojaId && lojasDosLotes.get(l.lojaId)?.nome) || null }))
-      return NextResponse.json({ estado: 'abertos', serverNow, lotes: abertosHome, totalAbertos: comPrazo.length }, { headers: cacheCurto })
+      return NextResponse.json({ estado: 'abertos', serverNow, lotes: abertosHome, totalAbertos: comPrazo.length, totalNoLimite: abertos.length >= 48 }, { headers: cacheCurto })
     }
     const agendada = noAr.length ? null : (await listarRodadasAgendadas(1))[0] ?? null
     const rodada = noAr[0] ?? agendada

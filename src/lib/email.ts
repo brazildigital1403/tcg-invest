@@ -3727,6 +3727,21 @@ export function renderLeilaoMarcadoEmail(a: { to: string; nome: string | null; l
   return { to: a.to, subject: subjUser(`${a.lojaNome} marcou um leilão`), html }
 }
 
+/** Quem pediu "Quero ser avisado": uma loja abriu um leilao com prazo. */
+export function renderLeilaoAbertoEmail(a: { to: string; nome: string | null; lojaNome: string; cartaNome: string; quando: string; link: string }): EmailRenderizado {
+  const nome = primeiroNome(a.nome || '', 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Bynx Leilões', '#f59e0b', '')}
+    ${h1('O leilão que você pediu para acompanhar abriu')}
+    ${p(`${escapeHtml(nome)}, a ${forte(a.lojaNome)} colocou ${forte(a.cartaNome)} em leilão.`)}
+    ${blocoLeilao('Termina em (horário de Brasília)', escapeHtml(a.quando))}
+    ${p('Para dar lance, você precisa ter 18 anos ou mais, com CPF e CEP no cadastro. Só paga quem vence.')}
+    ${btn('Ver o leilão', `${APP_URL}${a.link}`)}
+    ${p('Este aviso vale uma vez. Para receber o próximo, é só pedir de novo na página de leilões.')}
+  `, `${a.lojaNome} abriu um leilão`)
+  return { to: a.to, subject: subjUser(`${a.lojaNome} abriu um leilão: ${a.cartaNome}`), html }
+}
+
 /** Comprador e loja: cancelamento por atraso no envio (DIAS_UTEIS_ENVIO dias uteis). */
 export function renderCancelamentoAtrasoEmail(a: ReclamacaoEmailBase & {
   papel: 'comprador' | 'loja'
