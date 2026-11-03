@@ -793,14 +793,14 @@ export default function LanceAoVivo({
           <span style={S.precoMeta}>
             {lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`}
             {lote.nParticipantes > 1 ? ` · ${lote.nParticipantes} participantes` : ''}
-            {lote.liderApelido && lote.nLances > 0 && st !== 'cancelado' ? ` · liderando: ${lote.liderApelido}` : ''}
+            {lote.liderApelido && lote.nLances > 0 && st !== 'cancelado' ? ` · ${aberto ? 'liderando' : 'vencedor'}: ${lote.liderApelido}` : ''}
           </span>
           {horaAbsoluta && <span style={S.horaAbs}>{horaAbsoluta}</span>}
         </div>
         {relogio && longo && aberto ? (
           <span style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
             <span style={S.precoRotulo}>Termina em</span>
-            <span style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: restanteMs < 3_600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</span>
+            <span style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</span>
           </span>
         ) : relogio ? (
           <Anel
