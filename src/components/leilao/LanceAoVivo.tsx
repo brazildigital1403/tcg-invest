@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
-import { IconChart, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
+import { IconChart, IconClock, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
+import { Preco, Rotulo, Selo } from '@/components/leilao/kit'
 import {
   formatarBRL,
   formatarTempoAnel,
@@ -818,6 +819,82 @@ export default function LanceAoVivo({
   const freteMinimo = freteNoPreco(frete, minimo)
   const prorrogacaoRodada = variante === 'rodada' && (aberto || conferindo) ? textoProrrogacao(lote.softCloseSeg, lote.prorrogacoes) : null
 
+  const dockEl = !(terminou && variante !== 'rodada' && !devePagar && !vendidoParaMim) && <div className="lv-cta-fixo">
+        {podeLance && (
+          <p className="lv-dock" style={S.dock}>
+            <span style={{ minWidth: 0 }}>
+              {estouGanhando
+                ? `Na frente${meuTeto ? ` · máximo ${formatarBRL(meuTeto)}` : ''}`
+                : fuiSuperado
+                  ? `Superado · lance atual ${formatarBRL(precoCents)}`
+                  : `${lote.nLances > 0 ? 'Lance atual' : 'Lance inicial'} ${formatarBRL(precoCents)}`}
+            </span>
+            <b style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</b>
+          </p>
+        )}
+        {cta}
+        {podeLance && !estouGanhando && (
+          <p style={S.dockTotal}>
+            Se vencer neste lance: {freteMinimo != null
+              ? `${formatarBRL(totalMinimo.compradorPagaCents + freteMinimo)} com taxas e frete`
+              : `${formatarBRL(totalMinimo.compradorPagaCents)} com taxas, mais frete`}
+          </p>
+        )}
+      </div>
+
+  const tempoLote = relogio && longo && aberto ? (
+    <Selo tom={restanteMs < 600_000 ? 'perigo' : 'acento'} tempo icone={<IconClock size={13} />}>{relogio}</Selo>
+  ) : relogio ? (
+    <Anel
+      fracao={st === 'em_breve' ? 0 : fracaoAnel}
+      texto={relogioAnel}
+      urgente={anelUrgente}
+      rotulo={st === 'em_breve' ? `Começa em ${relogio}` : conferindo ? 'Conferindo encerramento' : `Faltam ${relogio}`}
+    />
+  ) : (
+    <Selo tom={st === 'arrematado' ? 'frente' : 'neutro'} icone={st === 'arrematado' ? undefined : <></>}>{ROTULO_STATUS[st]}</Selo>
+  )
+  const metaLote = [
+    lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`,
+    aberto ? `próximo lance ${formatarBRL(minimo)}` : lote.liderApelido && lote.nLances > 0 && st !== 'cancelado' ? `vencedor: ${lote.liderApelido}` : '',
+  ].filter(Boolean).join(' · ')
+  const corpoLote = (
+    <div className="lk-card lk-card-d">
+      <div className="lk-card-t">
+        <Rotulo>{aberto ? 'Leilão aberto' : conferindo ? 'Encerrando' : 'Resultado'}</Rotulo>
+        {tempoLote}
+      </div>
+      <Preco
+        rotulo={lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : st === 'cancelado' ? 'Último lance' : 'Lance atual') : 'Lance inicial'}
+        valor={formatarBRL(precoCents)}
+        meta={metaLote}
+      />
+      {horaAbsoluta && <span style={S.horaAbs}>{horaAbsoluta}</span>}
+      {lote.prorrogacoes > 0 && aberto && (
+        <p style={S.nota}>
+          Prorrogado {lote.prorrogacoes === 1 ? '1 vez' : `${lote.prorrogacoes} vezes`}: lance no fim estende o prazo.
+        </p>
+      )}
+      {totalArremate && (
+        <p style={S.nota}>
+          {formatarBRL(precoCents)} + taxas: {formatarBRL(totalArremate.compradorPagaCents)}, mais frete, calculado no pagamento.
+        </p>
+      )}
+      {devePagar && (
+        <ol className="bx-ctx-comprador" style={S.etapas}>
+          <li style={S.etapa}><i style={{ ...S.etapaN, ...S.etapaAtual }}>1</i><b style={{ color: 'var(--bx-text)' }}>Pagar</b></li>
+          <li style={S.etapa}><i style={S.etapaN}>2</i>Loja envia em até {DIAS_UTEIS_ENVIO} dias úteis</li>
+          <li style={S.etapa}><i style={S.etapaN}>3</i>Você recebe</li>
+          <li style={S.etapa}><i style={S.etapaN}>4</i>{DIAS_RECLAMAR} dias para reclamar ou desistir</li>
+        </ol>
+      )}
+      {atrasado && aberto && (
+        <p role="status" style={S.instavel}><IconWarning size={14} />Conexão instável. O valor pode estar atrasado.</p>
+      )}
+      {dockEl}
+    </div>
+  )
+
   const faixaEstado = (
     <>
       {estouGanhando && (aberto || st === 'arrematado') && (
@@ -915,6 +992,9 @@ export default function LanceAoVivo({
       <p className="lv-sr" aria-live="polite" aria-atomic="true">{anuncio}</p>
 
       {variante !== 'rodada' && faixaEstado}
+      {variante !== 'rodada' && corpoLote}
+      {variante === 'rodada' && (
+        <>
       <div style={S.lanceLinha}>
         <div style={S.lanceCol}>
           <span style={S.precoRotulo}>
@@ -978,14 +1058,6 @@ export default function LanceAoVivo({
           {formatarBRL(precoCents)} + taxas: {formatarBRL(totalArremate.compradorPagaCents)}, mais frete, calculado no pagamento.
         </p>
       )}
-      {devePagar && variante !== 'rodada' && (
-        <ol className="bx-ctx-comprador" style={S.etapas}>
-          <li style={S.etapa}><i style={{ ...S.etapaN, ...S.etapaAtual }}>1</i><b style={{ color: 'var(--bx-text)' }}>Pagar</b></li>
-          <li style={S.etapa}><i style={S.etapaN}>2</i>Loja envia em até {DIAS_UTEIS_ENVIO} dias úteis</li>
-          <li style={S.etapa}><i style={S.etapaN}>3</i>Você recebe</li>
-          <li style={S.etapa}><i style={S.etapaN}>4</i>{DIAS_RECLAMAR} dias para reclamar ou desistir</li>
-        </ol>
-      )}
 
       {mostrarAtalhos && (
         <div className="lv-rapidos">
@@ -1007,33 +1079,14 @@ export default function LanceAoVivo({
       {atrasado && aberto && (
         <p role="status" style={S.instavel}><IconWarning size={14} />Conexão instável. O valor pode estar atrasado.</p>
       )}
-      {!(terminou && variante !== 'rodada' && !devePagar && !vendidoParaMim) && <div className="lv-cta-fixo">
-        {podeLance && (
-          <p className="lv-dock" style={S.dock}>
-            <span style={{ minWidth: 0 }}>
-              {estouGanhando
-                ? `Na frente${meuTeto ? ` · máximo ${formatarBRL(meuTeto)}` : ''}`
-                : fuiSuperado
-                  ? `Superado · lance atual ${formatarBRL(precoCents)}`
-                  : `${lote.nLances > 0 ? 'Lance atual' : 'Lance inicial'} ${formatarBRL(precoCents)}`}
-            </span>
-            <b style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</b>
-          </p>
-        )}
-        {cta}
-        {podeLance && !estouGanhando && (
-          <p style={S.dockTotal}>
-            Se vencer neste lance: {freteMinimo != null
-              ? `${formatarBRL(totalMinimo.compradorPagaCents + freteMinimo)} com taxas e frete`
-              : `${formatarBRL(totalMinimo.compradorPagaCents)} com taxas, mais frete`}
-          </p>
-        )}
-      </div>}
+      {dockEl}
+        </>
+      )}
       {prorrogacaoRodada && <p style={S.prorrogacao}>{prorrogacaoRodada}</p>}
 
       {terminou ? (
         variante !== 'rodada' && !devePagar && !vendidoParaMim && <OutrosLotes loteAtualId={lote.id} />
-      ) : (
+      ) : variante === 'rodada' && (
         <p style={S.protecao}>
           <IconShield size={14} />
           Só paga quem vence, no cartão, em até 48 horas.

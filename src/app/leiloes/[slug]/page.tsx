@@ -11,6 +11,8 @@ import { IconChevronDown, IconChevronRight } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import VendidoPor from '@/components/ui/VendidoPor'
 import LancesRecentes from '@/components/leilao/LancesRecentes'
+import { Resumo, Resumos, Rotulo } from '@/components/leilao/kit'
+import { rotuloTaxaProtecao } from '@/lib/leilao-vitrine'
 import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
 import { DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from '@/lib/leilao-reclamacao'
 import { codigoDoSlug, dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
@@ -205,7 +207,7 @@ export default async function LotePage({ params }: Params) {
     ['Graduação', rotuloGraduacao(l) || null],
   ]
 
-  const chips = [l.setNome, l.condicao, l.idioma ? l.idioma.toUpperCase() : null, rotuloGraduacao(l) || null].filter((c): c is string => !!c)
+  const chips = [l.condicao, l.idioma ? l.idioma.toUpperCase() : null, rotuloGraduacao(l) || null].filter((c): c is string => !!c)
 
   return (
     <>
@@ -214,6 +216,12 @@ export default async function LotePage({ params }: Params) {
       <style>{`
         .lt-cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
         @media (min-width: 900px) { .lt-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; } }
+        .lt-h1 { margin: 0; font-size: 26px; font-weight: 800; line-height: 1.12; letter-spacing: -0.02em; color: var(--bx-text); text-wrap: balance; overflow-wrap: anywhere; }
+        @media (min-width: 769px) { .lt-h1 { font-size: 36px; } }
+        @media (max-width: 899px) {
+          .lt-gal .bx-galeria-hero { height: 240px !important; width: 100% !important; aspect-ratio: auto !important; object-fit: contain !important; }
+          .lt-gal .bx-pg-tira { width: 44px !important; height: 44px !important; }
+        }
         .lt-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
         .lt-ghost:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
         .lt-ghost:focus-visible, .lt-fold summary:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
@@ -232,7 +240,7 @@ export default async function LotePage({ params }: Params) {
 
       <div className="lt-wrap" style={S.wrap}>
         <div className="lt-cols">
-          <div style={{ minWidth: 0 }}>
+          <div className="lt-gal" style={{ minWidth: 0 }}>
             {fotos.length > 0 ? (
               <GaleriaProduto fotos={fotos} nome={nome} />
             ) : (
@@ -245,7 +253,8 @@ export default async function LotePage({ params }: Params) {
 
           <div style={S.colInfo}>
             <div style={S.titulo}>
-              <h1 style={S.h1}>{nome}</h1>
+              {l.setNome && <Rotulo>{l.setNome}</Rotulo>}
+              <h1 className="lt-h1">{nome}</h1>
               {chips.length > 0 && (
                 <p style={S.chips}>{chips.map(c => <span key={c} style={S.chip}>{c}</span>)}</p>
               )}
@@ -257,6 +266,14 @@ export default async function LotePage({ params }: Params) {
               referenciaMercadoCents={referenciaMercadoCents}
               urlLote={url}
             />
+
+            {l.status === 'ativo' && (
+              <Resumos>
+                {referenciaMercadoCents != null && <Resumo rotulo="Mercado Brasileiro" valor={formatarBRL(referenciaMercadoCents)} meta="a partir de" />}
+                <Resumo rotulo="Taxa de proteção" valor={rotuloTaxaProtecao().split(' (')[0]} meta={rotuloTaxaProtecao().split(' (')[1]?.replace(')', '')} />
+                <Resumo rotulo="Pagamento" valor="Até 48 h" meta="no cartão, só se vencer" />
+              </Resumos>
+            )}
 
             <div style={S.vendedor}>
             {loja && (
@@ -329,7 +346,6 @@ export default async function LotePage({ params }: Params) {
 const S: Record<string, CSSProperties> = {
   wrap: { maxWidth: 1200, margin: '0 auto' },
   colInfo: { display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 },
-  h1: { fontSize: 18, fontWeight: 800, color: 'var(--bx-text)', margin: 0, lineHeight: 1.3, letterSpacing: '-0.01em' },
   semFoto: {
     aspectRatio: '245 / 342', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 16,
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-3)', fontSize: 13,
