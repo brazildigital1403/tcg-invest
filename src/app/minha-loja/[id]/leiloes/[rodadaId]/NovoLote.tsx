@@ -8,7 +8,7 @@ import { IconClose, IconImage, IconSearch } from '@/components/ui/Icons'
 import { CAMPO_VALOR, getPrecoVariante, getVarianteEfetiva } from '@/lib/calcPatrimonio'
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { GRADUADORAS } from '@/lib/graduadoras'
-import { formatarBRL } from '@/lib/leilao'
+import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
 import { comissaoVendedorLeilaoCents } from '@/lib/leilao-taxas'
 import {
   CONDICOES_LOTE, DIAS_LOTE, DURACOES_LOTE, IDIOMAS_LOTE, FRACAO_SUGESTAO,
@@ -305,12 +305,22 @@ export default function NovoLote({
                   <button key={d} onClick={() => setDias(d)} aria-pressed={dias === d} style={{ ...S.chip, ...(dias === d ? S.chipOn : null) }}>{d === 1 ? '1 dia' : `${d} dias`}</button>
                 ))}
               </div>
+              <p style={S.termina}>Termina em {horarioBrasilia(new Date(Date.now() + dias * 86_400_000).toISOString())}</p>
               <p style={S.hint}>Abre assim que você publica. Lance nos últimos 2 minutos estende o fim em 2 minutos. Depois do primeiro lance, o leilão não pode ser cancelado.</p>
               {lanceCents > 0 && (
                 <p style={S.hint}>
                   Não há preço mínimo: o lote sai pelo maior lance. Com um único lance, você recebe <b>{formatarBRL(lanceCents - comissaoVendedorLeilaoCents(lanceCents))}</b>. O frete é à parte, e o repasse cai cerca de 30 dias depois do pagamento.
                 </p>
               )}
+              <label style={S.lbl}>Como aparece</label>
+              <div style={{ width: 170 }}>
+                <CardItem
+                  card={{ ...cardDaLinha(escolhida.row), image_small: frente || txt(escolhida.row.image_small), idioma }}
+                  mode="readonly" hidePriceTable ocultarSemPreco
+                  badge={lanceCents > 0 ? <span style={S.previaPreco}>{formatarBRL(lanceCents)}</span> : undefined}
+                  footerSlot={<span style={S.previaRodape}>{dias === 1 ? '1 dia' : `${dias} dias`} · Sem lance</span>}
+                />
+              </div>
             </>
           ) : (
             <>
@@ -544,6 +554,12 @@ const S: Record<string, CSSProperties> = {
     fontSize: 16, padding: '10px 0',
   },
   prefixo: { fontSize: 13, color: 'var(--bx-text-3)', marginRight: 6 },
+  termina: { fontSize: 14, fontWeight: 700, color: 'var(--bx-text)', margin: '10px 0 0' },
+  previaPreco: {
+    background: 'var(--bx-bg-elev)', border: '1px solid var(--bx-border-2)', borderRadius: 8, padding: '4px 8px',
+    fontSize: 12, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+  },
+  previaRodape: { fontSize: 11, fontWeight: 600, color: 'var(--bx-text-2)' },
   sugestao: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 4 },
   btnPrim: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, boxSizing: 'border-box',

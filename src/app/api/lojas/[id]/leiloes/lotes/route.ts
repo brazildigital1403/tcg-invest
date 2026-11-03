@@ -4,6 +4,7 @@ import { slugBaseLote } from '@/lib/leilao'
 import { DIAS_LOTE, validarLote, erroDoPainel } from '@/lib/leilao-painel'
 import { separarEndereco } from '@/lib/etiquetaReversa'
 import { avisarInteressadosDoLote } from '@/lib/leilaoAvisoInteresse'
+import { prazoEnvio } from '@/lib/leilao-reclamacao'
 import { contextoPainel, json, origemSupabase, recebimentoDaLoja, UUID_RE, COLUNAS_LOTE_PAINEL } from '../_comum'
 
 /**
@@ -28,16 +29,29 @@ export async function GET(req: NextRequest, ctx: Params) {
     const { id: lojaId } = await ctx.params
     const c = await contextoPainel(req, lojaId)
     if (!c.ok) return c.res
-    const [{ data, error }, recebimento] = await Promise.all([
+    const [{ data, error }, recebimento, envios] = await Promise.all([
       c.sb.from('leiloes').select(COLUNAS_LOTE_PAINEL).eq('loja_id', lojaId).is('rodada_id', null)
         .order('created_at', { ascending: false }).limit(100),
       recebimentoDaLoja(c.sb, c.loja),
+      // Arremate pago e nao postado: e a proxima acao da loja.
+      c.sb.from('pedidos').select('id, numero, item_nome, item_imagem, pago_em').eq('loja_id', lojaId)
+        .eq('status', 'pago').not('leilao_id', 'is', null).order('pago_em', { ascending: true }).limit(20),
     ])
     if (error) {
       console.error('[lojas/leiloes/lotes-prazo GET]', error.code, error.message)
       return json(500, { error: 'Erro ao carregar os leilões.' })
     }
-    return json(200, { lotes: data ?? [], recebimento, enderecoOk: !!separarEndereco(c.loja.endereco).rua })
+    if (envios.error) console.error('[lojas/leiloes/lotes-prazo GET] envios', envios.error.code, envios.error.message)
+    return json(200, {
+      lotes: data ?? [],
+      recebimento,
+      enderecoOk: !!separarEndereco(c.loja.endereco).rua,
+      // Falha nao vira "nada a enviar": null esconde o bloco sem afirmar nada.
+      envios: envios.error ? null : (envios.data ?? []).map(p => {
+        const prazo = prazoEnvio({ status: 'pago', ehLeilao: true, pago_em: p.pago_em as string | null })
+        return { ...p, enviar_ate: prazo ? prazo.toISOString() : null }
+      }),
+    })
   } catch (err) {
     console.error('[lojas/leiloes/lotes-prazo GET] erro:', (err as Error)?.message)
     return json(500, { error: 'Erro interno.' })

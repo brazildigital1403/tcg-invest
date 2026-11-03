@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
-import { IconCalendar, IconChevronRight, IconClock, IconPlus } from '@/components/ui/Icons'
+import { IconCalendar, IconChevronDown, IconChevronRight, IconClock, IconPlus, IconTruck, IconWarning } from '@/components/ui/Icons'
 import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
 import NovoLote, { type LoteInicial } from './[rodadaId]/NovoLote'
 import { STATUS_RODADA, chamarPainel, type RodadaResumo } from './_rodada'
@@ -29,10 +30,18 @@ interface LotePrazo {
   fotos: string[]; condicao: string | null; idioma: string | null; graduadora: string | null
   nota: string | number | null; descricao: string | null; duracao_seg: number | null
 }
+interface EnvioPendente { id: string; numero: number | null; item_nome: string | null; item_imagem: string | null; enviar_ate: string | null }
 const diasDoLote = (l: LotePrazo) => Math.round((l.duracao_seg ?? 0) / 86400) || 3
 const STATUS_LOTE: Record<string, string> = {
   aguardando_pagamento: 'aguardando pagamento', vendido: 'vendido', sem_lances: 'encerrado sem lances', cancelado: 'cancelado', calote: 'não pago',
 }
+
+const GRUPOS_LOTE: Array<{ titulo: string; status: string[]; recolhido?: boolean }> = [
+  { titulo: 'Abertos', status: ['ativo'] },
+  { titulo: 'Esperando o comprador pagar', status: ['aguardando_pagamento'] },
+  { titulo: 'Terminaram sem lance', status: ['sem_lances'] },
+  { titulo: 'Vendidos e cancelados', status: ['vendido', 'cancelado', 'calote'], recolhido: true },
+]
 
 export default function ListaRodadas({ lojaId }: { lojaId: string }) {
   const router = useRouter()
@@ -47,18 +56,20 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
   const [republicando, setRepublicando] = useState<string | null>(null)
   const [enderecoOk, setEnderecoOk] = useState(true)
   const [recebimento, setRecebimento] = useState<{ podeReceber: boolean; motivo: string | null } | null>(null)
+  const [envios, setEnvios] = useState<EnvioPendente[]>([])
 
   const carregar = useCallback(async () => {
     setCarregando(true)
     try {
       const [j, p] = await Promise.all([
         chamarPainel<{ rodadas: RodadaResumo[] }>(`/api/lojas/${lojaId}/leiloes`),
-        chamarPainel<{ lotes: LotePrazo[]; enderecoOk: boolean; recebimento: { podeReceber: boolean; motivo: string | null } }>(`/api/lojas/${lojaId}/leiloes/lotes`),
+        chamarPainel<{ lotes: LotePrazo[]; enderecoOk: boolean; recebimento: { podeReceber: boolean; motivo: string | null }; envios: EnvioPendente[] | null }>(`/api/lojas/${lojaId}/leiloes/lotes`),
       ])
       setRodadas(j.rodadas || [])
       setLotes(p.lotes || [])
       setEnderecoOk(p.enderecoOk)
       setRecebimento(p.recebimento)
+      setEnvios(p.envios ?? [])
       setErro(null)
     } catch (e) {
       setErro((e as Error).message)
@@ -130,6 +141,35 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
     : !enderecoOk ? 'Falta o endereço para devoluções. Ele não aparece na sua página.' : null
 
   const base = `/minha-loja/${lojaId}/leiloes`
+  const linhaLote = (l: LotePrazo) => {
+    const aberto = l.status === 'ativo'
+    const preco = l.preco_atual_cents ?? l.lance_inicial_cents
+    const imagem = l.fotos?.[0] || l.card_image
+    return (
+      <div key={l.id} style={{ ...S.item, flexWrap: 'wrap' }}>
+        <Link href={`/leiloes/${l.slug}`} prefetch={false} style={S.loteLink}>
+          {imagem && <Image src={imagem} alt="" width={84} height={117} sizes="42px" style={S.vezImg} />}
+          <span style={{ minWidth: 0 }}>
+            <b style={{ display: 'block' }}>{l.card_name}</b>
+            <span style={{ fontSize: 12.5, color: 'var(--bx-text-2)' }}>
+              {formatarBRL(preco)} · {l.n_lances === 1 ? '1 lance' : `${l.n_lances} lances`} · {aberto && l.termina_em ? `termina em ${horarioBrasilia(l.termina_em)}` : (STATUS_LOTE[l.status] ?? l.status)}
+            </span>
+          </span>
+        </Link>
+        {aberto && l.n_lances === 0 && (
+          <button onClick={() => cancelarLote(l.id)} style={S.btnLeve}>Cancelar</button>
+        )}
+        {!aberto && l.card_id && (l.status === 'sem_lances' || l.status === 'cancelado') && (
+          <button onClick={() => publicarDeNovo(l)} disabled={!!pendencia || !!republicando} style={{ ...S.btnLeve, opacity: pendencia || republicando ? 0.6 : 1 }}>
+            {republicando === l.id ? 'Publicando…' : 'Publicar de novo'}
+          </button>
+        )}
+        {l.card_id && (
+          <button onClick={() => outraIgual(l)} disabled={!!pendencia} style={{ ...S.btnLeve, opacity: pendencia ? 0.6 : 1 }}>Outra carta igual</button>
+        )}
+      </div>
+    )
+  }
   const botaoNova = (
     <button onClick={novaRodada} disabled={criando} style={{ ...S.btnPrim, opacity: criando ? 0.6 : 1 }}>
       <IconPlus size={16} /> {criando ? 'Criando…' : 'Nova rodada'}
@@ -142,63 +182,63 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
       <header style={S.head}>
         <div style={{ minWidth: 0 }}>
           <h1 style={SH.title}>Leilões</h1>
-          <p style={SH.subtitle}>
-            Publique uma carta e escolha 1, 3, 5 ou 7 dias. O público dá lance na Bynx até o fim do prazo.
-          </p>
         </div>
-        {!novoLeilao && (
-          <div style={S.headAcao}>
-            <button onClick={() => { setInicial(null); setNovoLeilao(true) }} disabled={!!pendencia} style={{ ...S.btnPrim, opacity: pendencia ? 0.6 : 1 }}>
-              <IconPlus size={16} /> Novo leilão
-            </button>
-          </div>
-        )}
       </header>
 
       {erro && <div style={S.erro} role="alert">{erro}</div>}
       {pendencia && (
-        <div style={S.erro} role="status">
-          {pendencia}{' '}
-          {!enderecoOk && recebimento?.podeReceber && (
-            <Link href={`/minha-loja/${lojaId}/vitrine`} style={{ color: 'inherit', fontWeight: 700 }}>Cadastrar endereço</Link>
-          )}
-        </div>
+        <section style={S.vez} aria-label="Sua vez">
+          <span style={S.vezRot}><IconWarning size={14} /> Sua vez</span>
+          <p style={S.vezTxt}>{pendencia}</p>
+          <Link
+            href={recebimento && !recebimento.podeReceber ? `/minha-loja/${lojaId}/pagamentos` : `/minha-loja/${lojaId}/vitrine`}
+            style={S.btnPrim}
+          >
+            {recebimento && !recebimento.podeReceber ? 'Ativar recebimentos' : 'Cadastrar endereço'}
+          </Link>
+        </section>
+      )}
+
+      {envios.length > 0 && (
+        <section style={S.vez} aria-label="Sua vez">
+          <span style={S.vezRot}><IconTruck size={14} /> Sua vez</span>
+          <div style={S.vezCarta}>
+            {envios[0].item_imagem && <Image src={envios[0].item_imagem} alt="" width={84} height={117} sizes="42px" style={S.vezImg} />}
+            <div style={{ minWidth: 0 }}>
+              <b style={{ display: 'block', fontSize: 14 }}>{envios.length === 1 ? `Enviar ${envios[0].item_nome ?? 'a carta arrematada'}` : `${envios.length} arremates para enviar`}</b>
+              {envios[0].enviar_ate && <span style={S.vezPrazo}>Postar até {horarioBrasilia(envios[0].enviar_ate)}</span>}
+            </div>
+          </div>
+          <Link href={`/minha-loja/${lojaId}/pedidos`} style={S.btnPrim}>Ver envio</Link>
+        </section>
+      )}
+
+      {!novoLeilao && (
+        <button onClick={() => { setInicial(null); setNovoLeilao(true) }} disabled={!!pendencia} style={{ ...S.btnPrim, width: '100%', opacity: pendencia ? 0.6 : 1 }}>
+          <IconPlus size={16} /> Colocar carta em leilão
+        </button>
       )}
 
       {novoLeilao && (
         <NovoLote key={inicial?.card_id ?? 'novo'} lojaId={lojaId} inicial={inicial} onCancelar={() => setNovoLeilao(false)} onCriado={() => { setNovoLeilao(false); setInicial(null); carregar() }} />
       )}
 
-      {lotes.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <h2 style={SH.cardH3}>Seus leilões · {lotes.length}</h2>
-          {lotes.map(l => {
-            const aberto = l.status === 'ativo'
-            const preco = l.preco_atual_cents ?? l.lance_inicial_cents
-            return (
-              <div key={l.id} style={{ ...S.item, flexWrap: 'wrap' }}>
-                <Link href={`/leiloes/${l.slug}`} prefetch={false} style={{ flex: '1 1 180px', minWidth: 0, color: 'inherit', textDecoration: 'none' }}>
-                  <b>{l.card_name}</b>
-                  <div style={{ fontSize: 12.5, color: 'var(--bx-text-2)' }}>
-                    {formatarBRL(preco)} · {l.n_lances === 1 ? '1 lance' : `${l.n_lances} lances`} · {aberto && l.termina_em ? `termina em ${horarioBrasilia(l.termina_em)}` : (STATUS_LOTE[l.status] ?? l.status)}
-                  </div>
-                </Link>
-                {aberto && l.n_lances === 0 && (
-                  <button onClick={() => cancelarLote(l.id)} style={S.btnLeve}>Cancelar</button>
-                )}
-                {!aberto && l.card_id && (l.status === 'sem_lances' || l.status === 'cancelado') && (
-                  <button onClick={() => publicarDeNovo(l)} disabled={!!pendencia || !!republicando} style={{ ...S.btnLeve, opacity: pendencia || republicando ? 0.6 : 1 }}>
-                    {republicando === l.id ? 'Publicando…' : 'Publicar de novo'}
-                  </button>
-                )}
-                {l.card_id && (
-                  <button onClick={() => outraIgual(l)} disabled={!!pendencia} style={{ ...S.btnLeve, opacity: pendencia ? 0.6 : 1 }}>Outra carta igual</button>
-                )}
-              </div>
-            )
-          })}
-        </section>
-      )}
+      {GRUPOS_LOTE.map(g => {
+        const lista = lotes.filter(l => g.status.includes(l.status))
+        if (lista.length === 0) return null
+        const itens = lista.map(l => linhaLote(l))
+        return g.recolhido ? (
+          <details key={g.titulo} className="lj-fold">
+            <summary style={S.foldTit}>{g.titulo} · {lista.length}<IconChevronDown size={16} /></summary>
+            <div style={S.grupo}>{itens}</div>
+          </details>
+        ) : (
+          <section key={g.titulo} style={S.grupo}>
+            <h2 style={SH.cardH3}>{g.titulo} · {lista.length}</h2>
+            {itens}
+          </section>
+        )
+      })}
 
       <h2 style={{ ...SH.cardH3, marginTop: 8 }}>Rodada ao vivo (opcional)</h2>
       {rodadas.length > 0 && <div>{botaoNova}</div>}
@@ -249,7 +289,12 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
       <style>{`
         .lj-rodada { transition: background 0.15s ease, border-color 0.15s ease; }
         .lj-rodada:hover { background: var(--bx-surface-2) !important; border-color: var(--bx-border-2) !important; }
-        .lj-rodada:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .lj-rodada:focus-visible, .lj-fold summary:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .lj-fold summary { list-style: none; cursor: pointer; }
+        .lj-fold summary::-webkit-details-marker { display: none; }
+        .lj-fold summary svg { transition: transform 0.15s ease; flex-shrink: 0; }
+        .lj-fold[open] summary svg { transform: rotate(180deg); }
+        @media (prefers-reduced-motion: reduce) { .lj-fold summary svg { transition: none; } }
       `}</style>
     </div>
   )
@@ -257,11 +302,22 @@ export default function ListaRodadas({ lojaId }: { lojaId: string }) {
 
 const S: Record<string, CSSProperties> = {
   head: { display: 'flex', gap: 12, alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 4 },
-  headAcao: { flexShrink: 0 },
+  grupo: { display: 'flex', flexDirection: 'column', gap: 8 },
+  foldTit: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 44, fontSize: 14, fontWeight: 700, color: 'var(--bx-text)' },
+  vez: {
+    display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 14,
+    border: '1px solid rgba(var(--ac-1-rgb), 0.4)', background: 'rgba(var(--ac-1-rgb), 0.08)',
+  },
+  vezRot: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ac-1)' },
+  vezTxt: { margin: 0, fontSize: 14, color: 'var(--bx-text)', lineHeight: 1.45 },
+  vezCarta: { display: 'flex', alignItems: 'center', gap: 10, color: 'var(--bx-text)' },
+  vezImg: { width: 42, height: 'auto', borderRadius: 4, flexShrink: 0 },
+  vezPrazo: { fontSize: 12.5, color: 'var(--bx-text-2)' },
+  loteLink: { flex: '1 1 180px', minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, color: 'inherit', textDecoration: 'none' },
   btnPrim: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, boxSizing: 'border-box',
     background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-    border: 0, cursor: 'pointer',
+    border: 0, cursor: 'pointer', textDecoration: 'none',
   },
   btnLeve: { flex: 'none', minHeight: 44, padding: '0 12px', borderRadius: 10, border: '1px solid var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' },
   item: {
