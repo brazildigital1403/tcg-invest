@@ -48,7 +48,7 @@ export const CSS_KIT = `
 @media (min-width: 769px) { .lk-resumo:last-child:nth-child(odd) { grid-column: auto; } }
 .lk-resumo { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px; border-radius: 14px; border: 1px solid var(--bx-border); background: var(--bx-surface); }
 .lk-resumo small { font-size: 12px; font-weight: 600; color: var(--bx-text-2); }
-.lk-resumo b { font-size: 26px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--bx-text); overflow-wrap: anywhere; }
+.lk-resumo b { font-size: clamp(19px, 5.4vw, 26px); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--bx-text); }
 .lk-resumo span { font-size: 12px; color: var(--lk-c, var(--bx-text-3)); }
 
 .lk-etapas { list-style: none; margin: 0; padding: 0; }
@@ -95,6 +95,11 @@ export const CSS_KIT = `
 .lk-estado-c { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; text-align: left; }
 @keyframes lk-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
+.lk-momento { position: fixed; inset: 0; z-index: 420; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow-y: auto; padding: 56px 16px calc(24px + env(safe-area-inset-bottom, 0px)); background: var(--bx-bg); }
+.lk-momento-x { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--bx-text-2); cursor: pointer; transition: background 0.15s ease; }
+.lk-momento-x:hover { background: var(--bx-surface-2); }
+.lk-momento-x:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+.lk-momento .lk-estado { width: 100%; max-width: 480px; }
 .lk-linhas { display: flex; flex-direction: column; gap: 8px; }
 .lk-linha {
   display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--bx-border); background: var(--bx-surface);

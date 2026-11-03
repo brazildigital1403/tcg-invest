@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
-import { IconChart, IconClock, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
-import { Preco, Rotulo, Selo } from '@/components/leilao/kit'
+import { IconChart, IconCheck, IconClock, IconClose, IconKey, IconLeilao, IconShield, IconWarning } from '@/components/ui/Icons'
+import { Acoes, Botao, IconeBloco, Linha, MiniCarta, Preco, Resumo, Resumos, Rotulo, Selo, TelaEstado } from '@/components/leilao/kit'
 import {
   formatarBRL,
   formatarTempoAnel,
@@ -20,7 +20,7 @@ import {
 } from '@/lib/leilao'
 import OutrosLotes from '@/components/leilao/OutrosLotes'
 import { calcularArremate } from '@/lib/leilao-taxas'
-import { urlPagar } from '@/lib/leilao-urls'
+import { urlHome, urlPagar } from '@/lib/leilao-urls'
 import { DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from '@/lib/leilao-reclamacao'
 import { atalhosLance, textoProrrogacao } from '@/lib/leilao-rodada'
 
@@ -220,6 +220,8 @@ export default function LanceAoVivo({
   const [aviso, setAviso] = useState<string | null>(null)
   /** Segundo toque pendente no Confirmar (valor muito acima do minimo). */
   const [confirmarAlto, setConfirmarAlto] = useState(false)
+  /** Momento em tela cheia depois de um lance, de ser coberto ou do fim do lote. */
+  const [momento, setMomento] = useState<'frente' | 'superado' | 'venceu' | 'perdeu' | 'entrar' | null>(null)
   /** Area visivel (teclado do iOS aberto encolhe o visualViewport, nao o layout). */
   const [vv, setVv] = useState<{ h: number; top: number } | null>(null)
   const idemRef = useRef<{ chave: string; valor: number } | null>(null)
@@ -626,11 +628,16 @@ export default function LanceAoVivo({
         terminaEm: res.terminaEm ?? atual.terminaEm,
         versao: Math.max(atual.versao, res.versao),
       }))
+      setAviso(null)
       if (res.lider) {
-        setAviso(null)
         fecharFolha()
+        if (variante !== 'rodada') setMomento('frente')
+      } else if (variante !== 'rodada') {
+        // Outro teto automatico cobriu na hora: o momento mostra e oferece cobrir.
+        fecharFolha()
+        setMomento('superado')
       } else {
-        // Outro teto automatico cobriu na hora. A folha fica aberta com o novo minimo.
+        // Na rodada a folha fica aberta com o novo minimo: o lote dura segundos.
         setAviso(`Outro participante tinha um lance máximo igual ou maior. Lance atual: ${formatarBRL(res.precoCents)}.`)
         setValorTxt(centsParaCampo(res.minimoProximoCents))
       }
@@ -719,6 +726,32 @@ export default function LanceAoVivo({
   const vendidoParaMim = lote.status === 'vendido' && !!posicao?.voceLidera
   const perdi = st === 'arrematado' && !posicao?.voceLidera && posicao?.seuMaximoCents != null
   const terminou = st === 'arrematado' || st === 'sem_lances' || st === 'cancelado'
+
+  // Mudou com a pagina aberta: alguem cobriu ou o lote fechou. Quem chega depois
+  // ve o cartao do resultado, sem interrupcao.
+  const estadoAnterior = useRef<{ ganhando: boolean; aberto: boolean } | null>(null)
+  useEffect(() => {
+    const ant = estadoAnterior.current
+    estadoAnterior.current = { ganhando: estouGanhando, aberto: aberto || conferindo }
+    if (!ant || variante === 'rodada') return
+    if (ant.ganhando && fuiSuperado && aberto && !aberta) setMomento('superado')
+    if (ant.aberto && terminou) {
+      if (devePagar) setMomento('venceu')
+      else if (perdi) setMomento('perdeu')
+    }
+  }, [estouGanhando, fuiSuperado, aberto, conferindo, terminou, devePagar, perdi, aberta, variante])
+
+  useEffect(() => {
+    if (!momento) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMomento(null) }
+    document.addEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+    }
+  }, [momento])
   const totalArremate = estouGanhando && lote.status === 'aguardando_pagamento' ? calcularArremate(precoCents) : null
 
   let cta: ReactNode
@@ -750,9 +783,15 @@ export default function LanceAoVivo({
     cta = <div style={S.ctaInfo}>Este lote é seu. Acompanhe os lances por aqui.</div>
   } else if (logado === false) {
     cta = (
-      <Link href={loginHref} prefetch={false} className="lv-cta-btn" style={S.ctaBtn}>
-        Entrar para dar lance
-      </Link>
+      variante === 'rodada' ? (
+        <Link href={loginHref} prefetch={false} className="lv-cta-btn" style={S.ctaBtn}>
+          Entrar para dar lance
+        </Link>
+      ) : (
+        <button type="button" onClick={() => setMomento('entrar')} className="lv-cta-btn" style={S.ctaBtn}>
+          Dar lance
+        </button>
+      )
     )
   } else if (cadastro?.menor) {
     cta = <div style={S.ctaInfo}>Os lances são permitidos só para maiores de 18 anos.</div>
@@ -892,6 +931,104 @@ export default function LanceAoVivo({
         <p role="status" style={S.instavel}><IconWarning size={14} />Conexão instável. O valor pode estar atrasado.</p>
       )}
       {dockEl}
+    </div>
+  )
+
+  const fotoLote = lote.fotos[0] || lote.cardImage
+  const cartaMomento = (
+    <Linha
+      midia={fotoLote ? <MiniCarta src={fotoLote} /> : undefined}
+      titulo={`${lote.cardName}${lote.cardNumero ? ` ${lote.cardNumero}` : ''}`}
+      meta={aberto ? (relogio ? `Termina em ${relogio}` : undefined) : 'Encerrado'}
+    />
+  )
+  const fecharMomento = () => setMomento(null)
+  const telaMomento = momento && (
+    <div className={`lk-momento${momento === 'venceu' ? ' bx-ctx-comprador' : ''}`} role="dialog" aria-modal="true" aria-label="Resultado do lance">
+      <button type="button" onClick={fecharMomento} aria-label="Fechar" className="lk-momento-x"><IconClose size={20} /></button>
+      {momento === 'frente' && (
+        <TelaEstado
+          tom="frente" icone={<IconCheck size={38} strokeWidth={2} />} selo={<Selo tom="frente">Lance confirmado</Selo>}
+          titulo="Você está na frente."
+          acoes={
+            <Acoes>
+              {cartaMomento}
+              <Resumos>
+                <Resumo rotulo="Lance atual" valor={formatarBRL(precoCents)} />
+                <Resumo rotulo="Seu máximo" valor={formatarBRL(meuTeto)} />
+              </Resumos>
+              <Botao cheio onClick={fecharMomento}>Continuar acompanhando</Botao>
+              <Botao tipo="sec" cheio href={urlHome()}>Ver outros leilões</Botao>
+            </Acoes>
+          }
+        />
+      )}
+      {momento === 'superado' && (
+        <TelaEstado
+          tom="atencao" icone={<IconWarning size={38} />} selo={<Selo tom="atencao">Você foi superado</Selo>}
+          titulo="A disputa continua."
+          acoes={
+            <Acoes>
+              {cartaMomento}
+              <Resumos>
+                <Resumo rotulo="Lance atual" valor={formatarBRL(precoCents)} />
+                <Resumo rotulo="Seu máximo" valor={formatarBRL(meuTeto)} />
+              </Resumos>
+              <Botao cheio onClick={() => { setMomento(null); abrirFolha(minimo) }}>Cobrir por {formatarBRL(minimo)}</Botao>
+              <Botao tipo="sec" cheio onClick={fecharMomento}>Só acompanhar</Botao>
+            </Acoes>
+          }
+        />
+      )}
+      {momento === 'venceu' && (
+        <TelaEstado
+          tom="acento" icone={<IconCheck size={38} strokeWidth={2} />} selo={<Selo tom="acento">Arrematado</Selo>}
+          titulo="O lote é seu."
+          acoes={
+            <Acoes>
+              {cartaMomento}
+              <Resumos>
+                <Resumo rotulo="Arrematado por" valor={formatarBRL(precoCents)} />
+                <Resumo rotulo="Pague até" valor={pagarAte ? horarioBrasilia(pagarAte).replace(/\/\d{4},/, '').replace(' (Brasília)', '') : '48 h'} meta="horário de Brasília" />
+              </Resumos>
+              <Botao cheio href={urlPagar(lote.slug)}>Pagar agora</Botao>
+              <Botao tipo="sec" cheio onClick={fecharMomento}>Ver o lote</Botao>
+            </Acoes>
+          }
+        />
+      )}
+      {momento === 'perdeu' && (
+        <TelaEstado
+          tom="neutro" icone={<IconLeilao size={38} />} selo={<Selo tom="neutro">Lote encerrado</Selo>}
+          titulo="Você não venceu."
+          texto="Nada a pagar."
+          acoes={
+            <Acoes>
+              {cartaMomento}
+              <Resumos>
+                <Resumo rotulo="Arrematado por" valor={formatarBRL(precoCents)} />
+                <Resumo rotulo="Seu máximo" valor={formatarBRL(meuTeto)} />
+              </Resumos>
+              <Botao cheio href={urlHome()}>Ver outros leilões</Botao>
+              <Botao tipo="sec" cheio onClick={fecharMomento}>Ver o lote</Botao>
+            </Acoes>
+          }
+        />
+      )}
+      {momento === 'entrar' && (
+        <TelaEstado
+          tom="acento" icone={<IconKey size={36} />} selo={<Selo tom="acento">Para participar</Selo>}
+          titulo="Entre para disputar."
+          texto="Você volta direto para este lote."
+          acoes={
+            <Acoes>
+              {cartaMomento}
+              <Botao cheio href={loginHref}>Entrar e voltar ao lote</Botao>
+              <Botao tipo="sec" cheio onClick={fecharMomento}>Continuar olhando</Botao>
+            </Acoes>
+          }
+        />
+      )}
     </div>
   )
 
@@ -1093,6 +1230,8 @@ export default function LanceAoVivo({
         </p>
       )}
 
+      {telaMomento}
+
       {aberta && (
         <div
           className="lv-folha-fundo"
@@ -1110,7 +1249,10 @@ export default function LanceAoVivo({
             tabIndex={-1}
           >
             <div style={S.folhaTopo}>
-              <h2 id="lv-folha-titulo" style={S.folhaTitulo}>Dar lance</h2>
+              <span style={S.folhaCab}>
+                <IconeBloco tamanho="m"><IconLeilao size={22} /></IconeBloco>
+                <h2 id="lv-folha-titulo" style={S.folhaTitulo}>{estouGanhando ? 'Aumentar seu máximo' : 'Qual é o seu máximo?'}</h2>
+              </span>
               <button type="button" onClick={fecharFolha} aria-label="Fechar" className="lv-foco" style={S.fechar}>
                 <IconClose size={18} />
               </button>
@@ -1121,12 +1263,11 @@ export default function LanceAoVivo({
               {(lote.fotos[0] || lote.cardImage) && <img src={lote.fotos[0] || lote.cardImage || ''} alt="" style={S.folhaFoto} />}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <b style={S.folhaNome}>{lote.cardName}{lote.cardNumero ? ` ${lote.cardNumero}` : ''}</b>
-                <span style={S.folhaAtual}>{lote.nLances > 0 ? 'Lance atual' : 'Lance inicial'} {formatarBRL(precoCents)}</span>
+                <span style={S.folhaAtual}>{lote.nLances > 0 ? 'Lance atual' : 'Lance inicial'} {formatarBRL(precoCents)} · mínimo {formatarBRL(pisoFolha)}</span>
               </div>
               {relogio && <b style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</b>}
             </div>
 
-            <p style={S.rotuloCampo}>{estouGanhando ? 'Até quanto você quer aumentar?' : 'Qual é o seu máximo?'}</p>
             <div style={S.chipsRapidos}>
               {chipsRapidos.map(c => (
                 <button
@@ -1311,7 +1452,8 @@ const S: Record<string, CSSProperties> = {
   },
   protecao: { display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.5 },
   folhaTopo: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  folhaTitulo: { fontSize: 18, fontWeight: 700, color: 'var(--bx-text)', margin: 0 },
+  folhaCab: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
+  folhaTitulo: { fontSize: 22, fontWeight: 800, letterSpacing: '-0.015em', lineHeight: 1.15, color: 'var(--bx-text)', margin: 0 },
   fechar: {
     width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10,
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)', cursor: 'pointer',
