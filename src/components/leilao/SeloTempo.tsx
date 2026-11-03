@@ -20,10 +20,13 @@ export default function SeloTempo({
   lote,
   renderizadoEm,
   tamanho = 11,
+  selo = false,
 }: {
   lote: Pick<LotePublico, 'status' | 'iniciaEm' | 'terminaEm' | 'softCloseSeg'>
   renderizadoEm: string
   tamanho?: number
+  /** Selo do kit (exige CSS_KIT, da casca): cor por estado, com borda. */
+  selo?: boolean
 }) {
   const base = Date.parse(renderizadoEm)
   const [agora, setAgora] = useState<number>(Number.isFinite(base) ? base : 0)
@@ -48,6 +51,14 @@ export default function SeloTempo({
   }
 
   const urgente = st === 'encerrando'
+  if (selo) {
+    return (
+      <span className={`lk-selo lk-selo-tempo lk-t-${urgente ? 'perigo' : 'acento'}`}>
+        <IconClock size={13} />
+        {texto}
+      </span>
+    )
+  }
   return (
     <span
       style={{

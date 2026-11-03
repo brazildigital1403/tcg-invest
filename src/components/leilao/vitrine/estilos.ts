@@ -56,30 +56,45 @@ export const CSS_VITRINE = `
 .vt-logo-p { width: 30px; height: 30px; flex-basis: 30px; border-radius: 8px; font-size: 12px; }
 .vt-verif { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; color: var(--bx-text-2); white-space: nowrap; vertical-align: 1px; }
 
-/* Lote em destaque */
-.vt-dest {
-  display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 14px; padding: 14px; border-radius: 18px;
-  border: 1px solid rgba(var(--ac-1-rgb), 0.28); background: var(--bx-hero-wash), var(--bx-surface);
-  color: inherit; text-decoration: none; transition: transform 0.15s ease, border-color 0.15s ease;
-}
-.vt-dest:hover { transform: translateY(-2px); border-color: rgba(var(--ac-1-rgb), 0.5); }
-.vt-dest-art img { display: block; width: 100%; height: auto; border-radius: 8px; box-shadow: var(--bx-shadow); }
-.vt-dest-d { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
-.vt-dest-ey { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ac-1); }
-.vt-dest-nome { margin-top: 4px; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: var(--bx-text); overflow-wrap: anywhere; }
-.vt-dest-set { font-size: 12px; color: var(--bx-text-3); }
-.vt-dest-rot { margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--bx-text-3); }
-.vt-dest-preco { margin-bottom: 2px; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--bx-text); overflow-wrap: anywhere; }
-.vt-dest-cta { width: 100%; margin-top: auto; min-height: 44px; font-size: 14px; }
-.vt-dest-d > span:nth-last-child(2) { margin-bottom: 10px; }
+/* Topo da vitrine */
+.vt-topo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.vt-topo-t { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vt-frase { margin: 0; font-size: 34px; font-weight: 800; line-height: 1.06; letter-spacing: -0.025em; text-wrap: balance; color: var(--bx-text); }
+.vt-frase em { font-style: normal; color: var(--ac-1); }
+.vt-frase-apoio { display: none; margin: 0; max-width: 44ch; font-size: 17px; line-height: 1.45; color: var(--bx-text-2); }
+.vt-topo-r { min-width: 0; }
+/* No celular o selo AO VIVO ja esta no cabecalho da casca. */
+@media (max-width: 768px) { .vt-topo-t .lk-selo { display: none; } }
 @media (min-width: 769px) {
-  .vt-dest { grid-template-columns: 256px minmax(0, 1fr); gap: 32px; padding: 24px; }
-  .vt-dest-nome { font-size: 28px; }
-  .vt-dest-set { font-size: 14px; }
-  .vt-dest-rot { margin-top: 20px; font-size: 13px; }
-  .vt-dest-preco { font-size: 40px; }
-  .vt-dest-cta { width: auto; min-width: 240px; margin-top: 20px; min-height: 46px; }
+  .vt-topo { grid-template-columns: minmax(0, 1fr) minmax(0, 440px); grid-template-rows: 1fr auto auto 1fr; gap: 16px 56px; }
+  .vt-topo-t { grid-column: 1; grid-row: 2; gap: 14px; }
+  .vt-topo-c { grid-column: 2; grid-row: 1 / span 4; min-width: 0; }
+  .vt-topo-r { grid-column: 1; grid-row: 3; }
+  .vt-frase { font-size: 68px; line-height: 1; }
+  .vt-frase-apoio { display: block; }
 }
+
+/* Cartao do lote em destaque */
+.vt-dest {
+  display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 18px; border: 1px solid rgba(var(--ac-1-rgb), 0.34);
+  background: var(--bx-hero-wash), var(--bx-surface); color: inherit; text-decoration: none; transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.vt-dest:hover { transform: translateY(-2px); border-color: rgba(var(--ac-1-rgb), 0.55); }
+.vt-dest:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+.vt-dest-t { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vt-dest-art { display: flex; justify-content: center; }
+.vt-dest-art img { display: block; width: auto; height: 268px; max-width: 100%; border-radius: 10px; box-shadow: var(--bx-shadow); }
+.vt-dest-nome { display: flex; flex-direction: column; min-width: 0; }
+.vt-dest-nome strong { font-size: 19px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--bx-text); overflow-wrap: anywhere; }
+.vt-dest-nome small { font-size: 13px; color: var(--bx-text-2); }
+@media (min-width: 769px) { .vt-dest { padding: 22px; gap: 14px; } .vt-dest-art img { height: 340px; } .vt-dest-nome strong { font-size: 24px; } }
+
+/* Chamada para lojas */
+.vt-fila { display: flex; flex-direction: column; gap: 8px; }
+.vt-lojas-c { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px; border-radius: 18px; border: 1px solid var(--bx-border); background: var(--bx-surface); }
+.vt-lojas-c > div { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.vt-lojas-c .lk-btn { flex: 1 1 160px; }
+@media (min-width: 769px) { .vt-lojas-c .lk-btn { flex: 0 0 auto; } }
 
 /* Sem leilao aberto */
 .vt-heroi:has(.vt-leque) { align-items: center; text-align: center; background: var(--bx-hero-wash), var(--bx-surface); }
@@ -134,13 +149,13 @@ export const CSS_VITRINE = `
 
 /* Garantia em uma linha */
 .vt-selos {
-  display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; min-height: 44px; margin-top: -14px;
+  display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; min-height: 44px;
   font-size: 12px; font-weight: 600; color: var(--bx-text-2); text-decoration: none; transition: color 0.15s ease;
 }
 .vt-selos:hover { color: var(--bx-text); }
 .vt-selos span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .vt-selos svg { color: var(--ac-1); flex-shrink: 0; }
-@media (min-width: 769px) { .vt-selos { margin-top: -24px; font-size: 13px; gap: 4px 24px; } }
+@media (min-width: 769px) { .vt-selos { font-size: 13px; gap: 8px 20px; } }
 .vt-sec-t h2 .vt-conta { margin-left: 7px; font-size: 13px; font-weight: 700; color: var(--bx-text-3); }
 
 /* Primeira dobra */

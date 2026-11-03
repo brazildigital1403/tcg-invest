@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import LeilaoHeader from '@/components/leilao/casca/LeilaoHeader'
 import LeilaoFooter from '@/components/leilao/casca/LeilaoFooter'
 import { CSS_CASCA } from '@/components/leilao/casca/estilos'
+import { CSS_KIT } from '@/components/leilao/kit/estilos'
 
 /**
  * ★ EXCECAO APROVADA PELO DU EM 27/09/2026 a regra de UI da casa "nao usar
@@ -27,7 +28,7 @@ import { CSS_CASCA } from '@/components/leilao/casca/estilos'
 export default function LeiloesLayout({ children }: { children: ReactNode }) {
   return (
     <div className="lc-casca">
-      <style>{CSS_CASCA}</style>
+      <style>{CSS_CASCA + CSS_KIT}</style>
       <LeilaoHeader />
       <main className="lc-main bx-gutter">{children}</main>
       <LeilaoFooter />

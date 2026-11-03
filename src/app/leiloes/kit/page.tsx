@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import AbasChips from '@/components/leilao/kit/AbasChips'
-import { CSS_KIT } from '@/components/leilao/kit/estilos'
 import {
   Acoes, Aviso, Botao, CartaoDecisao, Esqueleto, Etapas, IconeBloco, Linha, Linhas, MiniCarta, Preco, ProximaAcao,
   Recolhido, Resumo, Resumos, Rotulo, Selo, TelaEstado, Titulo,
@@ -32,7 +31,7 @@ export default function KitPage() {
   if (process.env.NODE_ENV === 'production') notFound()
   return (
     <div className="kt">
-      <style>{CSS_KIT + `
+      <style>{`
         .kt { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; padding-bottom: 48px; }
         .kt-sec { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
         .kt-gr { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); align-items: start; }

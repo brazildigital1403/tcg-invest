@@ -104,10 +104,8 @@ export const CSS_CASCA = `
 
 /* Abas da home (links ?aba=, funcionam sem JS) */
 .lc-abas {
-  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 0 16px 12px; margin: 0 -16px 16px;
-  border-bottom: 1px solid var(--bx-border);
+  padding: 0 0 12px; margin: 0 0 16px; border-bottom: 1px solid var(--bx-border);
 }
-.lc-abas::-webkit-scrollbar { display: none; }
 @media (min-width: 769px) { .lc-abas { margin: 0 0 20px; padding: 0 0 12px; } }
 .lc-aba {
   display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 999px; white-space: nowrap;

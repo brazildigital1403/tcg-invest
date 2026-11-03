@@ -21,6 +21,8 @@ import AgendaSemana from '@/components/leilao/vitrine/AgendaSemana'
 import LojasDoLeilao from '@/components/leilao/vitrine/LojasDoLeilao'
 import { ComoFunciona, PerguntasFrequentes } from '@/components/leilao/vitrine/ComoFunciona'
 import BlocoLojista from '@/components/leilao/vitrine/BlocoLojista'
+import ChamadaLojas from '@/components/leilao/vitrine/ChamadaLojas'
+import TopoVitrine from '@/components/leilao/vitrine/TopoVitrine'
 import ListaRodadas from '@/components/leilao/vitrine/ListaRodadas'
 import { IconClock } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
@@ -131,7 +133,7 @@ async function abaAoVivo() {
     buscarRodadasAoVivo(),
     listarRodadasAgendadas(60),
     listarLotesVitrine('terminando'),
-    listarArrematadosRecentes(6),
+    listarArrematadosRecentes(4),
     listarLojasDoLeilao(),
   ])
 
@@ -193,10 +195,28 @@ async function abaAoVivo() {
 
   return (
     <>
-      {loteDestaque || semNada ? <h1 className="vt-sr">Leilão de cartas Pokémon</h1> : <TituloPagina />}
+      {semNada && <h1 className="vt-sr">Leilão de cartas Pokémon</h1>}
+      {loteDestaque ? (
+        <TopoVitrine
+          frase="A disputa está aberta."
+          texto="Dê seu lance em reais até o fim do prazo. Só paga quem vence."
+          rodape={<SelosGarantia />}
+        >
+          <LoteDestaque lote={loteDestaque} renderizadoEm={renderizadoEm} />
+        </TopoVitrine>
+      ) : destaque ? (
+        <TopoVitrine
+          aoVivo
+          frase="A disputa começou."
+          destaque="O próximo lote pode ser o seu."
+          texto="Lance em reais e resultado na hora. Só paga quem vence."
+          rodape={<SelosGarantia />}
+        >
+          {palco}
+        </TopoVitrine>
+      ) : !semNada ? <TituloPagina /> : null}
       <div className={hoje.length > 0 ? 'vt-dobra vt-com-hoje' : 'vt-dobra'}>
-        {loteDestaque && <LoteDestaque lote={loteDestaque} renderizadoEm={renderizadoEm} />}
-        {palco}
+        {!loteDestaque && !destaque && palco}
         {hoje.length > 0 && <CardHoje rodadas={hoje} lojas={lojas} resumo={resumo} renderizadoEm={renderizadoEm} />}
       </div>
 
@@ -207,13 +227,13 @@ async function abaAoVivo() {
         </section>
       )}
 
-      <SelosGarantia />
+      {!loteDestaque && !destaque && <SelosGarantia />}
       {semNada && <PassosCurtos />}
 
       {lotesGrade.length > 0 && (
         <section className="vt-sec" aria-labelledby="vt-terminando-t">
           <div className="vt-sec-t">
-            <h2 id="vt-terminando-t">Abertos agora{lotes.length < 48 && <span className="vt-conta">{lotes.length}</span>}</h2>
+            <h2 id="vt-terminando-t" className="lk-sub">Abertos agora{lotes.length < 48 && <span className="vt-conta">{lotes.length}</span>}</h2>
           </div>
           <div className="vt-grade vt-grade-auto">
             {lotesGrade.map(l => (
@@ -243,9 +263,7 @@ async function abaAoVivo() {
       {arrematados.length > 0 && <Arrematados itens={arrematados} />}
       {!semanaVazia(dias) && <AgendaSemana dias={dias} lojas={lojas} resumo={resumo} />}
       {lojasLeilao.length > 0 && <LojasDoLeilao lojas={lojasLeilao} />}
-      {!semNada && <ComoFunciona />}
-      <PerguntasFrequentes />
-      <BlocoLojista />
+      <ChamadaLojas />
     </>
   )
 }

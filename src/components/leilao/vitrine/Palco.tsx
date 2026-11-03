@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import { IconClock } from '@/components/ui/Icons'
+import { Preco, Rotulo } from '@/components/leilao/kit'
 import { formatarBRL, type LotePublico } from '@/lib/leilao'
 import { separarLotesRodada, tituloRodada, type RodadaPublica } from '@/lib/leilao-rodada'
 import { urlHome, urlRodada } from '@/lib/leilao-urls'
@@ -73,52 +74,30 @@ export function PalcoAoVivo({
     : ''
 
   return (
-    <article className="vt-palco" aria-label={`Rodada ${rodada.numero} ao vivo`}>
-      <div className="vt-carta">
-        <span className="vt-carta-in">
-        {foto ? (
-          <Image
-            src={foto}
-            alt={ativo ? ativo.cardName : ''}
-            width={245}
-            height={342}
-            priority
-            sizes="(max-width: 768px) 170px, 240px"
-            className="vt-carta-img"
-          />
-        ) : (
-          <span className="vt-carta-vazia" aria-hidden />
-        )}
-        <span className="vt-selo-vivo">
-          <span className="vt-ponto" aria-hidden />
-          AO VIVO
-        </span>
-        </span>
-      </div>
-      <div className="vt-info">
-        <LinhaLoja loja={loja} sub={partes.join(' · ')} fallback={tituloRodada(rodada)} />
-        {ativo ? (
-          <>
-            <p className="vt-lote-nome">
-              {ativo.cardName}
-              {ativo.cardNumero ? ` ${ativo.cardNumero}` : ''}
-              {detalhes && <span> · {detalhes}</span>}
-            </p>
-            <div className="vt-linha">
-              <div>
-                <p className="vt-rot">{ativo.nLances > 0 ? 'Lance atual' : 'Lance inicial'}</p>
-                <div className="vt-preco vt-num">{formatarBRL(precoDoLote(ativo))}</div>
-              </div>
-              <AnelVitrine terminaEm={ativo.terminaEm} duracaoSeg={ativo.duracaoSeg} renderizadoEm={renderizadoEm} />
-              <span className="vt-fraco vt-num" style={{ fontSize: 13 }}>
-                Lote {posDe(ativo)} de {visiveis.length}
-              </span>
-            </div>
-          </>
-        ) : (
-          <p className="vt-fraco" style={{ margin: 0, fontSize: 14 }}>Próximo lote em instantes.</p>
-        )}
-        {proximos.length > 0 && (
+    <article className="vt-dest" aria-label={`Rodada ${rodada.numero} ao vivo`}>
+      <span className="vt-dest-t">
+        <Rotulo>{ativo ? `Lote ${posDe(ativo)} de ${visiveis.length}` : `Rodada ${rodada.numero}`}</Rotulo>
+        {ativo && <AnelVitrine terminaEm={ativo.terminaEm} duracaoSeg={ativo.duracaoSeg} renderizadoEm={renderizadoEm} />}
+      </span>
+      <span className="vt-dest-art">
+        {foto && <Image src={foto} alt={ativo ? ativo.cardName : ''} width={384} height={536} priority sizes="(min-width: 769px) 300px, 200px" />}
+      </span>
+      {ativo ? (
+        <>
+          <span className="vt-dest-nome">
+            <strong>{ativo.cardName}{ativo.cardNumero ? ` ${ativo.cardNumero}` : ''}</strong>
+            {detalhes && <small>{detalhes}</small>}
+          </span>
+          <Preco medio rotulo={ativo.nLances > 0 ? 'Lance atual' : 'Lance inicial'} valor={formatarBRL(precoDoLote(ativo))} />
+        </>
+      ) : (
+        <p className="vt-fraco" style={{ margin: 0, fontSize: 14 }}>Próximo lote em instantes.</p>
+      )}
+      <Link href={url} prefetch={false} className="lk-btn lk-btn-prim lk-btn-cheio">Entrar na rodada</Link>
+      <LinhaLoja loja={loja} sub={partes.join(' · ')} fallback={tituloRodada(rodada)} />
+      {proximos.length > 0 && (
+        <div className="vt-fila">
+          <Rotulo fraco>Na fila</Rotulo>
           <div className="vt-minis" aria-label="Próximos lotes">
             {proximos.slice(0, 5).map(l => (
               <div key={l.id} className="vt-mini" title={l.cardName}>
@@ -127,9 +106,8 @@ export function PalcoAoVivo({
               </div>
             ))}
           </div>
-        )}
-        <Link href={url} prefetch={false} className="vt-cta">Entrar na rodada ao vivo</Link>
-      </div>
+        </div>
+      )}
     </article>
   )
 }

@@ -41,17 +41,6 @@ export default function LojasDoLeilao({ lojas }: { lojas: LojaDoLeilao[] }) {
             </li>
           )
         })}
-        {lojas.length < MINIMO_SEM_CONVITE && (
-          <li>
-            <div className="vt-lojac vt-lojac-sua">
-              <span className="vt-lojac-nm">Sua loja aqui</span>
-              <span className="vt-lojac-st">Faça sua primeira rodada ao vivo.</span>
-              <Link href="/para-lojistas" prefetch={false} className="vt-cta-sec" style={{ minHeight: 44, fontSize: 13, padding: '0 14px' }}>
-                Saiba como
-              </Link>
-            </div>
-          </li>
-        )}
       </ul>
     </section>
   )
