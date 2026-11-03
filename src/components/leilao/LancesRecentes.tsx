@@ -8,7 +8,7 @@ import type { LancePublico } from '@/lib/leilao-rodada'
  * Lances recentes do lote com prazo. Quem acompanha ve a disputa ate o fim.
  * Atualiza a cada 15 s com a aba visivel. Falha mantem o que esta na tela.
  */
-export default function LancesRecentes({ loteId, aberto }: { loteId: string; aberto: boolean }) {
+export default function LancesRecentes({ loteId, aberto, semTitulo = false }: { loteId: string; aberto: boolean; semTitulo?: boolean }) {
   const [lances, setLances] = useState<LancePublico[] | null>(null)
 
   useEffect(() => {
@@ -26,10 +26,10 @@ export default function LancesRecentes({ loteId, aberto }: { loteId: string; abe
     return () => { vivo = false; clearInterval(id) }
   }, [loteId, aberto])
 
-  if (!lances) return null
+  if (!lances) return semTitulo ? <p style={{ margin: 0, fontSize: 13, color: 'var(--bx-text-2)' }}>Carregando...</p> : null
   return (
     <section aria-label="Lances recentes" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--bx-text)' }}>Lances recentes</h2>
+      {!semTitulo && <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--bx-text)' }}>Lances recentes</h2>}
       {lances.length === 0 ? (
         <p style={{ margin: 0, fontSize: 13, color: 'var(--bx-text-2)' }}>Nenhum lance ainda.</p>
       ) : lances.map((l, i) => (

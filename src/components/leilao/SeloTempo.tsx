@@ -19,9 +19,11 @@ import { formatarTempoRestante, statusPublico, type LotePublico } from '@/lib/le
 export default function SeloTempo({
   lote,
   renderizadoEm,
+  tamanho = 11,
 }: {
   lote: Pick<LotePublico, 'status' | 'iniciaEm' | 'terminaEm' | 'softCloseSeg'>
   renderizadoEm: string
+  tamanho?: number
 }) {
   const base = Date.parse(renderizadoEm)
   const [agora, setAgora] = useState<number>(Number.isFinite(base) ? base : 0)
@@ -50,11 +52,11 @@ export default function SeloTempo({
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
-        fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+        fontSize: tamanho, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
         color: urgente ? 'var(--bx-red)' : st === 'ao_vivo' ? 'var(--bx-text)' : 'var(--bx-text-3)',
       }}
     >
-      <IconClock size={12} />
+      <IconClock size={tamanho + 1} />
       {texto}
     </span>
   )

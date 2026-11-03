@@ -895,7 +895,7 @@ try {
     assert.equal(U.abaValida('resultados'), 'resultados')
     assert.equal(U.abaValida('encerrados'), 'resultados', 'nome antigo da aba continua abrindo Resultados')
     assert.equal(U.urlHome('resultados'), '/leiloes?aba=resultados')
-    assert.deepEqual(U.ABAS_LEILOES.map(a => a.rotulo), ['Ao vivo', 'Agenda', 'Resultados', 'Como funciona'])
+    assert.deepEqual(U.ABAS_LEILOES.map(a => a.rotulo), ['Abertos', 'Agenda', 'Resultados', 'Como funciona'])
     for (const v of ['', null, undefined, 'xpto', 'AGENDA']) assert.equal(U.abaValida(v), 'ao-vivo', `aba(${v})`)
     assert.equal(U.urlLote('charizard-ex-abc123'), '/leiloes/charizard-ex-abc123')
     assert.equal(U.urlPagar('charizard-ex-abc123'), '/leiloes/charizard-ex-abc123/pagar')

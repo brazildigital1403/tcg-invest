@@ -10,6 +10,8 @@ import { CSS_VITRINE } from '@/components/leilao/vitrine/estilos'
 import { HeroSemRodada, PalcoAoVivo, PalcoProxima } from '@/components/leilao/vitrine/Palco'
 import CardHoje from '@/components/leilao/vitrine/CardHoje'
 import FaixaGarantia from '@/components/leilao/vitrine/FaixaGarantia'
+import LoteDestaque from '@/components/leilao/vitrine/LoteDestaque'
+import SelosGarantia from '@/components/leilao/vitrine/SelosGarantia'
 import Arrematados from '@/components/leilao/vitrine/Arrematados'
 import AgendaSemana from '@/components/leilao/vitrine/AgendaSemana'
 import LojasDoLeilao from '@/components/leilao/vitrine/LojasDoLeilao'
@@ -101,10 +103,7 @@ export default async function LeiloesPage({
       <style>{CSS_VITRINE}</style>
       <LeilaoAbas ativa={aba} />
       <div className="vt">
-        <header className="vt-hero">
-          <h1>Leilão de cartas Pokémon</h1>
-          <p>Dê seu lance em reais até o fim do prazo. Só paga quem vence.</p>
-        </header>
+        {aba !== 'ao-vivo' && <TituloPagina />}
         {conteudo}
       </div>
     </div>
@@ -128,6 +127,8 @@ async function abaAoVivo() {
 
   // Sem rodada no ar, o palco mostra a proxima agendada (a primeira pelo horario).
   const proxima = noAr.length ? null : agendadas[0] ?? null
+  // O que da para comprar agora vem antes da agenda: a proxima rodada desce.
+  const proximaAbaixo = !!proxima && lotesAbertos.length > 0
   const hoje = agendadas.filter(
     r => r.iniciaEm && dataBrasiliaISO(r.iniciaEm) === hojeISO && r.id !== proxima?.id
   )
@@ -138,6 +139,8 @@ async function abaAoVivo() {
   // com os lotes de prazo proprio.
   const rodadasNoAr = new Set(noAr.map(r => r.id))
   const lotes = lotesAbertos.filter(l => !l.rodadaId || !rodadasNoAr.has(l.rodadaId))
+  const loteDestaque = noAr.length ? null : lotes[0] ?? null
+  const lotesGrade = loteDestaque ? lotes.slice(1) : lotes
 
   const ids = [...noAr, ...hoje, ...semana, ...(proxima ? [proxima] : [])]
   const [lojas, resumo] = await Promise.all([
@@ -153,6 +156,7 @@ async function abaAoVivo() {
   // Sem rodada, a explicacao vem antes da garantia: e o que falta a quem chegou.
   let semNada = false
   let palco: ReactNode
+  let palcoProxima: ReactNode = null
   if (destaque) {
     palco = (
       <PalcoAoVivo
@@ -163,7 +167,7 @@ async function abaAoVivo() {
       />
     )
   } else if (proxima) {
-    palco = (
+    palcoProxima = (
       <PalcoProxima
         rodada={proxima}
         loja={lojas.get(proxima.lojaId ?? '') ?? null}
@@ -171,6 +175,7 @@ async function abaAoVivo() {
         renderizadoEm={renderizadoEm}
       />
     )
+    if (!proximaAbaixo) palco = palcoProxima
   } else {
     semNada = lotes.length === 0
     palco = semNada ? <HeroSemRodada /> : null
@@ -178,7 +183,9 @@ async function abaAoVivo() {
 
   return (
     <>
+      {loteDestaque ? <h1 className="vt-sr">Leilão de cartas Pokémon</h1> : <TituloPagina />}
       <div className={hoje.length > 0 ? 'vt-dobra vt-com-hoje' : 'vt-dobra'}>
+        {loteDestaque && <LoteDestaque lote={loteDestaque} renderizadoEm={renderizadoEm} />}
         {palco}
         {hoje.length > 0 && <CardHoje rodadas={hoje} lojas={lojas} resumo={resumo} renderizadoEm={renderizadoEm} />}
       </div>
@@ -191,13 +198,15 @@ async function abaAoVivo() {
       )}
 
       {semNada && <ComoFunciona />}
-      <FaixaGarantia />
+      {semNada ? <FaixaGarantia /> : <SelosGarantia />}
 
-      {lotes.length > 0 && (
+      {lotesGrade.length > 0 && (
         <section className="vt-sec" aria-labelledby="vt-terminando-t">
-          <div className="vt-sec-t"><h2 id="vt-terminando-t">Leilões abertos</h2></div>
+          <div className="vt-sec-t">
+            <h2 id="vt-terminando-t">Abertos agora{lotes.length < 48 && <span className="vt-conta">{lotes.length}</span>}</h2>
+          </div>
           <div className="vt-grade vt-grade-auto">
-            {lotes.map(l => (
+            {lotesGrade.map(l => (
               <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="vt-lote">
                 <CardItem
                   card={cardDoLote(l)}
@@ -220,6 +229,7 @@ async function abaAoVivo() {
         </section>
       )}
 
+      {proximaAbaixo && palcoProxima}
       {arrematados.length > 0 && <Arrematados itens={arrematados} />}
       {!semanaVazia(dias) && <AgendaSemana dias={dias} lojas={lojas} resumo={resumo} />}
       {lojasLeilao.length > 0 && <LojasDoLeilao lojas={lojasLeilao} />}
@@ -305,9 +315,19 @@ function AbaComoFunciona() {
   return (
     <>
       <ComoFunciona />
+      <FaixaGarantia />
       <PerguntasFrequentes />
       <BlocoLojista />
     </>
+  )
+}
+
+function TituloPagina() {
+  return (
+    <header className="vt-hero">
+      <h1>Leilão de cartas Pokémon</h1>
+      <p>Dê seu lance em reais até o fim do prazo. Só paga quem vence.</p>
+    </header>
   )
 }
 

@@ -15,7 +15,7 @@ export const BASE_LEILOES = '/leiloes'
 export type AbaLeiloes = 'ao-vivo' | 'agenda' | 'resultados' | 'como-funciona'
 
 export const ABAS_LEILOES: ReadonlyArray<{ chave: AbaLeiloes; rotulo: string }> = [
-  { chave: 'ao-vivo', rotulo: 'Ao vivo' },
+  { chave: 'ao-vivo', rotulo: 'Abertos' },
   { chave: 'agenda', rotulo: 'Agenda' },
   { chave: 'resultados', rotulo: 'Resultados' },
   { chave: 'como-funciona', rotulo: 'Como funciona' },

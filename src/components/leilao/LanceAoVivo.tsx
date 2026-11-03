@@ -20,6 +20,7 @@ import {
 import OutrosLotes from '@/components/leilao/OutrosLotes'
 import { calcularArremate } from '@/lib/leilao-taxas'
 import { urlPagar } from '@/lib/leilao-urls'
+import { DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from '@/lib/leilao-reclamacao'
 import { atalhosLance, textoProrrogacao } from '@/lib/leilao-rodada'
 
 /**
@@ -817,6 +818,45 @@ export default function LanceAoVivo({
   const freteMinimo = freteNoPreco(frete, minimo)
   const prorrogacaoRodada = variante === 'rodada' && (aberto || conferindo) ? textoProrrogacao(lote.softCloseSeg, lote.prorrogacoes) : null
 
+  const faixaEstado = (
+    <>
+      {estouGanhando && (aberto || st === 'arrematado') && (
+        <div role="status" style={{ ...S.faixa, ...S.faixaGanhando }}>
+          <IconCheck size={18} />
+          <span style={S.faixaTexto}>
+            <b style={S.faixaTitulo}>
+              {st === 'arrematado'
+                ? lote.status === 'calote'
+                  ? 'Arremate cancelado: o prazo de pagamento terminou'
+                  : 'Você venceu este lote'
+                : 'Você está na frente'}
+            </b>
+            {aberto && posicao?.seuMaximoCents != null && posicao.seuMaximoCents > precoCents && (
+              <small style={S.faixaSub}>Seu máximo: {formatarBRL(posicao.seuMaximoCents)}</small>
+            )}
+          </span>
+        </div>
+      )}
+      {fuiSuperado && !perdi && (
+        <div role="status" style={{ ...S.faixa, ...S.faixaSuperado }}>
+          <IconWarning size={18} />
+          <span style={S.faixaTexto}>
+            <b style={S.faixaTitulo}>Você foi superado</b>
+            {posicao?.seuMaximoCents != null && <small style={S.faixaSub}>Seu máximo era {formatarBRL(posicao.seuMaximoCents)}</small>}
+          </span>
+        </div>
+      )}
+      {perdi && (
+        <div role="status" style={S.faixa}>
+          <span style={S.faixaTexto}>
+            <b style={S.faixaTitulo}>Você não venceu</b>
+            <small style={S.faixaSub}>Nada a pagar. Seu máximo era {formatarBRL(posicao?.seuMaximoCents ?? 0)}.</small>
+          </span>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <section aria-label="Lance ao vivo" style={S.bloco}>
       <style>{`
@@ -874,6 +914,7 @@ export default function LanceAoVivo({
           a cada tique do relogio, e aria-live nele leria a tela inteira. */}
       <p className="lv-sr" aria-live="polite" aria-atomic="true">{anuncio}</p>
 
+      {variante !== 'rodada' && faixaEstado}
       <div style={S.lanceLinha}>
         <div style={S.lanceCol}>
           <span style={S.precoRotulo}>
@@ -883,7 +924,7 @@ export default function LanceAoVivo({
           <span style={S.precoMeta}>
             {lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`}
             {lote.nParticipantes > 1 ? ` · ${lote.nParticipantes} participantes` : ''}
-            {lote.liderApelido && lote.nLances > 0 && st !== 'cancelado' ? ` · ${aberto ? 'liderando' : 'vencedor'}: ${lote.liderApelido}` : ''}
+            {lote.liderApelido && lote.nLances > 0 && st !== 'cancelado' && !(aberto && variante !== 'rodada') ? ` · ${aberto ? 'liderando' : 'vencedor'}: ${lote.liderApelido}` : ''}
           </span>
           {horaAbsoluta && <span style={S.horaAbs}>{horaAbsoluta}</span>}
         </div>
@@ -931,34 +972,19 @@ export default function LanceAoVivo({
       )}
       {aposMercado}
 
-      {estouGanhando && (aberto || st === 'arrematado') && (
-        <div role="status" style={{ ...S.faixa, ...S.faixaGanhando }}>
-          <IconCheck size={16} />
-          {st === 'arrematado'
-            ? lote.status === 'calote'
-              ? 'Arremate cancelado: o prazo de pagamento terminou'
-              : 'Você venceu este lote'
-            : 'Você está ganhando'}
-          {aberto && posicao?.seuMaximoCents != null && posicao.seuMaximoCents > precoCents
-            ? ` · seu máximo: ${formatarBRL(posicao.seuMaximoCents)}`
-            : ''}
-        </div>
-      )}
+      {variante === 'rodada' && faixaEstado}
       {totalArremate && (
         <p style={S.nota}>
           {formatarBRL(precoCents)} + taxas: {formatarBRL(totalArremate.compradorPagaCents)}, mais frete, calculado no pagamento.
         </p>
       )}
-      {fuiSuperado && !perdi && (
-        <div role="status" style={{ ...S.faixa, ...S.faixaSuperado }}>
-          <IconWarning size={16} />
-          Seu lance foi superado · lance atual {formatarBRL(precoCents)}
-        </div>
-      )}
-      {perdi && (
-        <div role="status" style={S.faixa}>
-          Você não venceu. Arrematado por {formatarBRL(precoCents)}. Seu máximo era {formatarBRL(posicao?.seuMaximoCents ?? 0)}.
-        </div>
+      {devePagar && variante !== 'rodada' && (
+        <ol className="bx-ctx-comprador" style={S.etapas}>
+          <li style={S.etapa}><i style={{ ...S.etapaN, ...S.etapaAtual }}>1</i><b style={{ color: 'var(--bx-text)' }}>Pagar</b></li>
+          <li style={S.etapa}><i style={S.etapaN}>2</i>Loja envia em até {DIAS_UTEIS_ENVIO} dias úteis</li>
+          <li style={S.etapa}><i style={S.etapaN}>3</i>Você recebe</li>
+          <li style={S.etapa}><i style={S.etapaN}>4</i>{DIAS_RECLAMAR} dias para reclamar ou desistir</li>
+        </ol>
       )}
 
       {mostrarAtalhos && (
@@ -981,12 +1007,12 @@ export default function LanceAoVivo({
       {atrasado && aberto && (
         <p role="status" style={S.instavel}><IconWarning size={14} />Conexão instável. O valor pode estar atrasado.</p>
       )}
-      <div className="lv-cta-fixo">
+      {!(terminou && variante !== 'rodada' && !devePagar && !vendidoParaMim) && <div className="lv-cta-fixo">
         {podeLance && (
           <p className="lv-dock" style={S.dock}>
             <span style={{ minWidth: 0 }}>
               {estouGanhando
-                ? `Você está ganhando${meuTeto ? ` · seu máximo ${formatarBRL(meuTeto)}` : ''}`
+                ? `Na frente${meuTeto ? ` · máximo ${formatarBRL(meuTeto)}` : ''}`
                 : fuiSuperado
                   ? `Superado · lance atual ${formatarBRL(precoCents)}`
                   : `${lote.nLances > 0 ? 'Lance atual' : 'Lance inicial'} ${formatarBRL(precoCents)}`}
@@ -1002,7 +1028,7 @@ export default function LanceAoVivo({
               : `${formatarBRL(totalMinimo.compradorPagaCents)} com taxas, mais frete`}
           </p>
         )}
-      </div>
+      </div>}
       {prorrogacaoRodada && <p style={S.prorrogacao}>{prorrogacaoRodada}</p>}
 
       {terminou ? (
@@ -1047,7 +1073,7 @@ export default function LanceAoVivo({
               {relogio && <b style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: restanteMs < 600_000 ? 'var(--bx-red)' : 'var(--bx-text)' }}>{relogio}</b>}
             </div>
 
-            <p style={S.rotuloCampo}>{estouGanhando ? 'Até quanto você quer aumentar?' : 'Até quanto você vai?'}</p>
+            <p style={S.rotuloCampo}>{estouGanhando ? 'Até quanto você quer aumentar?' : 'Qual é o seu máximo?'}</p>
             <div style={S.chipsRapidos}>
               {chipsRapidos.map(c => (
                 <button
@@ -1070,7 +1096,7 @@ export default function LanceAoVivo({
               <button type="button" className="lv-foco" onClick={() => trocarAba('maximo')} style={S.outroValor}>Outro valor</button>
             ) : (
               <>
-                <label htmlFor="lv-valor" style={S.rotuloCampo}>Seu limite</label>
+                <label htmlFor="lv-valor" style={S.rotuloCampo}>Seu máximo</label>
                 <div style={S.campoWrap}>
                   <span style={S.campoPrefixo}>R$</span>
                   <input
@@ -1089,7 +1115,7 @@ export default function LanceAoVivo({
                 </div>
               </>
             )}
-            <p style={S.abaTexto}>Você paga só o necessário para vencer, até esse limite. Ninguém vê o seu limite.</p>
+            <p style={S.abaTexto}>Ninguém vê o seu máximo. Você paga só o necessário para vencer.</p>
 
             {acimaDoMercado && referenciaMercadoCents && (
               <p style={S.avisoMercado}>
@@ -1101,9 +1127,8 @@ export default function LanceAoVivo({
 
             {arremate && (
               <dl style={S.total}>
-                <div style={S.totalLinha}><dt>{estouGanhando && meuTeto > (valorCents ?? 0) ? 'Seu máximo atual' : 'Seu limite'}</dt><dd>{formatarBRL(arremate.precoCents)}</dd></div>
-                <div style={S.totalLinha}><dt>Taxa de proteção</dt><dd>até {formatarBRL(arremate.protecaoCents)}</dd></div>
-                <div style={S.totalLinha}><dt>Custo do cartão</dt><dd>até {formatarBRL(arremate.custoMetodoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>{estouGanhando && meuTeto > (valorCents ?? 0) ? 'Seu máximo atual' : 'Seu máximo'}</dt><dd>{formatarBRL(arremate.precoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>Taxas e cartão</dt><dd>até {formatarBRL(arremate.protecaoCents + arremate.custoMetodoCents)}</dd></div>
                 {freteTotal != null && (
                   <div style={S.totalLinha}>
                     <dt>{freteTotal === 0 ? 'Frete' : frete?.estimado ? 'Frete estimado até seu CEP' : 'Frete da loja'}</dt>
@@ -1111,14 +1136,13 @@ export default function LanceAoVivo({
                   </div>
                 )}
                 <div style={{ ...S.totalLinha, ...S.totalFinal }}>
-                  <dt>Total máximo se vencer</dt><dd>até {formatarBRL(arremate.compradorPagaCents + (freteTotal ?? 0))}</dd>
+                  <dt>Se vencer</dt><dd>até {formatarBRL(arremate.compradorPagaCents + (freteTotal ?? 0))}</dd>
                 </div>
               </dl>
             )}
-            {arremate && (
+            {arremate && (freteTotal == null || frete?.estimado) && (
               <p style={S.totalNota}>
-                Se ninguém disputar até o seu limite, você paga menos.
-                {freteTotal == null ? ' Frete calculado no pagamento, pelo seu CEP.' : frete?.estimado ? ' O frete final sai no pagamento.' : ''}
+                {freteTotal == null ? 'Frete calculado no pagamento, pelo seu CEP.' : 'O frete final sai no pagamento.'}
               </p>
             )}
 
@@ -1133,7 +1157,7 @@ export default function LanceAoVivo({
               )}
               {erro && <p role="alert" style={S.erro}>{erro}</p>}
 
-              <p style={S.compromisso}>Se você vencer, precisa pagar em até 48 horas. O lance não pode ser cancelado.</p>
+              <p style={S.compromisso}>Lance é compromisso de compra e não pode ser cancelado. Quem vence tem 48 horas para pagar.</p>
 
               <button
                 type="button"
@@ -1151,7 +1175,7 @@ export default function LanceAoVivo({
                       : valorCents
                         ? confirmarAlto
                           ? `Confirmar ${formatarBRL(valorCents)} mesmo assim`
-                          : `Confirmar limite de ${formatarBRL(valorCents)}`
+                          : `Confirmar lance de ${formatarBRL(valorCents)}`
                         : 'Informe o valor do lance'}
               </button>
             </div>
@@ -1192,7 +1216,17 @@ const S: Record<string, CSSProperties> = {
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)', background: 'var(--bx-surface)',
   },
   faixaGanhando: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)' },
-  faixaSuperado: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)' },
+  faixaSuperado: { color: 'var(--bx-amber)', borderColor: 'var(--bx-amber)' },
+  faixaTexto: { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 },
+  faixaTitulo: { color: 'var(--bx-text)', fontSize: 14, fontWeight: 700 },
+  faixaSub: { color: 'var(--bx-text-2)', fontSize: 12.5, fontWeight: 500 },
+  etapas: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, color: 'var(--bx-text-2)' },
+  etapa: { display: 'flex', alignItems: 'center', gap: 10 },
+  etapaN: {
+    width: 24, height: 24, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 999, fontStyle: 'normal',
+    fontSize: 11, fontWeight: 800, border: '1px solid var(--bx-border-2)',
+  },
+  etapaAtual: { background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', border: 'none' },
   ctaLinha: { display: 'flex', gap: 8 },
   rapido: {
     minHeight: 44, borderRadius: 12, border: '1px solid var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)',

@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -7,11 +7,12 @@ import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import LanceAoVivo from '@/components/leilao/LanceAoVivo'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
-import { IconChevronRight } from '@/components/ui/Icons'
+import { IconChevronDown, IconChevronRight } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import VendidoPor from '@/components/ui/VendidoPor'
 import LancesRecentes from '@/components/leilao/LancesRecentes'
 import { identificarVendedor } from '@/lib/vendedorIdentificadoServer'
+import { DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from '@/lib/leilao-reclamacao'
 import { codigoDoSlug, dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
 import { tituloRodada } from '@/lib/leilao-rodada'
 import { urlHome, urlLote, urlRodada } from '@/lib/leilao-urls'
@@ -121,6 +122,15 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   }
 }
 
+function Recolhido({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <details className="lt-fold">
+      <summary>{titulo}<IconChevronDown size={16} /></summary>
+      <div className="lt-fold-c">{children}</div>
+    </details>
+  )
+}
+
 function Ficha({ k, v }: { k: string; v: string }) {
   return (
     <div style={S.fi}>
@@ -195,6 +205,8 @@ export default async function LotePage({ params }: Params) {
     ['Graduação', rotuloGraduacao(l) || null],
   ]
 
+  const chips = [l.setNome, l.condicao, l.idioma ? l.idioma.toUpperCase() : null, rotuloGraduacao(l) || null].filter((c): c is string => !!c)
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(produtoSchema) }} />
@@ -204,7 +216,18 @@ export default async function LotePage({ params }: Params) {
         @media (min-width: 900px) { .lt-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; } }
         .lt-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
         .lt-ghost:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
-        .lt-ghost:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .lt-ghost:focus-visible, .lt-fold summary:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .lt-fold { border-bottom: 1px solid var(--bx-border); }
+        .lt-fold summary {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; cursor: pointer;
+          list-style: none; font-size: 14px; font-weight: 600; color: var(--bx-text);
+        }
+        .lt-fold summary::-webkit-details-marker { display: none; }
+        .lt-fold summary svg { color: var(--bx-text-3); flex-shrink: 0; transition: transform 0.15s ease; }
+        .lt-fold[open] summary svg { transform: rotate(180deg); }
+        .lt-fold-c { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; font-size: 13.5px; line-height: 1.5; color: var(--bx-text-2); }
+        .lt-fold-c p { margin: 0; }
+        @media (prefers-reduced-motion: reduce) { .lt-fold summary svg { transition: none; } }
       `}</style>
 
       <div className="lt-wrap" style={S.wrap}>
@@ -221,7 +244,12 @@ export default async function LotePage({ params }: Params) {
           </div>
 
           <div style={S.colInfo}>
-            <h1 style={S.h1}>{nome}</h1>
+            <div style={S.titulo}>
+              <h1 style={S.h1}>{nome}</h1>
+              {chips.length > 0 && (
+                <p style={S.chips}>{chips.map(c => <span key={c} style={S.chip}>{c}</span>)}</p>
+              )}
+            </div>
 
             <LanceAoVivo
               loteInicial={l}
@@ -230,8 +258,7 @@ export default async function LotePage({ params }: Params) {
               urlLote={url}
             />
 
-            {l.duracaoSeg > 3600 && <LancesRecentes loteId={l.id} aberto={l.status === 'ativo'} />}
-
+            <div style={S.vendedor}>
             {loja && (
               <Link href={`/lojas/${loja.slug}`} prefetch={false} className="lt-ghost" style={S.loja}>
                 {loja.logoUrl ? (
@@ -244,7 +271,8 @@ export default async function LotePage({ params }: Params) {
               </Link>
             )}
 
-            <VendidoPor ident={vendedor} />
+            <VendidoPor ident={vendedor} separado={!!loja} style={loja ? { marginTop: 10 } : undefined} />
+            </div>
 
             {rodada && (
               <Link href={urlRodada(rodada.numero)} prefetch={false} className="lt-ghost" style={S.rodada}>
@@ -257,6 +285,32 @@ export default async function LotePage({ params }: Params) {
               </Link>
             )}
 
+            {l.descricao && (
+              <div style={S.card}>
+                <p style={S.descTitulo}>Descrição do vendedor</p>
+                <p style={S.desc}>{l.descricao}</p>
+              </div>
+            )}
+
+            <div>
+              {l.duracaoSeg > 3600 && (
+                <Recolhido titulo="Lances">
+                  <LancesRecentes loteId={l.id} aberto={l.status === 'ativo'} semTitulo />
+                </Recolhido>
+              )}
+              <Recolhido titulo="O que você recebe">
+                <p>A loja envia em até {DIAS_UTEIS_ENVIO} dias úteis depois do pagamento, e você recebe o rastreio.</p>
+                <p>Proteção Bynx: não chegou, veio diferente, danificada ou com suspeita de falsificação, abra uma ocorrência no pedido em até {DIAS_RECLAMAR} dias depois da entrega. Desistiu nesse prazo: a postagem da devolução não tem custo.</p>
+              </Recolhido>
+              <Recolhido titulo="Como o tempo funciona">
+                <p>Lance nos últimos {l.softCloseSeg} segundos estende o fim, para todo mundo ter tempo de responder.</p>
+                <p>Só paga quem vence, no cartão, em até 48 horas.</p>
+              </Recolhido>
+              <Recolhido titulo="Detalhes da carta">
+                {ficha.filter(([, v]) => !!v).map(([k, v]) => <Ficha key={k} k={k} v={v as string} />)}
+              </Recolhido>
+            </div>
+
             <div style={S.acoes}>
               {l.cardSlug && (
                 <Link href={`/carta/${l.cardSlug}`} prefetch={false} className="lt-ghost" style={S.ghost}>
@@ -265,17 +319,6 @@ export default async function LotePage({ params }: Params) {
               )}
               <BotaoCompartilhar compacto url={url} titulo={`${nome} — leilão na Bynx`} texto={resumo(l)} />
             </div>
-
-            <div style={S.card}>
-              {ficha.filter(([, v]) => !!v).map(([k, v]) => <Ficha key={k} k={k} v={v as string} />)}
-            </div>
-
-            {l.descricao && (
-              <div style={S.card}>
-                <p style={S.descTitulo}>Descrição do vendedor</p>
-                <p style={S.desc}>{l.descricao}</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -293,14 +336,18 @@ const S: Record<string, CSSProperties> = {
   },
   avisoFoto: { fontSize: 12, color: 'var(--bx-text-3)', margin: '8px 0 0' },
   acoes: { display: 'flex', gap: 8, alignItems: 'stretch' },
+  titulo: { display: 'flex', flexDirection: 'column', gap: 8 },
+  chips: { display: 'flex', flexWrap: 'wrap', gap: 6, margin: 0 },
+  chip: { fontSize: 12, color: 'var(--bx-text-2)', padding: '3px 8px', borderRadius: 999, background: 'var(--bx-surface-2)' },
+  vendedor: { padding: 12, borderRadius: 12, border: '1px solid var(--bx-border)', background: 'var(--bx-surface)' },
   ghost: {
     flex: 1, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12,
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'var(--bx-text)',
     fontSize: 14, fontWeight: 600, textDecoration: 'none',
   },
   loja: {
-    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', minHeight: 48, borderRadius: 12,
-    textDecoration: 'none', border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'inherit',
+    display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, borderRadius: 10,
+    textDecoration: 'none', color: 'inherit',
   },
   lojaLogo: { width: 28, height: 28, borderRadius: 8, objectFit: 'cover', flexShrink: 0 },
   lojaLogoVazia: {
