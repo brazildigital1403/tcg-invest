@@ -12,6 +12,7 @@ import AnelVitrine from './AnelVitrine'
 import BotaoAgenda from './BotaoAgenda'
 import ComecaEm from './ComecaEm'
 import LogoLoja from './LogoLoja'
+import { DURACOES_LOTE } from '@/lib/leilao-painel'
 
 function nomeDaLoja(loja: LojaDoLote | null): string | null {
   return loja ? loja.nome ?? loja.slug : null
@@ -197,14 +198,14 @@ export function PalcoProxima({
 export function HeroSemRodada() {
   return (
     <section className="vt-heroi" aria-labelledby="vt-heroi-t">
-      <h2 id="vt-heroi-t">Nenhuma rodada no ar agora</h2>
+      <h2 id="vt-heroi-t">Nenhum leilão ao vivo agora</h2>
       <p>
-        Quando uma loja abrir ou agendar uma rodada ao vivo, ela aparece aqui com o horário. Enquanto isso, as cartas à
-        venda com preço fixo estão no Mercado.
+        A loja coloca uma carta por vez em disputa, por {DURACOES_LOTE[0]} a {DURACOES_LOTE[DURACOES_LOTE.length - 1]} segundos,
+        e o maior lance leva. Quando houver agenda, o horário aparece aqui.
       </p>
       <div className="vt-acoes">
-        <Link href="/marketplace" prefetch={false} className="vt-cta">Ver o Mercado</Link>
-        <Link href="/para-lojistas" prefetch={false} className="vt-cta-sec">Sou lojista</Link>
+        <Link href="/leiloes?aba=como-funciona" prefetch={false} className="vt-cta">Entender como funciona</Link>
+        <Link href="/marketplace" prefetch={false} className="vt-cta-sec">Ver cartas com preço fixo</Link>
       </div>
     </section>
   )

@@ -61,7 +61,7 @@ export const maxDuration = 20
 export const metadata: Metadata = {
   title: 'Leilão de cartas Pokémon ao vivo, com lance em reais',
   description:
-    'Lotes de cartas Pokémon em leilão ao vivo, com lance em reais e pagamento protegido pela Bynx.',
+    'Lotes de cartas Pokémon em leilão ao vivo, com lance em reais e Proteção Bynx na compra.',
   alternates: { canonical: urlHome() },
   // Sem isto o link herdava o preview da home, que fala da coleção.
   openGraph: {
@@ -103,7 +103,7 @@ export default async function LeiloesPage({
       <div className="vt">
         <header className="vt-hero">
           <h1>Leilão de cartas Pokémon ao vivo</h1>
-          <p>Lojas verificadas, lance em reais e pagamento protegido pela Bynx.</p>
+          <p>Lojas disputam cartas ao vivo, com lance em reais. Só paga quem vence.</p>
         </header>
         {conteudo}
       </div>
@@ -150,6 +150,8 @@ async function abaAoVivo() {
   const lotesDestaque = destaque ? await buscarLotesDaRodada(destaque.id) : ([] as LotePublico[])
   const contagem = contagemDe(resumo)
 
+  // Sem rodada, a explicacao vem antes da garantia: e o que falta a quem chegou.
+  let semNada = false
   let palco: ReactNode
   if (destaque) {
     palco = (
@@ -171,6 +173,7 @@ async function abaAoVivo() {
     )
   } else {
     palco = <HeroSemRodada />
+    semNada = true
   }
 
   return (
@@ -187,6 +190,7 @@ async function abaAoVivo() {
         </section>
       )}
 
+      {semNada && <ComoFunciona />}
       <FaixaGarantia />
 
       {lotes.length > 0 && (
@@ -219,7 +223,7 @@ async function abaAoVivo() {
       {arrematados.length > 0 && <Arrematados itens={arrematados} />}
       {!semanaVazia(dias) && <AgendaSemana dias={dias} lojas={lojas} resumo={resumo} />}
       {lojasLeilao.length > 0 && <LojasDoLeilao lojas={lojasLeilao} />}
-      <ComoFunciona />
+      {!semNada && <ComoFunciona />}
       <PerguntasFrequentes />
       <BlocoLojista />
     </>

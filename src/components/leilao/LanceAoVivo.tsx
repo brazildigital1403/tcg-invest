@@ -173,6 +173,12 @@ export default function LanceAoVivo({
   const [agora, setAgora] = useState<number>(Number.isFinite(baseInicial) ? baseInicial : 0)
 
   const [logado, setLogado] = useState<boolean | null>(null)
+  // Quem nao pode dar lance descobre ANTES do Confirmar. null = ainda nao sabe:
+  // a tela segue como antes, e o servidor continua sendo quem recusa de verdade.
+  const [cadastro, setCadastro] = useState<{ cep: boolean; cpf: boolean; menor: boolean } | null>(null)
+  const [cepTxt, setCepTxt] = useState('')
+  const [salvandoCep, setSalvandoCep] = useState(false)
+  const [erroCep, setErroCep] = useState<string | null>(null)
   const [online, setOnline] = useState(true)
   const [posicao, setPosicao] = useState<MinhaPosicao | null>(null)
   /** O servidor diz se quem esta logado e o vendedor (o id do vendedor nunca vem). */
@@ -210,11 +216,24 @@ export default function LanceAoVivo({
 
   // ── Sessao, conexao, lance guardado ─────────────────────────────────────
   useEffect(() => {
+    const lerCadastro = async (id: string) => {
+      const { data, error } = await supabase.from('users').select('cep, cpf, data_nascimento').eq('id', id).maybeSingle()
+      if (error || !data) return
+      const nasc = data.data_nascimento ? new Date(`${data.data_nascimento}T12:00:00`) : null
+      const dezoito = nasc ? new Date(nasc.getFullYear() + 18, nasc.getMonth(), nasc.getDate()) : null
+      setCadastro({
+        cep: String(data.cep || '').replace(/\D/g, '').length === 8,
+        cpf: !!data.cpf,
+        menor: !!dezoito && dezoito.getTime() > Date.now(),
+      })
+    }
     supabase.auth.getSession().then(({ data }) => {
       setLogado(!!data.session?.user)
+      if (data.session?.user) lerCadastro(data.session.user.id)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setLogado(!!session?.user)
+      if (session?.user) lerCadastro(session.user.id)
     })
     const on = () => setOnline(true)
     const off = () => setOnline(false)
@@ -557,6 +576,28 @@ export default function LanceAoVivo({
     }
   }
 
+  async function salvarCep() {
+    const digitos = cepTxt.replace(/\D/g, '')
+    if (digitos.length !== 8) { setErroCep('O CEP tem 8 números.'); return }
+    setSalvandoCep(true)
+    setErroCep(null)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const r = await fetch('/api/conta/cep', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${data.session?.access_token ?? ''}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cep: digitos }),
+      })
+      const j = await r.json().catch(() => null)
+      if (!r.ok) { setErroCep(j?.error || 'Não foi possível salvar. Tente de novo.'); return }
+      setCadastro(c => (c ? { ...c, cep: true } : c))
+    } catch {
+      setErroCep('A conexão falhou. Tente de novo.')
+    } finally {
+      setSalvandoCep(false)
+    }
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
   // `relogio` = texto completo (aria-label); `relogioAnel` = so a maior
   // unidade, que e o que cabe dentro do anel de 64px.
@@ -623,6 +664,35 @@ export default function LanceAoVivo({
         Entrar para dar lance
       </Link>
     )
+  } else if (cadastro?.menor) {
+    cta = <div style={S.ctaInfo}>Os lances são permitidos só para maiores de 18 anos.</div>
+  } else if (cadastro && !cadastro.cpf) {
+    cta = (
+      <Link href="/minha-conta" prefetch={false} className="lv-cta-btn" style={S.ctaBtn}>
+        Informe seu CPF em Minha conta para dar lance
+      </Link>
+    )
+  } else if (cadastro && !cadastro.cep) {
+    cta = (
+      <form onSubmit={e => { e.preventDefault(); salvarCep() }} style={S.cepForm}>
+        <label htmlFor="lv-cep" style={S.cepRotulo}>Falta o seu CEP para dar lance. Ele também calcula o frete.</label>
+        <div style={S.ctaLinha}>
+          <input
+            id="lv-cep"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="00000-000"
+            value={cepTxt}
+            onChange={e => { setCepTxt(e.target.value); setErroCep(null) }}
+            style={S.cepCampo}
+          />
+          <button type="submit" disabled={salvandoCep} className="lv-cta-btn" style={{ ...S.ctaBtn, flex: '0 0 auto', width: 'auto', padding: '0 18px' }}>
+            {salvandoCep ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+        {erroCep && <p role="alert" style={S.erro}>{erroCep}</p>}
+      </form>
+    )
   } else if (!online) {
     cta = <div style={S.ctaInfo}>Sem conexão. O lance fica disponível quando a internet voltar.</div>
   } else {
@@ -651,6 +721,7 @@ export default function LanceAoVivo({
   // Atalhos do desktop: mesmo estado em que o CTA e "Dar lance".
   const mostrarAtalhos =
     variante === 'rodada' && aberto && !devePagar && !conferindo && !proprio && logado !== false && online
+    && !(cadastro && (cadastro.menor || !cadastro.cpf || !cadastro.cep))
   const prorrogacaoRodada = variante === 'rodada' && (aberto || conferindo) ? textoProrrogacao(lote.softCloseSeg, lote.prorrogacoes) : null
 
   return (
@@ -754,7 +825,7 @@ export default function LanceAoVivo({
             {lote.nLances > 0 && st !== 'cancelado' && (() => {
               const pct = Math.round((precoCents / referenciaMercadoCents - 1) * 100)
               if (pct === 0) return ' · no valor de mercado'
-              return pct < 0 ? ` · ${-pct}% abaixo` : ` · ${pct}% acima`
+              return pct < 0 ? ` · ${-pct}% abaixo, sem taxas e frete` : ` · ${pct}% acima, sem taxas e frete`
             })()}
           </span>
         </p>
@@ -799,7 +870,7 @@ export default function LanceAoVivo({
 
       <p style={S.protecao}>
         <IconShield size={14} />
-        Quem arremata paga pela Bynx, no cartão, com pagamento protegido.
+        Só paga quem vence, no cartão, em até 48 horas.
       </p>
 
       {aberta && (
@@ -841,8 +912,8 @@ export default function LanceAoVivo({
             </div>
             <p style={S.abaTexto}>
               {aba === 'rapido'
-                ? 'Todo lance é automático. O valor que você escolher é o seu limite: você paga o menor valor necessário para vencer, até o limite que informou.'
-                : 'Todo lance é automático. Informe o máximo que aceita pagar: você paga o menor valor necessário para vencer, até o limite que informou. Ninguém vê o seu máximo.'}
+                ? 'O valor escolhido é o seu limite. A Bynx só usa o necessário para você liderar.'
+                : 'Informe até quanto aceita pagar. A Bynx só usa o necessário para você liderar, e ninguém vê o seu limite.'}
             </p>
 
             <p style={S.rotuloCampo}>Lance mínimo agora: {formatarBRL(minimo)}</p>
@@ -924,6 +995,8 @@ export default function LanceAoVivo({
               )}
               {erro && <p role="alert" style={S.erro}>{erro}</p>}
 
+              <p style={S.compromisso}>Se você vencer, precisa pagar em até 48 horas. O lance não pode ser cancelado.</p>
+
               <button
                 type="button"
                 onClick={confirmar}
@@ -940,7 +1013,7 @@ export default function LanceAoVivo({
                       : valorCents
                         ? confirmarAlto
                           ? `Confirmar ${formatarBRL(valorCents)} mesmo assim`
-                          : `Confirmar lance de ${formatarBRL(valorCents)}`
+                          : `Confirmar limite de ${formatarBRL(valorCents)}`
                         : 'Informe o valor do lance'}
               </button>
             </div>
@@ -998,6 +1071,13 @@ const S: Record<string, CSSProperties> = {
     borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 800,
     background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', textDecoration: 'none',
     fontVariantNumeric: 'tabular-nums',
+  },
+  compromisso: { margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.45, fontWeight: 600, color: 'var(--bx-text)' },
+  cepForm: { display: 'flex', flexDirection: 'column', gap: 6 },
+  cepRotulo: { fontSize: 12.5, lineHeight: 1.4, color: 'var(--bx-text-2)' },
+  cepCampo: {
+    flex: 1, minWidth: 0, minHeight: 46, borderRadius: 10, padding: '0 12px', fontSize: 16, fontFamily: 'inherit',
+    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',
   },
   ctaInfo: {
     minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',

@@ -56,7 +56,7 @@ function resumo(l: LotePublico): string {
   if (l.descricao) return l.descricao.slice(0, 180)
   const preco = formatarBRL(precoVitrine(l))
   const lance = l.nLances > 0 ? `Lance atual ${preco}` : `Lance inicial ${preco}`
-  return `${nomeCompleto(l)} em leilão na Bynx. ${lance}. Pagamento protegido, no cartão.`
+  return `${nomeCompleto(l)} em leilão na Bynx. ${lance}. Com Proteção Bynx na compra.`
 }
 
 /** schema.org: aberto = InStock, arrematado = SoldOut, sem lances/cancelado = OutOfStock. */

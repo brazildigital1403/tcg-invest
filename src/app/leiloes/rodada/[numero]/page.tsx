@@ -65,7 +65,7 @@ function nomeLoja(loja: LojaDoLote | null): string | null {
 function descricaoRodada(r: RodadaPublica, loja: LojaDoLote | null, nLotes: number): string {
   const daLoja = nomeLoja(loja) ? ` da loja ${nomeLoja(loja)}` : ''
   const lotes = nLotes === 1 ? '1 lote' : `${nLotes} lotes`
-  const base = 'de cartas Pokémon com lance em reais e pagamento protegido pela Bynx.'
+  const base = 'de cartas Pokémon com lance em reais e Proteção Bynx na compra.'
   switch (r.status) {
     case 'agendada':
       return `Rodada de leilão ao vivo${daLoja}${r.iniciaEm ? ` em ${horarioBrasilia(r.iniciaEm)}` : ''}. ${lotes} ${base}`
@@ -201,7 +201,7 @@ export default async function RodadaPage({ params }: Params) {
         />
 
         <p style={S.nota}>
-          Lance exige conta na Bynx. Quem arremata paga pela Bynx, no cartão, com pagamento protegido.
+          Lance exige conta na Bynx. Só paga quem vence, no cartão, em até 48 horas.
         </p>
       </div>
     </>

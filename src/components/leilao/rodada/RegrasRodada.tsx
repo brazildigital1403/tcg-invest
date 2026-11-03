@@ -24,15 +24,15 @@ export default function RegrasRodada({ ativo }: { ativo: LotePublico | null }) {
         <p style={S.linha}>
           <IconClock size={16} style={S.ic} />
           <span>
-            Degrau atual: {formatarBRL(incrementoCents(atual))}.
-            {ativo.softCloseSeg > 0 ? ` Lance nos últimos ${ativo.softCloseSeg}s volta o relógio para ${ativo.softCloseSeg}s.` : ''}
+            Cada lance sobe pelo menos {formatarBRL(incrementoCents(atual))}.
+            {ativo.softCloseSeg > 0 ? ` Lance nos últimos ${ativo.softCloseSeg} segundos devolve o relógio a ${ativo.softCloseSeg} segundos.` : ''}
           </span>
         </p>
       )}
       <p style={S.linha}>
         <IconCheck size={16} style={S.ic} />
         <span>
-          Taxa de proteção de {pct.toLocaleString('pt-BR')}% (mínimo {formatarBRL(LEILAO_PROTECAO_MIN_CENTS)}) na hora de pagar.
+          Se vencer: taxa de proteção de {pct.toLocaleString('pt-BR')}% (mínimo {formatarBRL(LEILAO_PROTECAO_MIN_CENTS)}), custo do cartão de 4,8% (mínimo R$ 1,20) e frete.
         </span>
       </p>
     </section>

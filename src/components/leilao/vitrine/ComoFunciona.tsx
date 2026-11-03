@@ -1,5 +1,8 @@
 import { IconPlus } from '@/components/ui/Icons'
 import { PRAZO_PAGAMENTO_ARREMATE_HORAS, rotuloTaxaProtecao } from '@/lib/leilao-vitrine'
+import { calcularArremate } from '@/lib/leilao-taxas'
+import { DURACOES_LOTE } from '@/lib/leilao-painel'
+import { formatarBRL } from '@/lib/leilao'
 
 const H = PRAZO_PAGAMENTO_ARREMATE_HORAS
 
@@ -12,12 +15,12 @@ const H = PRAZO_PAGAMENTO_ARREMATE_HORAS
  * - so maiores de 18 (raise menor_de_idade do dar_lance, 20260928160000);
  * - aviso no sino e por e-mail ao vencer e no calote (leilao-avisos.ts);
  * - calote apos o prazo + carencia (tick), sem suspensao automatica.
- * "E se a carta nao chegar?" fica de fora ate o Du decidir a politica.
+ * Textos revistos no estudo de 03/11 contra /termos, secao 5.4.
  */
 const PASSOS = [
-  { titulo: 'Entre na rodada', texto: 'Assista à live da loja e acompanhe cada lote na tela.' },
-  { titulo: 'Dê seu lance', texto: 'Escolha um lance rápido ou defina um máximo, e a Bynx cobre os lances por você até ele.' },
-  { titulo: 'Pague protegido', texto: `No cartão, pela Bynx, em até ${H} horas. A loja não vê os dados do seu cartão.` },
+  { titulo: 'Escolha a carta', texto: `A loja abre uma carta por vez, por ${DURACOES_LOTE[0]} a ${DURACOES_LOTE[DURACOES_LOTE.length - 1]} segundos. Dar lance é grátis e não pede cartão.` },
+  { titulo: 'Dê seu lance', texto: 'Informe até quanto aceita pagar: a Bynx cobre os outros lances por você, só até esse limite. Se vencer, você se compromete a pagar.' },
+  { titulo: `Pague em ${H} horas`, texto: 'No cartão, com taxa de proteção, custo do cartão e frete mostrados antes. Só paga quem vence.' },
 ] as const
 
 export function ComoFunciona() {
@@ -41,26 +44,49 @@ export function ComoFunciona() {
   )
 }
 
+const exemplo100 = calcularArremate(10_000)
+const exemplo10 = calcularArremate(1_000)
+
 const PERGUNTAS: ReadonlyArray<{ q: string; r: string }> = [
   {
-    q: 'Como eu dou lance?',
-    r: 'Entre na rodada ao vivo com a sua conta Bynx, com CPF e CEP no cadastro. Os lances são permitidos só para maiores de 18 anos. Escolha um lance rápido ou defina o máximo que aceita pagar: a Bynx cobre os lances por você até esse valor e ninguém vê o seu máximo. Lance nos últimos segundos prorroga o fim do lote.',
+    q: 'O que é leilão ao vivo?',
+    r: 'A loja coloca cartas em disputa, uma por vez, no horário marcado. Ela pode transmitir em vídeo, mas o lance é dado na Bynx. Vale o relógio da tela, não o vídeo.',
   },
   {
-    q: 'É seguro comprar em leilão?',
-    r: `O pagamento é feito pela Bynx, no cartão, e a loja não vê os dados do seu cartão. Cada lote mostra a loja, com selo quando ela é verificada. Antes de pagar, você confere a taxa de proteção de ${rotuloTaxaProtecao()} e o frete.`,
+    q: 'Dar lance custa alguma coisa?',
+    r: 'Não. O lance não pede cartão e não reserva valor. Só paga quem vence.',
   },
   {
-    q: 'Como eu pago o que arrematei?',
-    r: `Quem vence o lote recebe o aviso no sino e por e-mail e tem ${H} horas para pagar no cartão, pela Bynx. O arremate fica em Meus lances, em Arremates a pagar.`,
+    q: 'Quem pode dar lance?',
+    r: 'Quem tem 18 anos ou mais, com CPF e CEP no cadastro.',
   },
   {
-    q: 'O que acontece se eu não pagar?',
-    r: `Sem o pagamento em até ${H} horas, o arremate é cancelado. Você e a loja recebem o aviso por e-mail.`,
+    q: 'Posso cancelar um lance?',
+    r: 'Não. O lance é compromisso de compra: quem tiver o maior lance no fim precisa pagar.',
+  },
+  {
+    q: 'Quanto pago no total?',
+    r: `Lance vencedor, taxa de proteção de ${rotuloTaxaProtecao()}, custo do cartão e frete. Em R$ 100,00, o total é ${formatarBRL(exemplo100.compradorPagaCents)} mais frete. Em R$ 10,00, é ${formatarBRL(exemplo10.compradorPagaCents)} mais frete. Cada carta é paga em separado.`,
+  },
+  {
+    q: 'E se eu não pagar?',
+    r: `Depois de ${H} horas, o arremate é cancelado e a loja é avisada. A Bynx pode restringir novos lances de quem deixa de pagar.`,
+  },
+  {
+    q: 'E se a carta não chegar ou vier errada?',
+    r: 'Abra uma ocorrência em Precisa de ajuda?, na tela do pedido, até 7 dias depois da entrega. Com a carta em mãos, envie fotos da frente, do verso e da embalagem. A loja tem 2 dias úteis para responder; sem resposta, o estorno sai sozinho. Se ela contestar, a Bynx decide em até 2 dias úteis.',
+  },
+  {
+    q: 'Posso desistir depois de pagar?',
+    r: 'Sim, até 7 dias depois de receber, sem justificativa. Antes do envio, o estorno é integral. Depois, a Bynx gera um código de postagem sem custo, e você tem 7 dias para postar. O estorno pode levar de 5 a 10 dias úteis na fatura.',
+  },
+  {
+    q: 'Quem vende a carta?',
+    r: 'A loja, que responde pela descrição, autenticidade, estado e envio. A Bynx oferece a ferramenta, processa o pagamento e media as ocorrências.',
   },
   {
     q: 'Como minha loja faz um leilão?',
-    r: 'Pelo painel da loja na Bynx: você monta a rodada com os lotes, agenda o horário e coloca o link da transmissão. Quem arremata paga pela Bynx, no cartão. O passo a passo está em Para lojistas.',
+    r: 'Pelo painel da loja na Bynx: em Leilões, você monta a rodada com os lotes e agenda o horário. A loja precisa estar com os recebimentos ativos e o endereço para devoluções cadastrado.',
   },
 ]
 
