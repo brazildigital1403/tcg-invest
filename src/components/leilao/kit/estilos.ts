@@ -44,6 +44,8 @@ export const CSS_KIT = `
 
 .lk-resumos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (min-width: 769px) { .lk-resumos { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); } }
+.lk-resumo:last-child:nth-child(odd) { grid-column: 1 / -1; }
+@media (min-width: 769px) { .lk-resumo:last-child:nth-child(odd) { grid-column: auto; } }
 .lk-resumo { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px; border-radius: 14px; border: 1px solid var(--bx-border); background: var(--bx-surface); }
 .lk-resumo small { font-size: 12px; font-weight: 600; color: var(--bx-text-2); }
 .lk-resumo b { font-size: 26px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--bx-text); overflow-wrap: anywhere; }

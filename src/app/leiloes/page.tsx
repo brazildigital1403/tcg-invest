@@ -24,7 +24,8 @@ import BlocoLojista from '@/components/leilao/vitrine/BlocoLojista'
 import ChamadaLojas from '@/components/leilao/vitrine/ChamadaLojas'
 import TopoVitrine from '@/components/leilao/vitrine/TopoVitrine'
 import ListaRodadas from '@/components/leilao/vitrine/ListaRodadas'
-import { IconClock } from '@/components/ui/Icons'
+import { Acoes, Botao, IconeBloco, Linhas, Resumo, Resumos, Selo, TelaEstado, Titulo } from '@/components/leilao/kit'
+import { IconBell, IconCalendar, IconLeilao } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
 import type { RodadaPublica } from '@/lib/leilao-rodada'
@@ -40,6 +41,7 @@ import {
   listarLotesVitrine,
   listarRodadasAgendadas,
   listarRodadasEncerradas,
+  resumirArremates,
   resumirLotesPorRodada,
   type ResumoRodada,
 } from './_dados'
@@ -86,11 +88,6 @@ export const metadata: Metadata = {
 
 const DIA_MS = 24 * 60 * 60 * 1000
 
-const TITULO_ABA = {
-  agenda: 'Agenda de leilões de cartas Pokémon',
-  resultados: 'Resultados de leilões de cartas Pokémon',
-  'como-funciona': 'Como funciona o leilão de cartas Pokémon',
-} as const
 
 // ─── Pagina ─────────────────────────────────────────────────────────────────
 
@@ -115,7 +112,7 @@ export default async function LeiloesPage({
       <style>{CSS_VITRINE}</style>
       <LeilaoAbas ativa={aba} />
       <div className="vt">
-        {aba !== 'ao-vivo' && <h1 className="vt-sr">{TITULO_ABA[aba]}</h1>}
+        {aba === 'como-funciona' && <h1 className="vt-sr">Como funciona o leilão de cartas Pokémon</h1>}
         {conteudo}
       </div>
     </div>
@@ -195,7 +192,6 @@ async function abaAoVivo() {
 
   return (
     <>
-      {semNada && <h1 className="vt-sr">Leilão de cartas Pokémon</h1>}
       {loteDestaque ? (
         <TopoVitrine
           frase="A disputa está aberta."
@@ -214,9 +210,17 @@ async function abaAoVivo() {
         >
           {palco}
         </TopoVitrine>
-      ) : !semNada ? <TituloPagina /> : null}
+      ) : palco ? (
+        <TopoVitrine
+          frase={semNada ? 'O próximo lance' : 'A próxima disputa'}
+          destaque={semNada ? 'começa aqui.' : 'já tem data.'}
+          texto={semNada ? 'Quando uma loja abrir um leilão, ele aparece aqui.' : 'Marque na agenda e chegue antes do primeiro lance.'}
+          rodape={<SelosGarantia />}
+        >
+          {palco}
+        </TopoVitrine>
+      ) : null}
       <div className={hoje.length > 0 ? 'vt-dobra vt-com-hoje' : 'vt-dobra'}>
-        {!loteDestaque && !destaque && palco}
         {hoje.length > 0 && <CardHoje rodadas={hoje} lojas={lojas} resumo={resumo} renderizadoEm={renderizadoEm} />}
       </div>
 
@@ -227,7 +231,6 @@ async function abaAoVivo() {
         </section>
       )}
 
-      {!loteDestaque && !destaque && <SelosGarantia />}
       {semNada && <PassosCurtos />}
 
       {lotesGrade.length > 0 && (
@@ -283,10 +286,16 @@ async function abaAgenda() {
   const rodadas = await listarRodadasAgendadas(40)
   if (!rodadas.length) {
     return (
-      <Vazio titulo="Nenhuma rodada agendada">
-        <BotaoAvisoLeilao />
-        <Link href={urlHome()} prefetch={false} className="vt-cta-sec">Ver leilões abertos</Link>
-      </Vazio>
+      <TelaEstado
+        tom="acento" icone={<IconCalendar size={38} />} selo={<Selo tom="neutro">Agenda</Selo>}
+        titulo="Nenhuma rodada agendada."
+        acoes={
+          <Acoes>
+            <BotaoAvisoLeilao className="lk-btn lk-btn-prim lk-btn-cheio" />
+            <Botao tipo="sec" cheio href={urlHome()}>Ver leilões abertos</Botao>
+          </Acoes>
+        }
+      />
     )
   }
   const [lojas, resumo] = await Promise.all([
@@ -303,9 +312,15 @@ async function abaAgenda() {
   }
   return (
     <>
+      <Titulo rotulo="Planeje sua disputa" titulo="Agenda de rodadas" texto="Saiba quando a próxima carta entra no ar." />
+      <section className="vt-aviso-b">
+        <IconeBloco tamanho="m"><IconBell size={22} /></IconeBloco>
+        <div><b>Quer ser avisado?</b><small>A Bynx manda um e-mail quando abrir um leilão.</small></div>
+        <BotaoAvisoLeilao className="lk-btn lk-btn-sec" />
+      </section>
       {grupos.map(g => (
         <section key={g.dia} aria-label={g.dia} className="vt-sec">
-          <div className="vt-sec-t"><h2>{g.dia}</h2></div>
+          <div className="vt-sec-t"><h2 className="lk-sub">{g.dia}</h2></div>
           <div className="vt-res-lista">
             {g.rodadas.map(r => (
               <LinhaAgenda key={r.id} rodada={r} loja={lojas.get(r.lojaId ?? '') ?? null} resumo={resumo.get(r.id) ?? null} />
@@ -324,12 +339,16 @@ async function abaResultados() {
   const agora = Date.now()
   const hojeISO = dataBrasiliaISO(agora)
   const ontemISO = dataBrasiliaISO(agora - DIA_MS)
-  const [rodadas, arrematados] = await Promise.all([listarRodadasEncerradas(20), listarArrematadosRecentes(30)])
+  const [rodadas, arrematados, numeros] = await Promise.all([
+    listarRodadasEncerradas(20), listarArrematadosRecentes(30), resumirArremates(),
+  ])
   if (!rodadas.length && !arrematados.length) {
     return (
-      <Vazio titulo="Nenhum arremate ainda">
-        <Link href={urlHome()} prefetch={false} className="vt-cta">Ver leilões abertos</Link>
-      </Vazio>
+      <TelaEstado
+        tom="acento" icone={<IconLeilao size={38} />} selo={<Selo tom="neutro">Resultados</Selo>}
+        titulo="Nenhum arremate ainda."
+        acoes={<Botao cheio href={urlHome()}>Ver leilões abertos</Botao>}
+      />
     )
   }
   const [lojas, contagem] = await Promise.all([
@@ -353,21 +372,29 @@ async function abaResultados() {
   const quando = (r: RodadaPublica) => (r.iniciaEm ? nomeDia(r.iniciaEm) : '--')
   return (
     <>
+      <Titulo rotulo="Histórico" titulo="Últimos resultados" texto="O que já foi arrematado na Bynx." />
+      {numeros && numeros.n > 0 && (
+        <Resumos>
+          <Resumo rotulo="Lotes arrematados" valor={String(numeros.n)} />
+          {numeros.maior && <Resumo rotulo="Maior arremate" valor={formatarBRL(numeros.maior.cents)} meta={numeros.maior.nome} />}
+          <Resumo rotulo={numeros.lojas === 1 ? 'Loja com venda' : 'Lojas com venda'} valor={String(numeros.lojas)} />
+        </Resumos>
+      )}
       {dias.map(d => (
         <section key={d.dia} aria-label={d.dia} className="vt-sec">
-          <div className="vt-sec-t"><h2>{d.dia}</h2></div>
-          <div className="vt-res-lista">
+          <div className="vt-sec-t"><h2 className="lk-sub">{d.dia}</h2></div>
+          <Linhas>
             {d.lotes.map(l => <LinhaResultado key={l.id} lote={l} loja={lojas.get(l.lojaId ?? '') ?? null} />)}
-          </div>
+          </Linhas>
         </section>
       ))}
       {rodadas.length > 0 && (
         <section aria-labelledby="vt-rod-enc-t" className="vt-sec">
-          <div className="vt-sec-t"><h2 id="vt-rod-enc-t">Rodadas encerradas</h2></div>
+          <div className="vt-sec-t"><h2 id="vt-rod-enc-t" className="lk-sub">Rodadas encerradas</h2></div>
           <ListaRodadas rodadas={rodadas} lojas={lojas} contagem={contagem} quando={quando} />
         </section>
       )}
-      <Link href={urlHome()} prefetch={false} className="vt-cta-sec">Ver leilões abertos</Link>
+      <Botao tipo="sec" href={urlHome()}>Ver leilões abertos</Botao>
     </>
   )
 }
@@ -382,31 +409,5 @@ function AbaComoFunciona() {
       <PerguntasFrequentes />
       <BlocoLojista />
     </>
-  )
-}
-
-function TituloPagina() {
-  return (
-    <header className="vt-hero">
-      <h1>Leilão de cartas Pokémon</h1>
-      <p>Dê seu lance em reais até o fim do prazo. Só paga quem vence.</p>
-    </header>
-  )
-}
-
-function Vazio({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <div className="vt-heroi" style={{ alignItems: 'center', textAlign: 'center' }}>
-      <span
-        style={{
-          width: 48, height: 48, borderRadius: 999, display: 'grid', placeItems: 'center',
-          background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)',
-        }}
-      >
-        <IconClock size={22} />
-      </span>
-      <h2>{titulo}</h2>
-      <div className="vt-acoes" style={{ justifyContent: 'center' }}>{children}</div>
-    </div>
   )
 }

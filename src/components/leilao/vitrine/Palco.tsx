@@ -130,44 +130,31 @@ export function PalcoProxima({
   if (resumo && resumo.n > 0) partes.push(resumo.n === 1 ? '1 lote' : `${resumo.n} lotes`)
   const titulo = `${nomeDaLoja(loja) ?? tituloRodada(rodada)}: rodada ao vivo no Bynx Leilões`
   return (
-    <article className="vt-palco" aria-label={`Próxima rodada: ${rodada.numero}`}>
-      <div className="vt-carta">
-        <span className="vt-carta-in">
-        {imagens[0] ? (
-          <Image src={imagens[0]} alt="" width={245} height={342} priority sizes="(max-width: 768px) 170px, 240px" className="vt-carta-img" />
-        ) : (
-          <span className="vt-carta-vazia" aria-hidden />
-        )}
-        <span className="vt-selo-vivo vt-selo-breve">
-          <IconClock size={12} />
-          PRÓXIMA RODADA
-        </span>
-        </span>
-      </div>
-      <div className="vt-info">
-        <LinhaLoja loja={loja} sub={partes.join(' · ')} fallback={tituloRodada(rodada)} />
-        <div>
-          <p className="vt-rot">{quandoRodada(rodada.iniciaEm, Date.parse(renderizadoEm))}</p>
-          <div className="vt-preco" style={{ fontSize: 'clamp(24px, 6vw, 34px)' }}>
-            <ComecaEm iniciaEm={rodada.iniciaEm} renderizadoEm={renderizadoEm} maiuscula />
-          </div>
+    <article className="vt-dest" style={{ maxWidth: 440 }} aria-label={`Próxima rodada: ${rodada.numero}`}>
+      <span className="vt-dest-t">
+        <Rotulo>Próxima rodada</Rotulo>
+        <span className="lk-selo lk-selo-tempo lk-t-acento"><IconClock size={13} /><ComecaEm iniciaEm={rodada.iniciaEm} renderizadoEm={renderizadoEm} maiuscula /></span>
+      </span>
+      <span className="vt-dest-art">
+        {imagens[0] && <Image src={imagens[0]} alt="" width={384} height={536} priority sizes="(min-width: 769px) 300px, 200px" />}
+      </span>
+      <span className="vt-dest-nome">
+        <strong>{quandoRodada(rodada.iniciaEm, Date.parse(renderizadoEm))}</strong>
+      </span>
+      <LinhaLoja loja={loja} sub={partes.join(' · ')} fallback={tituloRodada(rodada)} />
+      {imagens.length > 1 && (
+        <div className="vt-minis" aria-hidden>
+          {imagens.slice(1).map((src, i) => (
+            <div key={src + i} className="vt-mini">
+              <Image src={src} alt="" width={46} height={64} sizes="46px" />
+            </div>
+          ))}
         </div>
-        {imagens.length > 1 && (
-          <div className="vt-minis" aria-hidden>
-            {imagens.slice(1).map((src, i) => (
-              <div key={src + i} className="vt-mini">
-                <Image src={src} alt="" width={46} height={64} sizes="46px" />
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="vt-acoes">
-          <Link href={urlRodada(rodada.numero)} prefetch={false} className="vt-cta">Ver a rodada</Link>
-          {rodada.iniciaEm && (
-            <BotaoAgenda numero={rodada.numero} titulo={titulo} iniciaEm={rodada.iniciaEm} descricao={rodada.descricao} variante="caixa" />
-          )}
-        </div>
-      </div>
+      )}
+      <Link href={urlRodada(rodada.numero)} prefetch={false} className="lk-btn lk-btn-prim lk-btn-cheio">Ver a rodada</Link>
+      {rodada.iniciaEm && (
+        <BotaoAgenda numero={rodada.numero} titulo={titulo} iniciaEm={rodada.iniciaEm} descricao={rodada.descricao} variante="caixa" />
+      )}
     </article>
   )
 }
@@ -177,17 +164,17 @@ const EXEMPLOS = ['base1/4', 'swsh7/215', 'sv3pt5/151'].map(c => `https://images
 /** Nada no ar e nada agendado. */
 export function HeroSemRodada() {
   return (
-    <section className="vt-heroi" aria-labelledby="vt-heroi-t">
+    <section className="vt-dest" aria-labelledby="vt-heroi-t">
+      <span className="vt-dest-t">
+        <Rotulo fraco><span id="vt-heroi-t">Nenhum leilão aberto agora</span></Rotulo>
+      </span>
       <div className="vt-leque" data-nosnippet>
-        {EXEMPLOS.map(src => <Image key={src} src={src} alt="" width={256} height={357} sizes="(min-width: 769px) 140px, 96px" />)}
+        {EXEMPLOS.map(src => <Image key={src} src={src} alt="" width={256} height={357} sizes="(min-width: 769px) 140px, 96px" priority />)}
       </div>
       <span className="vt-exemplo" data-nosnippet>Exemplos, não estão à venda</span>
-      <h2 id="vt-heroi-t">Nenhum leilão aberto agora</h2>
-      <div className="vt-acoes">
-        <BotaoAvisoLeilao />
-        <Link href={urlHome('agenda')} prefetch={false} className="vt-cta-sec">Ver a agenda</Link>
-        <Link href="/marketplace" prefetch={false} className="vt-cta-sec">Ver cartas com preço fixo</Link>
-      </div>
+      <BotaoAvisoLeilao className="lk-btn lk-btn-prim lk-btn-cheio" />
+      <Link href={urlHome('agenda')} prefetch={false} className="lk-btn lk-btn-sec lk-btn-cheio">Ver a agenda</Link>
+      <Link href="/marketplace" prefetch={false} className="lk-btn lk-btn-leve lk-btn-cheio">Ver cartas com preço fixo</Link>
     </section>
   )
 }

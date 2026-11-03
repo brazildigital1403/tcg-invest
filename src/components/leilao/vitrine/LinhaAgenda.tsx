@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import BotaoAgenda from '@/components/leilao/vitrine/BotaoAgenda'
+import LogoLoja from '@/components/leilao/vitrine/LogoLoja'
 import { tituloRodada, type RodadaPublica } from '@/lib/leilao-rodada'
 import { urlRodada } from '@/lib/leilao-urls'
 import { horaCurtaBrasilia } from '@/lib/leilao-vitrine'
@@ -25,8 +26,13 @@ export default function LinhaAgenda({
           <b>{horaCurtaBrasilia(rodada.iniciaEm)}</b>
         </span>
         <span className="vt-ag-c">
-          <b>{nome}</b>
-          <small>{n === 1 ? '1 lote' : `${n} lotes`}</small>
+          <span className="vt-ag-loja">
+            <LogoLoja nome={nome} logoUrl={loja?.logoUrl ?? null} />
+            <span>
+              <b>{nome}</b>
+              <small>{n === 1 ? '1 lote' : `${n} lotes`}</small>
+            </span>
+          </span>
           {!!resumo?.imagens.length && (
             <span className="vt-ag-mos">
               {resumo.imagens.map(src => <Image key={src} src={src} alt="" width={128} height={179} sizes="48px" />)}

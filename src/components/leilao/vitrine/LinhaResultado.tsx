@@ -1,5 +1,4 @@
-import Image from 'next/image'
-import Link from 'next/link'
+import { Linha, MiniCarta } from '@/components/leilao/kit'
 import { formatarBRL, type LotePublico } from '@/lib/leilao'
 import { urlLote } from '@/lib/leilao-urls'
 import type { LojaDoLote } from '@/app/leiloes/_dados'
@@ -9,13 +8,13 @@ export default function LinhaResultado({ lote, loja }: { lote: LotePublico; loja
   const imagem = lote.fotos[0] || lote.cardImage
   const lances = lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`
   return (
-    <Link href={urlLote(lote.slug)} prefetch={false} className="vt-res">
-      {imagem ? <Image src={imagem} alt="" width={128} height={179} sizes="48px" /> : <span className="vt-res-vazio" />}
-      <span className="vt-res-c">
-        <b>{lote.cardName}</b>
-        <small>{loja ? `${loja.nome ?? loja.slug} · ${lances}` : lances}</small>
-      </span>
-      {lote.precoAtualCents != null && <strong>{formatarBRL(lote.precoAtualCents)}</strong>}
-    </Link>
+    <Linha
+      href={urlLote(lote.slug)}
+      seta={false}
+      midia={imagem ? <MiniCarta src={imagem} /> : undefined}
+      titulo={lote.cardName}
+      meta={loja ? `${loja.nome ?? loja.slug} · ${lances}` : lances}
+      valor={lote.precoAtualCents != null ? formatarBRL(lote.precoAtualCents) : undefined}
+    />
   )
 }

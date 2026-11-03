@@ -407,6 +407,29 @@ export async function listarArrematadosRecentes(limite = 6): Promise<Arrematado[
   }))
 }
 
+/** Numeros da aba Resultados, so de lotes pagos. Falha vira null e os cartoes somem. */
+export async function resumirArremates(): Promise<{ n: number; maior: { nome: string; cents: number } | null; lojas: number } | null> {
+  const db = getServiceSupabase()
+  if (!db) return null
+  const { data, error } = await db
+    .from('leiloes_publico')
+    .select('card_name, preco_atual_cents, loja_id')
+    .eq('status', 'vendido')
+    .limit(2000)
+  if (error || !data) {
+    if (error) console.error('[leiloes] resumo dos arremates:', error.code, error.message)
+    return null
+  }
+  type Linha = { card_name: string | null; preco_atual_cents: number | null; loja_id: string | null }
+  const linhas = data as Linha[]
+  const topo = linhas.reduce<Linha | null>((m, l) => ((l.preco_atual_cents ?? 0) > (m?.preco_atual_cents ?? 0) ? l : m), null)
+  return {
+    n: linhas.length,
+    maior: topo?.preco_atual_cents ? { nome: topo.card_name ?? '', cents: topo.preco_atual_cents } : null,
+    lojas: new Set(linhas.map(l => l.loja_id).filter(Boolean)).size,
+  }
+}
+
 export interface LojaDoLeilao extends LojaDoLote {
   id: string
   /** Rodadas que ja foram ao ar (regra unica: contarRodadasPorLoja). */
