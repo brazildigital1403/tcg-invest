@@ -105,14 +105,14 @@ create or replace function public.amigo_secreto_hoje_brt()
 returns date language sql stable as $$
   select (now() at time zone 'America/Sao_Paulo')::date;
 $$;
-revoke all on function public.amigo_secreto_hoje_brt() from public;
+revoke all on function public.amigo_secreto_hoje_brt() from public, anon, authenticated;
 
 -- Ficha publica de um participante: so @ e Pokemon.
 create or replace function public.amigo_secreto_ficha(p public.amigo_secreto_participantes)
 returns jsonb language sql immutable as $$
   select jsonb_build_object('instagram', p.instagram, 'pokemon', p.pokemon);
 $$;
-revoke all on function public.amigo_secreto_ficha(public.amigo_secreto_participantes) from public;
+revoke all on function public.amigo_secreto_ficha(public.amigo_secreto_participantes) from public, anon, authenticated;
 
 -- ── Leitura publica (landing): edicao + contagem + @ de quem entrou ─────────
 
@@ -141,7 +141,7 @@ begin
   );
 end;
 $$;
-revoke all on function public.amigo_secreto_edicao_publica(text) from public;
+revoke all on function public.amigo_secreto_edicao_publica(text) from public, anon, authenticated;
 grant execute on function public.amigo_secreto_edicao_publica(text) to anon, authenticated;
 
 -- ── Minha sala: meu cadastro, quem eu tirei, o que esta vindo ───────────────
@@ -219,7 +219,7 @@ begin
   );
 end;
 $$;
-revoke all on function public.amigo_secreto_meu(text) from public;
+revoke all on function public.amigo_secreto_meu(text) from public, anon, authenticated;
 grant execute on function public.amigo_secreto_meu(text) to authenticated;
 
 -- ── Salvar perfil de participante (cria ou atualiza) ────────────────────────
@@ -252,12 +252,30 @@ begin
   if v_ig !~ '^[a-z0-9._]{1,30}$' then raise exception 'instagram_invalido'; end if;
 
   v_sug := coalesce(p->'sugestoes', v_me.sugestoes, '[]'::jsonb);
-  if jsonb_typeof(v_sug) <> 'array' or jsonb_array_length(v_sug) > 3 then raise exception 'sugestoes_invalidas'; end if;
+  if jsonb_typeof(v_sug) <> 'array' or jsonb_array_length(v_sug) > 3
+     or exists (select 1 from jsonb_array_elements(v_sug) x where jsonb_typeof(x) <> 'string' or char_length(x #>> '{}') > 120) then
+    raise exception 'sugestoes_invalidas';
+  end if;
+  if p ? 'cep' and nullif(regexp_replace(p->>'cep', '\D', '', 'g'), '') is not null
+     and regexp_replace(p->>'cep', '\D', '', 'g') !~ '^[0-9]{8}$' then raise exception 'cep_invalido'; end if;
+  if p ? 'whatsapp' and nullif(regexp_replace(p->>'whatsapp', '\D', '', 'g'), '') is not null
+     and regexp_replace(p->>'whatsapp', '\D', '', 'g') !~ '^[0-9]{10,13}$' then raise exception 'whatsapp_invalido'; end if;
+  if p ? 'pokemon' and nullif(p->>'pokemon', '') is not null and (p->>'pokemon') !~ '^[a-z0-9-]{1,30}$' then raise exception 'pokemon_invalido'; end if;
+  if p ? 'me_surpreenda' and (p->>'me_surpreenda') not in ('true', 'false') then raise exception 'dados_invalidos'; end if;
+  if char_length(coalesce(p->>'nome_completo', '')) > 120 or char_length(coalesce(p->>'desejo', '')) > 140
+     or char_length(coalesce(p->>'logradouro', '')) > 160 or char_length(coalesce(p->>'complemento', '')) > 160
+     or char_length(coalesce(p->>'bairro', '')) > 120 or char_length(coalesce(p->>'cidade', '')) > 120 then
+    raise exception 'dados_invalidos';
+  end if;
+  -- C6: edicao encerrada ou com dados apagados nao aceita mais edicao de perfil.
+  if v_me.id is not null and (v_e.estado = 'encerrado' or v_e.dados_apagados_em is not null) then
+    raise exception 'edicao_encerrada';
+  end if;
 
   if v_me.id is null then
     insert into public.amigo_secreto_participantes (edicao_id, user_id, instagram, whatsapp, nome_completo, pokemon,
       desejo, sugestoes, me_surpreenda, cep, logradouro, numero, complemento, bairro, cidade, uf)
-    values (v_e.id, v_uid, v_ig, nullif(p->>'whatsapp',''), nullif(p->>'nome_completo',''), nullif(p->>'pokemon',''),
+    values (v_e.id, v_uid, v_ig, nullif(regexp_replace(coalesce(p->>'whatsapp',''), '\D', '', 'g'),''), nullif(p->>'nome_completo',''), nullif(p->>'pokemon',''),
       nullif(p->>'desejo',''), v_sug, coalesce((p->>'me_surpreenda')::boolean, false),
       nullif(regexp_replace(coalesce(p->>'cep',''), '\D', '', 'g'), ''), nullif(p->>'logradouro',''), nullif(p->>'numero',''),
       nullif(p->>'complemento',''), nullif(p->>'bairro',''), nullif(p->>'cidade',''), nullif(upper(p->>'uf'),''))
@@ -265,7 +283,7 @@ begin
   else
     update public.amigo_secreto_participantes set
       instagram     = case when v_me.tirou_id is null then v_ig else instagram end,
-      whatsapp      = coalesce(nullif(p->>'whatsapp',''), whatsapp),
+      whatsapp      = coalesce(nullif(regexp_replace(coalesce(p->>'whatsapp',''), '\D', '', 'g'),''), whatsapp),
       nome_completo = coalesce(nullif(p->>'nome_completo',''), nome_completo),
       pokemon       = case when p ? 'pokemon' then nullif(p->>'pokemon','') else pokemon end,
       desejo        = case when p ? 'desejo' then nullif(p->>'desejo','') else desejo end,
@@ -303,7 +321,7 @@ exception
   when unique_violation then raise exception 'instagram_ja_usado';
 end;
 $$;
-revoke all on function public.amigo_secreto_salvar_perfil(text, jsonb) from public;
+revoke all on function public.amigo_secreto_salvar_perfil(text, jsonb) from public, anon, authenticated;
 grant execute on function public.amigo_secreto_salvar_perfil(text, jsonb) to authenticated;
 
 -- ── Postei / recebi ─────────────────────────────────────────────────────────
@@ -329,7 +347,7 @@ begin
   return public.amigo_secreto_meu(p_slug);
 end;
 $$;
-revoke all on function public.amigo_secreto_postei(text, text) from public;
+revoke all on function public.amigo_secreto_postei(text, text) from public, anon, authenticated;
 grant execute on function public.amigo_secreto_postei(text, text) to authenticated;
 
 create or replace function public.amigo_secreto_recebi(p_slug text)
@@ -350,7 +368,7 @@ begin
   return public.amigo_secreto_meu(p_slug);
 end;
 $$;
-revoke all on function public.amigo_secreto_recebi(text) from public;
+revoke all on function public.amigo_secreto_recebi(text) from public, anon, authenticated;
 grant execute on function public.amigo_secreto_recebi(text) to authenticated;
 
 -- ── Mural: escrever (so para quem eu tirei, 3 por dia) e ler (sem remetente) ─
@@ -371,8 +389,10 @@ begin
   select * into v_e from public.amigo_secreto_edicoes where slug = p_slug;
   if not found then raise exception 'edicao_nao_encontrada'; end if;
   if not v_e.feed_ligado then raise exception 'mural_desligado'; end if;
+  if v_e.estado = 'encerrado' or v_e.dados_apagados_em is not null then raise exception 'edicao_encerrada'; end if;
   select * into v_me from public.amigo_secreto_participantes where edicao_id = v_e.id and user_id = v_uid;
   if not found or v_me.tirou_id is null then raise exception 'sem_sorteio'; end if;
+  perform pg_advisory_xact_lock(hashtext(v_me.id::text));
   select count(*) into v_hoje from public.amigo_secreto_mensagens
    where de_id = v_me.id and (criado_em at time zone 'America/Sao_Paulo')::date = public.amigo_secreto_hoje_brt();
   if v_hoje >= 3 then raise exception 'limite_diario'; end if;
@@ -383,7 +403,7 @@ begin
   return jsonb_build_object('ok', true, 'mensagens_hoje', v_hoje + 1);
 end;
 $$;
-revoke all on function public.amigo_secreto_enviar_mensagem(text, text, smallint) from public;
+revoke all on function public.amigo_secreto_enviar_mensagem(text, text, smallint) from public, anon, authenticated;
 grant execute on function public.amigo_secreto_enviar_mensagem(text, text, smallint) to authenticated;
 
 -- Feed: so o dia (nunca a hora) e ordem embaralhada dentro do dia, para o
@@ -400,21 +420,28 @@ declare
 begin
   select * into v_e from public.amigo_secreto_edicoes where slug = p_slug;
   if not found then raise exception 'edicao_nao_encontrada'; end if;
+  if v_uid is null then raise exception 'nao_logado'; end if;
   select id into v_me_id from public.amigo_secreto_participantes where edicao_id = v_e.id and user_id = v_uid;
+  if v_me_id is null then raise exception 'nao_participante'; end if;
+  -- Corta por DIA (ultimos 14) ja embaralhado: cortar pelas N mais recentes
+  -- deixava reconstruir a ordem de postagem chamando com p_limit 1, 2, 3...
   return coalesce((
     select jsonb_agg(jsonb_build_object(
       'id', m.id, 'texto', m.texto, 'pronta', m.pronta,
       'dia', (m.criado_em at time zone 'America/Sao_Paulo')::date,
       'para', public.amigo_secreto_ficha(p),
-      'para_mim', m.para_id = v_me_id
+      'para_mim', (v_me_id is not null and m.para_id = v_me_id)
     ) order by (m.criado_em at time zone 'America/Sao_Paulo')::date desc, md5(m.id::text))
-    from (select * from public.amigo_secreto_mensagens where edicao_id = v_e.id
-          order by criado_em desc limit greatest(1, least(coalesce(p_limit, 60), 200))) m
+    from (select * from public.amigo_secreto_mensagens
+          where edicao_id = v_e.id
+            and (criado_em at time zone 'America/Sao_Paulo')::date >= public.amigo_secreto_hoje_brt() - 14
+          order by (criado_em at time zone 'America/Sao_Paulo')::date desc, md5(id::text)
+          limit greatest(1, least(coalesce(p_limit, 60), 200))) m
     join public.amigo_secreto_participantes p on p.id = m.para_id
   ), '[]'::jsonb);
 end;
 $$;
-revoke all on function public.amigo_secreto_feed(text, integer) from public;
+revoke all on function public.amigo_secreto_feed(text, integer) from public, anon, authenticated;
 grant execute on function public.amigo_secreto_feed(text, integer) to authenticated;
 
 -- ── Sorteio (so service_role; a rota de admin chama com a chave de servico) ─
@@ -467,7 +494,7 @@ begin
           md5((select string_agg(id::text, ',' order by id) from public.amigo_secreto_participantes where edicao_id = v_e.id)), v_n);
   update public.amigo_secreto_edicoes set estado = 'sorteado' where id = v_e.id;
 
-  return jsonb_build_object('ok', true, 'n', v_n, 'seed', v_seed);
+  return jsonb_build_object('ok', true, 'n', v_n);
 end;
 $$;
 revoke all on function public.amigo_secreto_sortear(text) from public, anon, authenticated;
@@ -488,7 +515,7 @@ begin
   loop
     update public.amigo_secreto_participantes
        set cep = null, logradouro = null, numero = null, complemento = null, bairro = null, cidade = null, uf = null,
-           desejo = null, sugestoes = '[]'::jsonb, whatsapp = null, nome_completo = null, updated_at = now()
+           desejo = null, sugestoes = '[]'::jsonb, whatsapp = null, nome_completo = null, rastreio = null, updated_at = now()
      where edicao_id = v_e.id;
     update public.amigo_secreto_edicoes set dados_apagados_em = now(), estado = 'encerrado' where id = v_e.id;
     v_n := v_n + 1;

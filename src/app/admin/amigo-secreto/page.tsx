@@ -12,7 +12,7 @@ type Edicao = {
   inscricoes_ate: string; sorteio_em: string; postar_ate: string; revelacao_em: string; dados_apagados_em: string | null
 }
 type Participante = {
-  id: string; instagram: string; whatsapp: string | null; nome_completo: string | null; pokemon: string | null
+  instagram: string; whatsapp: string | null; nome_completo: string | null; pokemon: string | null
   cidade: string | null; uf: string | null; created_at: string; email: string | null
   completo: boolean; tem_par: boolean; postado_em: string | null; rastreio: string | null; recebido_em: string | null; quer_revelar: boolean
 }
@@ -41,7 +41,7 @@ export default function AdminAmigoSecretoPage() {
       const res = await fetch('/api/admin/amigo-secreto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setErro(d.error || `Erro ${res.status}`); return }
-      setOk(corpo.acao === 'sortear' ? `Sorteio feito: ${d.resultado?.n} pares.` : 'Fase atualizada.')
+      setOk(corpo.acao === 'sortear' ? `Sorteio feito: ${d.n} pares.` : 'Fase atualizada.')
       await load()
     } finally { setOcupado(false) }
   }
@@ -104,7 +104,7 @@ export default function AdminAmigoSecretoPage() {
                 <thead><tr><th>@</th><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Cidade</th><th>Perfil</th><th>Postou</th><th>Recebeu</th><th>Entrou</th></tr></thead>
                 <tbody>
                   {lista.map(p => (
-                    <tr key={p.id}>
+                    <tr key={p.instagram}>
                       <td><a href={`https://instagram.com/${p.instagram}`} target="_blank" rel="noopener noreferrer">@{p.instagram}</a></td>
                       <td>{p.nome_completo || '—'}</td>
                       <td>{p.email || '—'}</td>

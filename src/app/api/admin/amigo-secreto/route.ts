@@ -17,18 +17,24 @@ export async function GET(req: NextRequest) {
   const sb = getServiceSupabase()
   if (!sb) return NextResponse.json({ error: 'Serviço indisponível' }, { status: 503 })
 
-  const [{ data: edicao, error: e1 }, { data: parts, error: e2 }, { count: nMsgs, error: e3 }] = await Promise.all([
-    sb.from('amigo_secreto_edicoes').select('*').eq('slug', AMIGO_SECRETO_SLUG).maybeSingle(),
+  const { data: edicao, error: e1 } = await sb.from('amigo_secreto_edicoes').select('*').eq('slug', AMIGO_SECRETO_SLUG).maybeSingle()
+  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 })
+  if (!edicao) return NextResponse.json({ edicao: null, participantes: [], mensagens: null })
+
+  // So a edicao em curso: a 2a edicao nao pode listar WhatsApp e cidade da 1a.
+  const [{ data: parts, error: e2 }, { count: nMsgs, error: e3 }] = await Promise.all([
     sb.from('amigo_secreto_participantes')
       .select('id, instagram, whatsapp, nome_completo, pokemon, cep, numero, cidade, uf, desejo, me_surpreenda, tirou_id, rastreio, postado_em, recebido_em, quer_revelar, created_at, users(email)')
+      .eq('edicao_id', edicao.id)
       .order('created_at', { ascending: false }),
-    sb.from('amigo_secreto_mensagens').select('id', { count: 'exact', head: true }),
+    sb.from('amigo_secreto_mensagens').select('id', { count: 'exact', head: true }).eq('edicao_id', edicao.id),
   ])
-  const erro = e1 || e2 || e3
+  const erro = e2 || e3
   if (erro) return NextResponse.json({ error: erro.message }, { status: 500 })
 
+  // Sem o id da linha: com o id e a semente, o admin recomporia os pares.
   const participantes = (parts || []).map(p => ({
-      id: p.id, instagram: p.instagram, whatsapp: p.whatsapp, nome_completo: p.nome_completo, pokemon: p.pokemon,
+      instagram: p.instagram, whatsapp: p.whatsapp, nome_completo: p.nome_completo, pokemon: p.pokemon,
       cidade: p.cidade, uf: p.uf, created_at: p.created_at,
       email: (p.users as unknown as { email?: string } | null)?.email || null,
       completo: !!(p.cep && p.numero && (p.me_surpreenda || (p.desejo && p.desejo.trim()))),
@@ -56,7 +62,7 @@ export async function POST(req: NextRequest) {
         : m
       return NextResponse.json({ error: msg }, { status: 400 })
     }
-    return NextResponse.json({ ok: true, resultado: data })
+    return NextResponse.json({ ok: true, n: (data as { n?: number } | null)?.n ?? null })
   }
 
   if (body.acao === 'estado' && body.estado && ['entregas', 'encerrado'].includes(body.estado)) {
