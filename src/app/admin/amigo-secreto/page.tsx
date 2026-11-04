@@ -106,13 +106,13 @@ export default function AdminAmigoSecretoPage() {
                   {lista.map(p => (
                     <tr key={p.instagram}>
                       <td><a href={`https://instagram.com/${p.instagram}`} target="_blank" rel="noopener noreferrer">@{p.instagram}</a></td>
-                      <td>{p.nome_completo || '—'}</td>
-                      <td>{p.email || '—'}</td>
-                      <td>{p.whatsapp || '—'}</td>
-                      <td>{p.cidade ? `${p.cidade}/${p.uf}` : '—'}</td>
+                      <td>{p.nome_completo || 'sem'}</td>
+                      <td>{p.email || 'sem'}</td>
+                      <td>{p.whatsapp || 'sem'}</td>
+                      <td>{p.cidade ? `${p.cidade}/${p.uf}` : 'sem'}</td>
                       <td>{p.completo ? 'completo' : <span className="am-warn">incompleto</span>}</td>
-                      <td>{p.postado_em ? `${dataCurta(p.postado_em)}${p.rastreio ? ` · ${p.rastreio}` : ''}` : '—'}</td>
-                      <td>{p.recebido_em ? dataCurta(p.recebido_em) : '—'}</td>
+                      <td>{p.postado_em ? `${dataCurta(p.postado_em)}${p.rastreio ? ` · ${p.rastreio}` : ''}` : 'sem'}</td>
+                      <td>{p.recebido_em ? dataCurta(p.recebido_em) : 'sem'}</td>
                       <td>{dataCurta(p.created_at)}</td>
                     </tr>
                   ))}

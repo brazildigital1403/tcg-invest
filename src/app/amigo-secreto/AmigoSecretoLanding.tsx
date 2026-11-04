@@ -24,13 +24,15 @@ export default function AmigoSecretoLanding() {
   const router = useRouter()
   const { openLogin } = useAuthModal()
   const [edicao, setEdicao] = useState<EdicaoPublica | null | undefined>(undefined)
-  const [logado, setLogado] = useState(false)
+  const [logado, setLogado] = useState<boolean | undefined>(undefined)
+  const [falhou, setFalhou] = useState(false)
   const [folha, setFolha] = useState(false)
   const [aberto, setAberto] = useState(false)
 
   useEffect(() => {
     supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) { setFalhou(true); setEdicao(null); return }
         const e = (data as EdicaoPublica | null) ?? null
         setEdicao(e)
         setAberto(!!e && e.estado === 'inscricoes' && Date.parse(e.inscricoes_ate) > Date.now())
@@ -52,7 +54,7 @@ export default function AmigoSecretoLanding() {
   return (
     <div className="as">
       <header className="as-top bx-gutter">
-        <div className="as-in">
+        <div className="as-wrap">
           <Image src={LOGO_PCC} alt="Poké Creators Club" width={438} height={218} className="as-logo" priority />
           <span className="t">Amigo Secreto</span>
           {logado
@@ -62,9 +64,9 @@ export default function AmigoSecretoLanding() {
       </header>
 
       <main className="bx-gutter">
-        <div className="as-in as-bd">
+        <div className="as-wrap as-bd">
           <section className="as-hero">
-            <span className="as-eyebrow"><Ico n="gift" s={14} />{edicao?.nome ? 'Edição de dezembro' : 'Poké Creators Club'}</span>
+            <span className="as-eyebrow"><Ico n="gift" s={14} />{edicao ? `Edição de ${new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'America/Sao_Paulo' }).format(new Date(edicao.revelacao_em))}` : 'Poké Creators Club'}</span>
             <div className="as-hero-g">
               <div className="tx">
                 <h1 className="as-h1">Amigo Secreto do <em>Poké Creators Club</em></h1>
@@ -74,7 +76,16 @@ export default function AmigoSecretoLanding() {
             </div>
           </section>
 
-          {edicao === null && (
+          {edicao === undefined && (
+            <div className="as-card" aria-busy="true">
+              <div className="as-k">Carregando a edição...</div>
+              {[0, 1, 2, 3, 4].map(i => <div key={i} className="as-row static"><span className="as-meta">&nbsp;</span></div>)}
+            </div>
+          )}
+          {edicao === null && falhou && (
+            <div className="as-erro" role="alert">Não conseguimos carregar a edição. Recarregue a página.</div>
+          )}
+          {edicao === null && !falhou && (
             <div className="as-note">Esta edição ainda não está aberta. Volte em breve.</div>
           )}
 
@@ -106,8 +117,8 @@ export default function AmigoSecretoLanding() {
 
               {inscricoesAbertas ? (
                 <>
-                  <button type="button" className="as-btn pri cta" onClick={participar}>{logado ? 'Abrir a sala' : 'Quero participar'}</button>
-                  {!logado && (
+                  <button type="button" className="as-btn pri cta" onClick={participar} disabled={logado === undefined}>{logado ? 'Abrir a sala' : 'Quero participar'}</button>
+                  {logado === false && (
                     <button type="button" className="as-btn lnk" onClick={() => openLogin({ next: SALA, cta: 'Entrar para abrir a sala' })}>Já tenho conta na Bynx. Entrar</button>
                   )}
                 </>

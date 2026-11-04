@@ -142,7 +142,7 @@ export function erroAmigoSecreto(msg: string | undefined | null): string {
   if (m.includes('edicao_encerrada')) return 'Esta edição já encerrou.'
   if (m.includes('nao_participante')) return 'Só quem está na sala vê o mural.'
   if (m.includes('sem_sorteio')) return 'Isso só fica disponível depois do sorteio.'
-  if (m.includes('limite_diario')) return 'Você já publicou 3 mensagens hoje. O limite reinicia à meia-noite.'
+  if (m.includes('limite_diario')) return `Você já publicou ${MURAL_MAX_DIA} recados hoje. O limite reinicia à meia-noite.`
   if (m.includes('mural_desligado')) return 'O mural está fechado no momento.'
   if (m.includes('texto_vazio')) return 'Escreva alguma coisa antes de publicar.'
   if (m.includes('edicao_nao_encontrada')) return 'Esta edição do Amigo Secreto não existe.'

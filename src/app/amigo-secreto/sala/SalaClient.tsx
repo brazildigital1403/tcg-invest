@@ -6,7 +6,7 @@
 // amigo_secreto_* (supabase/migrations/20261104100000_amigo_secreto.sql),
 // que devolvem so o que o proprio usuario pode ver.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
@@ -186,7 +186,7 @@ export default function SalaClient() {
       ) : (
         <div className="as-mis">
           <div className="as-eye"><Ico n="star" s={14} />{estado === 'encerrado' ? 'Edição encerrada' : 'Sua missão agora'}</div>
-          <h3 className="as-h3">{estado === 'encerrado' ? 'Obrigado por participar' : eu!.recebido_em ? 'Presente recebido' : eu!.postado_em ? 'Presente a caminho' : 'Você tirou alguém'}</h3>
+          <h3 className="as-h3">{estado === 'encerrado' ? 'Obrigado por participar' : !tirou ? 'Sorteio em preparação' : eu!.recebido_em ? 'Presente recebido' : eu!.postado_em ? 'Presente a caminho' : 'Você tirou alguém'}</h3>
           {estado !== 'encerrado' && <Energia rotulo="Energia da entrega" segs={energiaEntrega} />}
 
           <div className="as-lane envio first">
@@ -228,7 +228,7 @@ export default function SalaClient() {
                     <div className="as-addr" style={{ fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sala.recebo.rastreio}</div>
                     <a className="as-btn sm" style={{ flex: '0 0 auto' }} href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(sala.recebo.rastreio)}`} target="_blank" rel="noopener noreferrer"><Ico n="ext" s={16} />Rastrear</a>
                   </div>
-                ) : <div className="as-meta">Sem código de rastreio: foi entregue em mãos ou sem rastreio.</div>}
+                ) : <div className="as-meta">Sem código de rastreio: pode ter sido entregue em mãos.</div>}
                 <div className="as-meta">A consulta nos Correios mostra a cidade de postagem. Se quiser manter a surpresa, não consulte.</div>
               </>
             ) : (
@@ -243,7 +243,7 @@ export default function SalaClient() {
 
           <div className="as-lane">
             <div className="as-k">Revelação final{revelado ? '' : ` em ${dataCurta(sala.revelacao_em)}`}</div>
-            <label className="as-chk" style={{ minHeight: 0, padding: 0 }}>
+            <label className="as-chk">
               <input type="checkbox" checked={eu!.quer_revelar} disabled={ocupado} onChange={e => chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: { quer_revelar: e.target.checked } })} />
               <span>Quero revelar quem eu tirei na revelação final. Só aparece se os dois lados aceitarem.</span>
             </label>
@@ -272,13 +272,13 @@ function Casca({ children }: { children: React.ReactNode }) {
   return (
     <div className="as">
       <header className="as-top bx-gutter">
-        <div className="as-in">
-          <Link href="/amigo-secreto" aria-label="Amigo Secreto"><Image src={LOGO_PCC} alt="Poké Creators Club" width={438} height={218} className="as-logo" priority /></Link>
+        <div className="as-wrap">
+          <Link href="/amigo-secreto" aria-label="Amigo Secreto" className="as-logo-a"><Image src={LOGO_PCC} alt="Poké Creators Club" width={438} height={218} className="as-logo" priority /></Link>
           <span className="t">Amigo Secreto</span>
           <Link href="/minha-conta" className="as-ib" aria-label="Minha conta"><Ico n="user" s={22} /></Link>
         </div>
       </header>
-      <main className="bx-gutter"><div className="as-in as-bd">{children}</div></main>
+      <main className="bx-gutter"><div className="as-wrap as-bd">{children}</div></main>
       <style>{AS_CSS}</style>
     </div>
   )
@@ -332,7 +332,15 @@ function Mural({ feed, estado, eu, tirou, edicao, hoje, ligado, onEscrever }: {
   }, [feed])
   const paraMim = feed.filter(x => x.para_mim).length
 
-  if (antes) return <QuemEntrou edicao={edicao} />
+  if (antes) return (
+    <>
+      <QuemEntrou edicao={edicao} />
+      <div className="as-comp">
+        <span className="fake" aria-disabled="true">Você escreve para quem tirar, depois do sorteio</span>
+        <span className="as-btn dis sm">Escrever</span>
+      </div>
+    </>
+  )
 
   return (
     <>
@@ -372,16 +380,21 @@ function Mural({ feed, estado, eu, tirou, edicao, hoje, ligado, onEscrever }: {
 // ── Folhas ──────────────────────────────────────────────────────────────────
 
 function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+    // Foco entra na folha e volta para quem a abriu ao fechar.
+    const antes = document.activeElement as HTMLElement | null
+    const alvo = ref.current?.querySelector<HTMLElement>('input, textarea, button:not([aria-label="Fechar"])')
+    ;(alvo || ref.current)?.focus()
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; antes?.focus() }
   }, [onFechar])
   return (
     <div className="as-sheet-bg" onClick={onFechar}>
-      <div className="as-sheet" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
+      <div ref={ref} tabIndex={-1} className="as-sheet" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
         <div className="as-handle" />
         <div className="as-sh"><h3 className="as-h3">{titulo}</h3><button type="button" className="as-ib" onClick={onFechar} aria-label="Fechar"><Ico n="x" s={22} /></button></div>
         {children}
@@ -401,7 +414,7 @@ function FolhaDados({ eu, nome, ocupado, onFechar, onSalvar }: { eu: Eu | null; 
       <form onSubmit={e => { e.preventDefault(); if (!igOk) { setErro('Confira o seu @: só letras, números, ponto e sublinhado, sem espaço.'); return } onSalvar({ instagram: igLimpo, whatsapp: whats.trim(), nome_completo: eu?.nome_completo || nome }) }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div className="as-f">
           <span className="as-lb">Seu @ do Instagram (obrigatório)</span>
-          <div className={`as-pre${erro ? ' err' : ''}`}><span>@</span><input className="as-in" value={ig} onChange={e => { setIg(e.target.value); setErro('') }} autoCapitalize="none" autoCorrect="off" inputMode="text" placeholder="seuperfil" required /></div>
+          <div className={`as-pre${erro ? ' err' : ''}`}><span>@</span><input className="as-in" value={ig} onChange={e => { setIg(e.target.value); setErro('') }} autoCapitalize="none" autoCorrect="off" inputMode="text" placeholder="seuperfil" aria-label="Seu @ do Instagram" aria-invalid={!!erro} required /></div>
           <span className={`as-hint${erro ? ' err' : ''}`}>{erro || 'É como você aparece na sala, no mural e na revelação. Letras, números, ponto e sublinhado, sem espaço.'}</span>
           {igOk && <a className="as-btn lnk" style={{ alignSelf: 'flex-start', paddingLeft: 0, width: 'auto' }} href={`https://instagram.com/${igLimpo}`} target="_blank" rel="noopener noreferrer"><Ico n="ext" s={14} />Conferir @{igLimpo} no Instagram</a>}
         </div>
@@ -459,7 +472,7 @@ function FolhaEndereco({ eu, nome, ocupado, travado, onFechar, onSalvar }: { eu:
         <div className="as-f">
           <span className="as-lb">CEP</span>
           <div className="as-two">
-            <input className={`as-in${campo === 'cep' ? ' err' : ''}`} value={f.cep} onChange={e => set('cep', e.target.value)} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" disabled={travado} />
+            <input className={`as-in${campo === 'cep' ? ' err' : ''}`} value={f.cep} onChange={e => set('cep', e.target.value)} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" aria-label="CEP" aria-invalid={campo === 'cep'} disabled={travado} />
             <button type="button" className="as-btn sm" style={{ flex: '0 0 auto' }} onClick={buscarCep} disabled={buscando || travado}><Ico n="search" s={16} />{buscando ? '...' : 'Buscar'}</button>
           </div>
           <span className="as-hint">Rua, bairro, cidade e UF preenchidos pelo CEP. Confira o número.</span>
@@ -502,7 +515,7 @@ function FolhaDesejo({ eu, teto, ocupado, onFechar, onSalvar }: { eu: Eu; teto: 
         <div className="as-f">
           <span className="as-lb">Sugestões (até 3, teto de {brl(teto)} cada)</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sug.map((s, i) => <input key={i} className="as-in" value={s} onChange={e => setSug(x => x.map((v, j) => j === i ? e.target.value : v))} placeholder={`Sugestão ${i + 1} (nome ou link)`} maxLength={120} />)}
+            {sug.map((s, i) => <input key={i} className="as-in" value={s} onChange={e => setSug(x => x.map((v, j) => j === i ? e.target.value : v))} placeholder={`Sugestão ${i + 1} (nome ou link)`} aria-label={`Sugestão ${i + 1}`} maxLength={120} />)}
           </div>
           <span className="as-hint">Link do Marketplace da Bynx ou de qualquer loja.</span>
         </div>

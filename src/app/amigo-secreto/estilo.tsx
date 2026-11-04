@@ -61,9 +61,10 @@ export const AS_CSS = `
 .as{min-height:100vh;background:var(--bx-bg);color:var(--bx-text);font-family:var(--font-dm-sans),'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45;padding-bottom:40px}
 .as *{box-sizing:border-box}
 .as a{color:inherit}
-.as-in{max-width:520px;margin:0 auto}
+.as-wrap{max-width:520px;margin:0 auto}
 .as-top{position:sticky;top:0;z-index:20;height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bx-border);background:color-mix(in srgb,var(--bx-bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.as-top .as-in{display:flex;align-items:center;justify-content:space-between;width:100%}
+.as-top .as-wrap{display:flex;align-items:center;justify-content:space-between;width:100%}
+.as-logo-a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;margin-left:-4px;border-radius:10px}
 .as-logo{height:24px;width:auto;display:block}
 .as-top .t{font-size:13px;color:var(--bx-text-2);font-weight:600}
 .as-ib{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:var(--bx-text-2);background:transparent;border:0;cursor:pointer;font:inherit;transition:background .15s ease,color .15s ease}
@@ -163,8 +164,8 @@ export const AS_CSS = `
 .as-fi .sig{font-size:11.5px;color:var(--bx-text-3);margin-top:5px;font-style:italic}
 .as-fi.sys .bub{background:transparent;border-style:dashed;text-align:center;font-size:12.5px;color:var(--bx-text-3)}
 .as-comp{position:sticky;bottom:0;margin:8px -16px 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--bx-border);background:var(--bx-bg-elev);display:flex;gap:8px;align-items:center}
-@media (min-width:600px){.as-comp{margin-left:-24px;margin-right:-24px;padding-left:24px;padding-right:24px}}
-.as-comp .fake{flex:1;min-height:44px;border:1px dashed var(--bx-border-2);border-radius:10px;padding:10px 12px;color:var(--bx-text-faint);background:var(--bx-surface-2);font-size:14px;display:flex;align-items:center;cursor:pointer}
+@media (min-width:600px){.as-comp{margin-left:0;margin-right:0;padding-left:0;padding-right:0}}
+.as-comp .fake{flex:1;min-width:0;min-height:44px;border:1px dashed var(--bx-border-2);border-radius:10px;padding:10px 12px;color:var(--bx-text-faint);background:var(--bx-surface-2);font:inherit;font-size:14px;display:block;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .as-comp .fake.live{border-style:solid;color:var(--bx-text-2)}
 .as-comp .cnt-d{font-size:11px;color:var(--bx-text-3);white-space:nowrap;font-weight:600}
 .as-sheet-bg{position:fixed;inset:0;z-index:50;background:var(--bx-scrim);display:flex;align-items:flex-end;justify-content:center}
@@ -199,7 +200,8 @@ export const AS_CSS = `
 .as-faq details[open] summary .as-ico{transform:rotate(180deg)}
 .as-faq p{padding:0 0 14px;color:var(--bx-text-2);font-size:13.5px;line-height:1.5}
 .as-foot{display:flex;justify-content:space-between;font-size:11.5px;color:var(--bx-text-3);padding-top:12px;border-top:1px solid var(--bx-border)}
-.as-foot a{text-decoration:none}
+.as-foot a{text-decoration:none;display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
+.as-foot span{display:inline-flex;align-items:center;gap:2px}
 .as-chk{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--bx-text-2);cursor:pointer;min-height:44px;padding:6px 0}
 .as-chk input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--ac-1);flex:none}
 .as-chk a{color:var(--bx-text);text-decoration:underline;text-underline-offset:2px}
