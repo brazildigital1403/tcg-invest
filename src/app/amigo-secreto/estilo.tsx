@@ -211,6 +211,27 @@ export const AS_CSS = `
 .as-center{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 0}
 @media (prefers-reduced-motion:reduce){.as *{transition:none !important;animation:none !important}}
 .as-hero-cta,.as-hero-side{display:none}
+/* v2 (analise de 04/11): sublinhas nas regras e no checklist, chip verde,
+   caixas da revelacao, pontos dos recados restantes, aviso do grupo. */
+.as-row small,.as-rules small{display:block;font-size:11.5px;color:var(--bx-text-3);font-weight:500;line-height:1.3;margin-top:1px}
+.as-rules .as-row{min-height:52px}
+.as-chip.ok{color:var(--bx-green);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.08)}
+.as-chip.wait{color:var(--ac-1);border-color:rgba(var(--ac-1-rgb),.35);background:rgba(var(--ac-1-rgb),.08)}
+.as-eye-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.as-grupo{font-size:12.5px;color:var(--bx-text-3);line-height:1.45}
+.as-rev{gap:8px}
+.as-rev-box{border:1px solid var(--bx-border);border-radius:10px;padding:10px 12px;background:var(--bx-surface);display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--bx-text-2)}
+.as-rev-box b{font-size:12px;color:var(--bx-text)}
+.as-rev-box.ok{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.06)}
+.as-rev-box.ok b{color:var(--bx-green)}
+.as-dots{display:inline-flex;gap:5px;align-items:center}
+.as-dots i{width:8px;height:8px;border-radius:50%;background:var(--bx-border-2)}
+.as-dots i.on{background:var(--ac-1)}
+.as-prot{gap:6px;padding:10px 12px}
+.as-prot .as-h3{font-size:14px}
+.as-addr-lock{border:1px dashed var(--bx-border-2);border-radius:10px;padding:2px 12px;background:var(--bx-surface)}
+.as-opts{display:flex;gap:6px;flex-wrap:wrap}
+.as-opts .as-btn.sm{min-height:40px}
 /* ── Desktop (>= 1024 px), mockup aprovado em 04/11/2026 ───────────────────
    Landing: hero em duas colunas (CTA acima da dobra, carta grande e "quem ja
    entrou" a direita), as 5 regras numa linha, "Como funciona" aberto em 3
@@ -240,7 +261,7 @@ export const AS_CSS = `
   .as-rules .as-row{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:10px;border:1px solid var(--bx-border);border-radius:12px;background:var(--bx-surface);padding:14px;min-height:0}
   .as-rules .as-row .l{flex-direction:column;align-items:flex-start;gap:10px;font-size:14px;line-height:1.3}
   .as-rules .as-ri{width:36px;height:36px}
-  .as-faq{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:0}
+  .as-faq{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;border-top:0}
   .as-faq details{border:1px solid var(--bx-border);border-radius:12px;background:var(--bx-surface);padding:4px 16px 2px}
   .as-faq summary{pointer-events:none}
   .as-faq summary .as-ico{display:none}

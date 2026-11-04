@@ -50,7 +50,20 @@ export async function POST(req: NextRequest) {
   const sb = getServiceSupabase()
   if (!sb) return NextResponse.json({ error: 'Serviço indisponível' }, { status: 503 })
 
-  const body = await req.json().catch(() => ({})) as { acao?: string; estado?: string }
+  const body = await req.json().catch(() => ({})) as { acao?: string; estado?: string; instagram?: string }
+
+  // Remover participante antes do sorteio (analise de 04/11): quem entrou
+  // pelo link sem ser do grupo sai daqui. Depois do sorteio nao: desfaria um par.
+  if (body.acao === 'remover' && typeof body.instagram === 'string') {
+    const { data: ed } = await sb.from('amigo_secreto_edicoes').select('id, estado').eq('slug', AMIGO_SECRETO_SLUG).maybeSingle()
+    if (!ed) return NextResponse.json({ error: 'Edição não encontrada' }, { status: 404 })
+    if (ed.estado !== 'inscricoes') return NextResponse.json({ error: 'O sorteio já aconteceu: remover agora desfaria um par.' }, { status: 400 })
+    const { data: del, error } = await sb.from('amigo_secreto_participantes')
+      .delete().eq('edicao_id', ed.id).eq('instagram', body.instagram.toLowerCase()).is('tirou_id', null).select('id')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!del || del.length === 0) return NextResponse.json({ error: 'Participante não encontrado.' }, { status: 404 })
+    return NextResponse.json({ ok: true })
+  }
 
   if (body.acao === 'sortear') {
     const { data, error } = await sb.rpc('amigo_secreto_sortear', { p_slug: AMIGO_SECRETO_SLUG })

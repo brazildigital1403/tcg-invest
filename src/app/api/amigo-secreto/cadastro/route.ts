@@ -76,7 +76,9 @@ export async function POST(req: NextRequest) {
       email_confirm: true,
       user_metadata: {
         name: nomeLimpo,
-        marketing_aceito: true,
+        // Sem marketing automatico (analise de 04/11): participar do Amigo Secreto
+        // nao e aceitar e-mail de novidades. A tela so pede Termos e Privacidade.
+        marketing_aceito: false,
         oferta: 'amigo-secreto',
         signup_utm_source: 'whatsapp',
         signup_utm_medium: 'grupo',
@@ -101,7 +103,9 @@ export async function POST(req: NextRequest) {
     const tokenHash = link?.properties?.hashed_token
     if (linkErr || !tokenHash) console.error('[amigo-secreto/cadastro] generateLink falhou:', linkErr?.message)
 
-    return NextResponse.json({ ok: true, tokenHash: tokenHash || null })
+    // Sem tokenHash a conta existe mas a sala nao abre sozinha: o navegador
+    // mostra o estado proprio ('entre com e-mail e senha') em vez de ok silencioso.
+    return NextResponse.json({ ok: true, tokenHash: tokenHash || null, sessao: !!tokenHash })
   } catch (e) {
     console.error('[amigo-secreto/cadastro] CRITICAL:', e instanceof Error ? e.message : e)
     return NextResponse.json({ error: 'Não conseguimos criar sua conta. Tente de novo em instantes.' }, { status: 500 })

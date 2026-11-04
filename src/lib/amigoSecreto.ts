@@ -13,12 +13,12 @@ export const TETO_PADRAO_CENTS = 10000
 
 /** Mensagens prontas do mural. O indice e gravado em `pronta`. */
 export const MENSAGENS_PRONTAS = [
-  'Já comprei o seu presente.',
-  'Postei hoje. Fica de olho na caixa de correio.',
-  'Acho que acertei no seu desejo.',
-  'Chega antes do prazo, pode confiar.',
-  'Me surpreenda também.',
-  'Seu amigo secreto está de olho em você.',
+  'Vi algo com a sua cara. Acho que você vai gostar.',
+  'Seu Pokémon favorito entrou na investigação.',
+  'Acho que acertei na sua pista.',
+  'Mais uma pista: você vai descobrir na revelação.',
+  'Já tem embrulho. Falta só o correio fazer a parte dele.',
+  'Nada de spoiler. Só saiba que foi escolhido com carinho.',
 ]
 
 export const MURAL_MAX_DIA = 3
@@ -64,7 +64,7 @@ export type Eu = {
   desejo: string | null; sugestoes: string[]; me_surpreenda: boolean
   cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null
   bairro: string | null; cidade: string | null; uf: string | null
-  rastreio: string | null; postado_em: string | null; recebido_em: string | null
+  rastreio: string | null; postado_em: string | null; recebido_em: string | null; recebido_em_maos: boolean
   quer_revelar: boolean; perfil_completo: boolean
 }
 
@@ -73,15 +73,20 @@ export type Tirou = {
   desejo: string | null; sugestoes: string[]; me_surpreenda: boolean
   endereco: { cep: string; logradouro: string | null; numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null; uf: string | null } | null
   recebido_em: string | null
+  /** Quem eu tirei aceitou revelar a troca (sem dizer quem me tirou). */
+  aceitou: boolean
 }
 
-export type Recebo = { postado_em: string | null; rastreio: string | null; revelado: Ficha | null }
+export type Recebo = { postado_em: string | null; rastreio: string | null; outro_aceitou: boolean; revelado: Ficha | null }
 
 export type MinhaSala =
   | { inscrito: false; estado: EstadoEdicao }
   | {
       inscrito: true; estado: EstadoEdicao; revelado: boolean
       teto_cents: number; postar_ate: string; revelacao_em: string; sorteio_em: string; inscricoes_ate: string; feed_ligado: boolean
+      minimo: number
+      /** Hora em que o mural abre (60 min depois do sorteio executado); null antes do sorteio. */
+      mural_abre_em: string | null
       eu: Eu; tirou: Tirou | null; recebo: Recebo | null; mensagens_hoje: number
     }
 
@@ -100,6 +105,9 @@ export const dataHora = (iso: string) => {
   const h = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ }).format(d)
   return h.endsWith(':00') ? `${dia}, às ${h.slice(0, 2)}h` : `${dia}, às ${h}`
 }
+
+export const horaCurta = (iso: string) =>
+  new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ }).format(new Date(iso))
 
 /** "Hoje", "Ontem" ou dd/mm, a partir de uma data AAAA-MM-DD do banco. */
 export function rotuloDia(diaIso: string): string {
@@ -142,6 +150,8 @@ export function erroAmigoSecreto(msg: string | undefined | null): string {
   if (m.includes('edicao_encerrada')) return 'Esta edição já encerrou.'
   if (m.includes('nao_participante')) return 'Só quem está na sala vê o mural.'
   if (m.includes('sem_sorteio')) return 'Isso só fica disponível depois do sorteio.'
+  if (m.includes('sem_postagem')) return 'Quem tirou você ainda não registrou o envio. Se o presente chegou em mãos, use essa opção.'
+  if (m.includes('mural_aguardando')) return 'O mural abre uma hora depois do sorteio.'
   if (m.includes('limite_diario')) return `Você já publicou ${MURAL_MAX_DIA} recados hoje. O limite reinicia à meia-noite.`
   if (m.includes('mural_desligado')) return 'O mural está fechado no momento.'
   if (m.includes('texto_vazio')) return 'Escreva alguma coisa antes de publicar.'

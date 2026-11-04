@@ -13,8 +13,8 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
   AMIGO_SECRETO_SLUG, DESEJO_MAX_CHARS, INSTAGRAM_RE, MENSAGENS_PRONTAS, MURAL_MAX_CHARS, MURAL_MAX_DIA,
-  POKEMON_PERFIL, brl, cepBonito, dataCurta, dataHora, diasAte, erroAmigoSecreto, limparInstagram, rotuloDia,
-  spritePokemon, type EdicaoPublica, type Eu, type MensagemMural, type MinhaSala, type Tirou,
+  POKEMON_PERFIL, brl, cepBonito, dataCurta, dataHora, diasAte, erroAmigoSecreto, horaCurta, limparInstagram, rotuloDia,
+  nomePokemon, spritePokemon, type EdicaoPublica, type Eu, type MensagemMural, type MinhaSala, type Tirou,
 } from '@/lib/amigoSecreto'
 import { AS_CSS, Avatar, Ico, LOGO_PCC } from '../estilo'
 
@@ -22,7 +22,7 @@ const SALA = '/amigo-secreto/sala'
 const SLUG = AMIGO_SECRETO_SLUG
 const CHAVE_ABRI = `bynx_as_abri_${SLUG}`
 
-type Folha = 'dados' | 'endereco' | 'desejo' | 'pokemon' | 'tirou' | 'rastreio' | 'escrever' | null
+type Folha = 'dados' | 'endereco' | 'desejo' | 'pokemon' | 'tirou' | 'rastreio' | 'escrever' | 'recebi' | 'ajuda' | null
 type Json = Record<string, unknown>
 
 function lerAbri(): boolean { try { return localStorage.getItem(CHAVE_ABRI) === '1' } catch { return false } }
@@ -39,6 +39,7 @@ export default function SalaClient() {
   const [abri, setAbri] = useState(lerAbri)
   const [ocupado, setOcupado] = useState(false)
   const [aberto, setAberto] = useState(false)
+  const [muralAberto, setMuralAberto] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -62,7 +63,13 @@ export default function SalaClient() {
     setEdicao(ed)
     setAberto(!!ed && ed.estado === 'inscricoes' && Date.parse(ed.inscricoes_ate) > Date.now())
     if (m.error) setErro(erroAmigoSecreto(m.error.message))
-    else setSala(m.data as MinhaSala)
+    else {
+      const ms = m.data as MinhaSala
+      setSala(ms)
+      // O mural abre 60 min depois do sorteio executado (v2): antes disso o
+      // banco recusa o feed com mural_aguardando e a tela mostra a hora.
+      setMuralAberto(!(ms.inscrito && ms.mural_abre_em && Date.parse(ms.mural_abre_em) > Date.now()))
+    }
     if (!f.error) setFeed((f.data as MensagemMural[]) || [])
   }, [])
 
@@ -117,7 +124,7 @@ export default function SalaClient() {
   if (!sala.inscrito) {
     return (
       <Casca>
-        <Cabeca chip={chipFase} n={edicao?.participantes} />
+        <Cabeca chip={chipFase} n={edicao?.participantes} onAjuda={() => setFolha('ajuda')} />
         {inscricoesAbertas ? (
           <div className="as-mis">
             <div className="as-eye"><Ico n="star" s={14} />Sua missão agora</div>
@@ -134,7 +141,8 @@ export default function SalaClient() {
           </div>
         )}
         {erro && <div className="as-erro" role="alert">{erro}</div>}
-        <QuemEntrou edicao={edicao} />
+        <QuemEntrou edicao={edicao} minimo={3} />
+        {folha === 'ajuda' && <FolhaAjuda antes onFechar={fechar} />}
         {folha === 'dados' && (
           <FolhaDados eu={null} nome={sessao.nome} ocupado={ocupado} onFechar={fechar}
             onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha('endereco'); carregar() } }} />
@@ -155,7 +163,7 @@ export default function SalaClient() {
     <Casca>
       <div className="as-sala">
       <div className="as-sala-main">
-      <Cabeca chip={chipFase} n={edicao?.participantes} />
+      <Cabeca chip={chipFase} n={edicao?.participantes} onAjuda={() => setFolha('ajuda')} />
 
       {estado === 'inscricoes' && (
         <div className="as-meta">Sorteio em <strong>{dataHora(sala.sorteio_em)}</strong>. {diasAte(sala.sorteio_em) === 0 ? 'É hoje.' : `Faltam ${diasAte(sala.sorteio_em)} dias.`}</div>
@@ -169,26 +177,36 @@ export default function SalaClient() {
       {/* ── Cartao de missao ── */}
       {estado === 'inscricoes' ? (
         <div className="as-mis">
-          <div className="as-eye"><Ico n="star" s={14} />Sua missão agora</div>
-          <h3 className="as-h3">{eu!.perfil_completo ? 'Você está no sorteio' : 'Completar o perfil para entrar no sorteio'}</h3>
-          <Energia rotulo="Energia do perfil" segs={energiaPerfil} />
+          <div className="as-eye-row">
+            <div className="as-eye"><Ico n="star" s={14} />Sua missão agora</div>
+            {eu!.perfil_completo && <span className="as-chip ok">Perfil pronto</span>}
+          </div>
+          <h3 className="as-h3">{eu!.perfil_completo ? 'Seu perfil está pronto' : 'Complete o perfil para entrar no sorteio'}</h3>
+          <p className="as-meta">
+            {eu!.perfil_completo
+              ? `Agora é só aguardar o sorteio. Ele acontece com pelo menos ${sala.minimo} criadores e com o perfil de todo mundo completo.`
+              : 'Você já deixou tudo que seu amigo secreto precisa quando os três itens estiverem marcados. O Pokémon é opcional.'}
+          </p>
+          <Energia rotulo="3 itens obrigatórios · 1 opcional" segs={energiaPerfil} />
           <div>
-            <button type="button" className="as-row" onClick={() => setFolha('dados')}><span className="l"><span className="as-st ok"><Ico n="check" s={13} /></span>Meu @ e WhatsApp</span><Ico n="chev" className="arr" /></button>
-            <button type="button" className="as-row" onClick={() => setFolha('endereco')}><span className="l"><span className={`as-st${temEndereco ? ' ok' : ''}`}>{temEndereco && <Ico n="check" s={13} />}</span>Endereço de entrega</span><Ico n="chev" className="arr" /></button>
-            <button type="button" className="as-row" onClick={() => setFolha('desejo')}><span className="l"><span className={`as-st${temDesejo ? ' ok' : ''}`}>{temDesejo && <Ico n="check" s={13} />}</span>O que eu gostaria de ganhar</span><Ico n="chev" className="arr" /></button>
-            <button type="button" className="as-row" onClick={() => setFolha('pokemon')}><span className="l"><span className={`as-st${eu!.pokemon ? ' ok' : ' opt'}`}>{eu!.pokemon && <Ico n="check" s={13} />}</span><span>Foto de perfil Pokémon <span className="as-meta">(opcional)</span></span></span><Ico n="chev" className="arr" /></button>
+            <button type="button" className="as-row" onClick={() => setFolha('dados')}><span className="l"><span className="as-st ok"><Ico n="check" s={13} /></span><span>Meu @ e WhatsApp<small>como você aparece na sala</small></span></span><Ico n="chev" className="arr" /></button>
+            <button type="button" className="as-row" onClick={() => setFolha('endereco')}><span className="l"><span className={`as-st${temEndereco ? ' ok' : ''}`}>{temEndereco && <Ico n="check" s={13} />}</span><span>Endereço para receber<small>visível só para quem envia</small></span></span><Ico n="chev" className="arr" /></button>
+            <button type="button" className="as-row" onClick={() => setFolha('desejo')}><span className="l"><span className={`as-st${temDesejo ? ' ok' : ''}`}>{temDesejo && <Ico n="check" s={13} />}</span><span>Minha pista de presente<small>até {brl(sala.teto_cents)}, frete à parte</small></span></span><Ico n="chev" className="arr" /></button>
+            <button type="button" className="as-row" onClick={() => setFolha('pokemon')}><span className="l"><span className={`as-st${eu!.pokemon ? ' ok' : ' opt'}`}>{eu!.pokemon && <Ico n="check" s={13} />}</span><span>Escolher meu Pokémon<small>opcional, deixa a sala mais sua</small></span></span><Ico n="chev" className="arr" /></button>
           </div>
           {!eu!.perfil_completo && (
             <button type="button" className="as-btn pri" onClick={() => setFolha(!temEndereco ? 'endereco' : 'desejo')}>
-              {!temEndereco ? 'Continuar: endereço de entrega' : 'Continuar: o que eu gostaria de ganhar'}
+              {!temEndereco ? 'Continuar: endereço para receber' : 'Continuar: minha pista de presente'}
             </button>
           )}
+          {eu!.perfil_completo && inscricoesAbertas && <span className="as-btn dis"><Ico n="clock" s={16} />Aguardar o sorteio: {dataHora(sala.sorteio_em)}</span>}
           {eu!.perfil_completo && !inscricoesAbertas && <p className="as-meta">As inscrições encerraram. O sorteio sai em {dataHora(sala.sorteio_em)}.</p>}
         </div>
       ) : (
         <div className="as-mis">
           <div className="as-eye"><Ico n="star" s={14} />{estado === 'encerrado' ? 'Edição encerrada' : 'Sua missão agora'}</div>
-          <h3 className="as-h3">{estado === 'encerrado' ? 'Obrigado por participar' : !tirou ? 'Sorteio em preparação' : eu!.recebido_em ? 'Presente recebido' : eu!.postado_em ? 'Presente a caminho' : 'Você tirou alguém'}</h3>
+          <h3 className="as-h3">{estado === 'encerrado' ? 'Obrigado por participar' : !tirou ? 'Sorteio em preparação' : eu!.recebido_em ? 'Presente recebido' : eu!.postado_em ? 'Presente a caminho' : 'Você tirou alguém!'}</h3>
+          {estado !== 'encerrado' && tirou && !eu!.postado_em && <p className="as-meta">Agora é preparar um presente legal e manter o mistério. Prazo sugerido para postar: <strong>{dataCurta(sala.postar_ate)}</strong>.</p>}
           {estado !== 'encerrado' && <Energia rotulo="Energia da entrega" segs={energiaEntrega} />}
 
           <div className="as-lane envio first">
@@ -199,13 +217,14 @@ export default function SalaClient() {
                   <div className="as-k">Eu envio</div>
                   {eu!.postado_em ? (
                     <>
-                      <div style={{ fontSize: 13.5 }}>Postado em <strong>{dataCurta(eu!.postado_em)}</strong>{eu!.rastreio ? <> · <span style={{ fontFamily: 'monospace' }}>{eu!.rastreio}</span></> : ''}</div>
-                      <button type="button" className="as-btn sm" onClick={() => setFolha('rastreio')}>{eu!.rastreio ? 'Editar rastreio' : 'Informar rastreio'}</button>
+                      <div style={{ fontSize: 13.5 }}>Envio registrado em <strong>{dataCurta(eu!.postado_em)}</strong>{eu!.rastreio ? <> · <span style={{ fontFamily: 'monospace' }}>{eu!.rastreio}</span></> : <> · em mãos ou sem rastreio</>}</div>
+                      {Date.parse(eu!.postado_em) > Date.parse(sala.postar_ate) && <div className="as-note">A postagem foi registrada depois do prazo combinado. Avise a organização se precisar de ajuda com a entrega.</div>}
+                      <button type="button" className="as-btn sm" onClick={() => setFolha('rastreio')}>{eu!.rastreio ? 'Editar envio' : 'Editar envio'}</button>
                     </>
                   ) : (
                     <>
                       <button type="button" className="as-btn pri sm" onClick={() => { gravarAbri(); setAbri(true); setFolha('tirou') }}><Ico n="eye" s={16} />Ver quem eu tirei</button>
-                      <div className="as-meta">O @, o desejo e o endereço aparecem só para você, dentro do cartão.</div>
+                      <div className="as-meta">O @, a pista e o endereço aparecem só para você, dentro do envelope.</div>
                     </>
                   )}
                 </div>
@@ -234,21 +253,36 @@ export default function SalaClient() {
                 <div className="as-meta">A consulta nos Correios mostra a cidade de postagem. Se quiser manter a surpresa, não consulte.</div>
               </>
             ) : (
-              <div className="as-meta">Alguém tirou você. Quando essa pessoa postar, o código de rastreio aparece aqui.</div>
+              <div className="as-meta">Alguém tirou você. Quando essa pessoa registrar o envio, o código de rastreio aparece aqui.</div>
             )}
             {eu!.recebido_em ? (
-              <div className="as-meta">Você confirmou o recebimento em {dataCurta(eu!.recebido_em)}.</div>
+              <div className="as-meta">Você confirmou o recebimento em {dataCurta(eu!.recebido_em)}{eu!.recebido_em_maos ? ', em mãos' : ''}.</div>
             ) : estado !== 'encerrado' && (
-              <button type="button" className="as-btn" disabled={ocupado} onClick={async () => { if (window.confirm('Confirmar que o seu presente chegou?')) await chamar('amigo_secreto_recebi', { p_slug: SLUG }) }}><Ico n="box" s={16} />Meu presente chegou</button>
+              sala.recebo?.postado_em
+                ? <button type="button" className="as-btn" disabled={ocupado} onClick={() => setFolha('recebi')}><Ico n="box" s={16} />Meu presente chegou</button>
+                : <button type="button" className="as-btn lnk" style={{ alignSelf: 'flex-start', paddingLeft: 0, width: 'auto' }} disabled={ocupado} onClick={() => setFolha('recebi')}>Recebi em mãos</button>
             )}
           </div>
 
           <div className="as-lane">
-            <div className="as-k">Revelação final{revelado ? '' : ` em ${dataCurta(sala.revelacao_em)}`}</div>
-            <label className="as-chk">
-              <input type="checkbox" checked={eu!.quer_revelar} disabled={ocupado} onChange={e => chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: { quer_revelar: e.target.checked } })} />
-              <span>Quero revelar quem eu tirei na revelação final. Só aparece se os dois lados aceitarem.</span>
-            </label>
+            <div className="as-k">Revelação final · {dataHora(sala.revelacao_em)}</div>
+            {revelado ? (
+              <div className="as-meta">{sala.recebo?.revelado ? 'A troca foi revelada: veja em "Eu recebo" quem mandou o seu presente.' : 'A revelação ficou guardada: um dos lados preferiu manter o segredo.'}</div>
+            ) : (
+              <>
+                <h4 className="as-h3" style={{ fontSize: 16 }}>Quer revelar esta troca?</h4>
+                <p className="as-meta">A dupla só aparece se os dois lados aceitarem. Se alguém preferir manter o segredo, a identidade continua protegida.</p>
+                <div className="as-two as-rev">
+                  <div className={`as-rev-box${eu!.quer_revelar ? ' ok' : ''}`}><b>Você</b><span>{eu!.quer_revelar ? 'Aceitou revelar esta troca.' : 'Ainda não escolheu.'}</span></div>
+                  <div className={`as-rev-box${sala.recebo?.outro_aceitou ? ' ok' : ''}`}><b>Quem tirou você</b><span>{sala.recebo?.outro_aceitou ? 'Aceitou revelar.' : 'Ainda não escolheu.'}</span></div>
+                </div>
+                <label className="as-chk">
+                  <input type="checkbox" checked={eu!.quer_revelar} disabled={ocupado} onChange={e => chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: { quer_revelar: e.target.checked } })} />
+                  <span><strong style={{ color: 'var(--bx-text)' }}>Aceito revelar esta troca.</strong> Na data final, os @ aparecem para os dois se ambos aceitarem. Dá para mudar de ideia até lá.</span>
+                </label>
+                {tirou && <div className="as-meta">Quem você tirou {tirou.aceitou ? 'já aceitou' : 'ainda não escolheu'} revelar o lado dela.</div>}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -257,7 +291,7 @@ export default function SalaClient() {
 
       {/* ── Mural (no desktop, coluna fixa a direita) ── */}
       <aside className="as-mural" aria-label="Mural">
-        <Mural feed={feed} estado={estado} eu={eu!} tirou={tirou} edicao={edicao} hoje={sala.mensagens_hoje} ligado={sala.feed_ligado} onEscrever={() => setFolha('escrever')} />
+        <Mural feed={feed} estado={estado} eu={eu!} tirou={tirou} edicao={edicao} hoje={sala.mensagens_hoje} ligado={sala.feed_ligado} aberto={muralAberto} abreEm={sala.mural_abre_em} minimo={sala.minimo} sorteioEm={sala.sorteio_em} onEscrever={() => setFolha('escrever')} />
       </aside>
       </div>
 
@@ -266,8 +300,10 @@ export default function SalaClient() {
       {folha === 'endereco' && <FolhaEndereco eu={eu!} nome={sessao.nome} ocupado={ocupado} travado={!!tirou} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(temDesejo ? null : 'desejo') } }} />}
       {folha === 'desejo' && <FolhaDesejo eu={eu!} teto={sala.teto_cents} ocupado={ocupado} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(eu!.pokemon ? null : 'pokemon') } }} />}
       {folha === 'pokemon' && <FolhaPokemon eu={eu!} ocupado={ocupado} onFechar={fechar} onSalvar={async p => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: { pokemon: p || '' } })) { setFolha(null); carregar() } }} />}
-      {folha === 'tirou' && tirou && <FolhaTirou tirou={tirou} postarAte={sala.postar_ate} postado={!!eu!.postado_em} onFechar={fechar} onPostei={() => setFolha('rastreio')} />}
-      {folha === 'rastreio' && tirou && <FolhaRastreio eu={eu!} tirou={tirou} ocupado={ocupado} onFechar={fechar} onSalvar={async r => { if (await chamar('amigo_secreto_postei', { p_slug: SLUG, p_rastreio: r })) setFolha(null) }} />}
+      {folha === 'tirou' && tirou && <FolhaTirou tirou={tirou} postarAte={sala.postar_ate} postado={!!eu!.postado_em} onFechar={fechar} onPostei={() => setFolha('rastreio')} onAjuda={() => setFolha('ajuda')} />}
+      {folha === 'rastreio' && tirou && <FolhaRastreio eu={eu!} tirou={tirou} postarAte={sala.postar_ate} ocupado={ocupado} onFechar={fechar} onSalvar={async r => { if (await chamar('amigo_secreto_postei', { p_slug: SLUG, p_rastreio: r })) setFolha(null) }} />}
+      {folha === 'recebi' && <FolhaRecebi postado={!!sala.recebo?.postado_em} ocupado={ocupado} onFechar={fechar} onConfirmar={async emMaos => { if (await chamar('amigo_secreto_recebi', { p_slug: SLUG, p_em_maos: emMaos })) setFolha(null) }} />}
+      {folha === 'ajuda' && <FolhaAjuda antes={estado === 'inscricoes'} onFechar={fechar} />}
       {folha === 'escrever' && tirou && <FolhaEscrever tirou={tirou} hoje={sala.mensagens_hoje} ocupado={ocupado} onFechar={fechar} onEnviar={async (texto, pronta) => { if (await chamar('amigo_secreto_enviar_mensagem', { p_slug: SLUG, p_texto: texto, p_pronta: pronta })) { setFolha(null); carregar() } }} />}
     </Casca>
   )
@@ -291,12 +327,15 @@ function Casca({ children }: { children: React.ReactNode }) {
   )
 }
 
-function Cabeca({ chip, n }: { chip: string; n?: number }) {
+function Cabeca({ chip, n, onAjuda }: { chip: string; n?: number; onAjuda?: () => void }) {
   return (
     <>
-      <div className="as-chips">
-        <span className="as-chip fill">{chip}</span>
-        {typeof n === 'number' && <span className="as-chip"><Ico n="users" s={14} />{n} {n === 1 ? 'criador' : 'criadores'}</span>}
+      <div className="as-eye-row">
+        <div className="as-chips">
+          <span className="as-chip fill">{chip}</span>
+          {typeof n === 'number' && <span className="as-chip"><Ico n="users" s={14} />{n} {n === 1 ? 'criador' : 'criadores'}</span>}
+        </div>
+        {onAjuda && <button type="button" className="as-btn lnk sm" style={{ minHeight: 44 }} onClick={onAjuda}>Preciso de ajuda</button>}
       </div>
       <h2 className="as-h2">Sala do Amigo Secreto</h2>
     </>
@@ -313,23 +352,28 @@ function Energia({ rotulo, segs }: { rotulo: string; segs: boolean[] }) {
   )
 }
 
-function QuemEntrou({ edicao }: { edicao: EdicaoPublica | null }) {
+function QuemEntrou({ edicao, minimo, sorteioEm, nota }: { edicao: EdicaoPublica | null; minimo: number; sorteioEm?: string; nota?: string }) {
   if (!edicao) return null
+  const faltam = Math.max(0, Math.max(3, minimo) - edicao.participantes)
   return (
     <>
-      <div className="as-fh"><h3 className="as-h3">Mural</h3><span className="as-meta">abre depois do sorteio</span></div>
+      <div className="as-eye">Status da edição</div>
+      <div className="as-fh"><h3 className="as-h3">Quem já entrou</h3><span className="as-meta">{edicao.participantes} {edicao.participantes === 1 ? 'criador' : 'criadores'}</span></div>
+      <p className="as-meta">{nota || 'O mural de recados abre depois do sorteio. Por enquanto, veja quem está na brincadeira.'}</p>
       <div className="as-feed">
-        <div className="as-fi sys"><div className="bub">Depois do sorteio, cada pessoa escreve recados anônimos para quem tirou. Até lá, veja quem está na sala.</div></div>
         {edicao.lista.map(p => (
-          <div key={p.instagram} className="as-fi"><Avatar instagram={p.instagram} pokemon={p.pokemon} /><div className="bub"><div className="who">@{p.instagram} entrou na sala</div></div></div>
+          <div key={p.instagram} className="as-fi"><Avatar instagram={p.instagram} pokemon={p.pokemon} /><div className="bub"><div className="who">@{p.instagram}</div><div className="as-meta">entrou na sala</div></div></div>
         ))}
+        {faltam > 0 && <div className="as-fi sys"><div className="bub">{faltam === 1 ? 'Falta 1 criador' : `Faltam ${faltam} criadores`} para liberar a rodada.</div></div>}
       </div>
+      {sorteioEm && <div className="as-fh" style={{ borderTop: '1px solid var(--bx-border)', paddingTop: 8 }}><span className="as-meta">Sorteio em <strong>{dataHora(sorteioEm)}</strong></span><span className="as-chip wait">aguardando</span></div>}
     </>
   )
 }
 
-function Mural({ feed, estado, eu, tirou, edicao, hoje, ligado, onEscrever }: {
-  feed: MensagemMural[]; estado: string; eu: Eu; tirou: Tirou | null; edicao: EdicaoPublica | null; hoje: number; ligado: boolean; onEscrever: () => void
+function Mural({ feed, estado, eu, tirou, edicao, hoje, ligado, aberto, abreEm, minimo, sorteioEm, onEscrever }: {
+  feed: MensagemMural[]; estado: string; eu: Eu; tirou: Tirou | null; edicao: EdicaoPublica | null; hoje: number; ligado: boolean
+  aberto: boolean; abreEm: string | null; minimo: number; sorteioEm: string; onEscrever: () => void
 }) {
   const antes = estado === 'inscricoes'
   const grupos = useMemo(() => {
@@ -341,23 +385,42 @@ function Mural({ feed, estado, eu, tirou, edicao, hoje, ligado, onEscrever }: {
 
   if (antes) return (
     <>
-      <QuemEntrou edicao={edicao} />
+      <QuemEntrou edicao={edicao} minimo={minimo} sorteioEm={sorteioEm} />
       <div className="as-comp">
-        <span className="fake" aria-disabled="true">Você escreve para quem tirar, depois do sorteio</span>
+        <span className="fake" aria-disabled="true">Você deixa pistas para quem tirar, depois do sorteio</span>
         <span className="as-btn dis sm">Escrever</span>
       </div>
     </>
   )
 
+  if (!aberto) return (
+    <>
+      <QuemEntrou edicao={edicao} minimo={minimo} nota={`O mural abre às ${abreEm ? horaCurta(abreEm) : '...'}, uma hora depois do sorteio, para ninguém entregar o par pelo horário. Enquanto isso, veja quem está na sala.`} />
+      <div className="as-comp">
+        <span className="fake" aria-disabled="true">O mural abre às {abreEm ? horaCurta(abreEm) : '...'}</span>
+        <span className="as-btn dis sm">Escrever</span>
+      </div>
+    </>
+  )
+
+  const restam = Math.max(0, MURAL_MAX_DIA - hoje)
   return (
     <>
-      <div className="as-fh"><h3 className="as-h3">Mural</h3><span className="as-meta">{paraMim > 0 ? `${paraMim} para você` : `${feed.length} ${feed.length === 1 ? 'recado' : 'recados'}`}</span></div>
+      <div className="as-eye">Pistas anônimas</div>
+      <div className="as-fh"><h3 className="as-h3">Recados anônimos</h3><span className="as-meta">{paraMim > 0 ? `${paraMim} para você` : `${feed.length} ${feed.length === 1 ? 'recado' : 'recados'}`}</span></div>
+      <p className="as-meta">O mural é para manter o suspense vivo. Sem nome, @, link ou cidade.</p>
+      <div className="as-card as-prot">
+        <div className="as-k">Proteção do mistério</div>
+        <div className="as-h3">Você escreve como &quot;Seu amigo secreto&quot;.</div>
+        <p className="as-meta">Todo mundo da sala pode ler, mas ninguém vê quem publicou. O limite é de {MURAL_MAX_DIA} recados por dia, e os recados ficam no mural até a revelação final.</p>
+        {tirou && <div className="as-fh" style={{ minHeight: 0 }}><span className="as-meta">Recados restantes hoje</span><span className="as-dots" aria-label={`${restam} de ${MURAL_MAX_DIA}`}>{Array.from({ length: MURAL_MAX_DIA }, (_, i) => <i key={i} className={i < restam ? 'on' : ''} />)}</span></div>}
+      </div>
       <div className="as-feed">
         {edicao && <div className="as-fi sys"><div className="bub">Sorteio realizado em {dataHora(edicao.sorteio_em)}. {edicao.participantes} pares formados. O mural está aberto.</div></div>}
-        {feed.length === 0 && <div className="as-fi sys"><div className="bub">Ninguém escreveu ainda. Seja o primeiro a deixar um recado para quem você tirou.</div></div>}
+        {feed.length === 0 && <div className="as-fi sys"><div className="bub">Ninguém escreveu ainda. Seja o primeiro a deixar uma pista para quem você tirou.</div></div>}
         {grupos.map(([dia, lista]) => (
           <div key={dia} className="as-feed">
-            <div className="as-dia">{rotuloDia(dia)}</div>
+            <div className="as-dia">{rotuloDia(dia)}{rotuloDia(dia) === 'Hoje' ? ' · recados embaralhados' : ''}</div>
             {lista.map(m => (
               <div key={m.id} className={`as-fi${m.para_mim ? ' me' : ''}`}>
                 <span className="as-av" style={{ width: 32, height: 32, fontSize: 13 }}>?</span>
@@ -373,7 +436,7 @@ function Mural({ feed, estado, eu, tirou, edicao, hoje, ligado, onEscrever }: {
       </div>
       {tirou && ligado && estado !== 'encerrado' && (
         <div className="as-comp">
-          <button type="button" className="fake live" onClick={onEscrever}>Escrever para @{tirou.instagram}</button>
+          <button type="button" className="fake live" onClick={onEscrever}>Deixar uma pista para @{tirou.instagram}</button>
           <span className="cnt-d">{hoje} de {MURAL_MAX_DIA} hoje</span>
           <button type="button" className="as-btn pri sm" onClick={onEscrever} disabled={hoje >= MURAL_MAX_DIA}>Escrever</button>
         </div>
@@ -386,7 +449,7 @@ function Mural({ feed, estado, eu, tirou, edicao, hoje, ligado, onEscrever }: {
 
 // ── Folhas ──────────────────────────────────────────────────────────────────
 
-function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) {
+function Folha({ titulo, eyebrow, onFechar, children }: { titulo: string; eyebrow?: string; onFechar: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
@@ -403,7 +466,7 @@ function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () =>
     <div className="as-sheet-bg" onClick={onFechar}>
       <div ref={ref} tabIndex={-1} className="as-sheet" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
         <div className="as-handle" />
-        <div className="as-sh"><h3 className="as-h3">{titulo}</h3><button type="button" className="as-ib" onClick={onFechar} aria-label="Fechar"><Ico n="x" s={22} /></button></div>
+        <div className="as-sh"><div>{eyebrow && <div className="as-eye" style={{ marginBottom: 2 }}>{eyebrow}</div>}<h3 className="as-h3">{titulo}</h3></div><button type="button" className="as-ib" onClick={onFechar} aria-label="Fechar"><Ico n="x" s={22} /></button></div>
         {children}
       </div>
     </div>
@@ -503,31 +566,37 @@ function FolhaEndereco({ eu, nome, ocupado, travado, onFechar, onSalvar }: { eu:
 
 function FolhaDesejo({ eu, teto, ocupado, onFechar, onSalvar }: { eu: Eu; teto: number; ocupado: boolean; onFechar: () => void; onSalvar: (d: Json) => void }) {
   const [desejo, setDesejo] = useState(eu.desejo || '')
-  const [sug, setSug] = useState<string[]>([...(eu.sugestoes || []), '', '', ''].slice(0, 3))
+  const [sug, setSug] = useState<string[]>((eu.sugestoes || []).length ? [...eu.sugestoes] : [''])
   const [surp, setSurp] = useState(eu.me_surpreenda)
   const [erro, setErro] = useState('')
+  // Uma pista basta: o 2o e o 3o campo so aparecem se a pessoa pedir.
+  const addPista = () => setSug(x => x.length < 3 ? [...x, ''] : x)
   return (
-    <Folha titulo="O que eu gostaria de ganhar" onFechar={onFechar}>
-      <p className="as-meta">Ajude quem tirar você. O presente vai até {brl(teto)}.</p>
-      <form onSubmit={e => { e.preventDefault(); if (!surp && !desejo.trim()) { setErro('Escreva em poucas palavras ou marque "Me surpreenda".'); return } onSalvar({ desejo: desejo.trim(), sugestoes: sug.map(s => s.trim()).filter(Boolean), me_surpreenda: surp }) }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <Folha titulo="Que presente combina com você?" eyebrow="Etapa 3 de 3 · pista de presente" onFechar={onFechar}>
+      <p className="as-meta">Deixe uma pista para quem cair com você. O presente vai até {brl(teto)}, e o frete fica por conta de quem envia.</p>
+      <form onSubmit={e => { e.preventDefault(); if (!surp && !desejo.trim()) { setErro('Escreva em poucas palavras ou marque "Pode escolher por mim".'); return } onSalvar({ desejo: desejo.trim(), sugestoes: sug.map(s => s.trim()).filter(Boolean), me_surpreenda: surp }) }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label className="as-f">
-          <span className="as-lb">Em poucas palavras</span>
-          <textarea className="as-in ta" value={desejo} maxLength={DESEJO_MAX_CHARS} onChange={e => { setDesejo(e.target.value); setErro('') }} placeholder="Ex.: coleciono Eevee, jogo o deck de Charizard, gosto de sleeves..." />
-          <span className="as-hint">{desejo.length} de {DESEJO_MAX_CHARS} caracteres. Só quem tirar você lê isto.</span>
+          <span className="as-lb">Em poucas palavras, o que você curte?</span>
+          <textarea className="as-in ta" value={desejo} maxLength={DESEJO_MAX_CHARS} onChange={e => { setDesejo(e.target.value); setErro('') }} placeholder="Cartas de Pokémon TCG, sleeves com arte diferente e acessórios para organizar a coleção." />
+          <span className="as-hint">A pista aparece somente para quem tirar você · {desejo.length} de {DESEJO_MAX_CHARS} caracteres</span>
         </label>
         <label className="as-chk">
           <input type="checkbox" checked={surp} onChange={e => { setSurp(e.target.checked); setErro('') }} />
-          <span><strong style={{ color: 'var(--bx-text)' }}>Me surpreenda</strong>: quem tirar você escolhe livremente.</span>
+          <span><strong style={{ color: 'var(--bx-text)' }}>Pode escolher por mim.</strong> Se quiser deixar a surpresa totalmente nas mãos do seu amigo secreto, marque esta opção.</span>
         </label>
-        <div className="as-f">
-          <span className="as-lb">Sugestões (até 3, teto de {brl(teto)} cada)</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sug.map((s, i) => <input key={i} className="as-in" value={s} onChange={e => setSug(x => x.map((v, j) => j === i ? e.target.value : v))} placeholder={`Sugestão ${i + 1} (nome ou link)`} aria-label={`Sugestão ${i + 1}`} maxLength={120} />)}
+        {!surp && (
+          <div className="as-f">
+            <span className="as-lb">Até 3 pistas, nome ou link</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {sug.map((v, i) => <input key={i} className="as-in" value={v} onChange={e => setSug(x => x.map((o, j) => j === i ? e.target.value : o))} placeholder={i === 0 ? 'Uma carta, sleeve ou acessório que você gostaria de ganhar' : `Pista ${i + 1}`} aria-label={`Pista ${i + 1}`} maxLength={120} />)}
+              {sug.length < 3 && <button type="button" className="as-btn sm" style={{ alignSelf: 'flex-start', borderStyle: 'dashed' }} onClick={addPista}>Adicionar outra pista</button>}
+            </div>
+            <span className="as-hint">Link do Marketplace da Bynx ou de qualquer loja.</span>
           </div>
-          <span className="as-hint">Link do Marketplace da Bynx ou de qualquer loja.</span>
-        </div>
+        )}
         {erro && <div className="as-erro" role="alert">{erro}</div>}
-        <button type="submit" className="as-btn pri" disabled={ocupado}>Salvar</button>
+        <div className="as-fh" style={{ minHeight: 0 }}><span className="as-meta">Você pode editar até o sorteio.</span></div>
+        <button type="submit" className="as-btn pri" disabled={ocupado}>Salvar minha pista</button>
       </form>
     </Folha>
   )
@@ -554,8 +623,9 @@ function FolhaPokemon({ eu, ocupado, onFechar, onSalvar }: { eu: Eu; ocupado: bo
   )
 }
 
-function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei }: { tirou: Tirou; postarAte: string; postado: boolean; onFechar: () => void; onPostei: () => void }) {
+function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: { tirou: Tirou; postarAte: string; postado: boolean; onFechar: () => void; onPostei: () => void; onAjuda: () => void }) {
   const [copiado, setCopiado] = useState(false)
+  const [enderecoAberto, setEnderecoAberto] = useState(false)
   const e = tirou.endereco
   const endereco = e
     ? [tirou.nome_completo, `${e.logradouro || ''}${e.numero ? `, ${e.numero}` : ''}${e.complemento ? `, ${e.complemento}` : ''}`, `${e.bairro ? `${e.bairro}, ` : ''}${e.cidade || ''}${e.uf ? `, ${e.uf}` : ''}`, `CEP ${cepBonito(e.cep)}`].filter(Boolean).join('\n')
@@ -563,47 +633,81 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei }: { tirou: 
   async function copiar() {
     try { await navigator.clipboard.writeText(endereco); setCopiado(true); setTimeout(() => setCopiado(false), 1500) } catch {}
   }
+  const pk = nomePokemon(tirou.pokemon)
   return (
-    <Folha titulo="Você tirou..." onFechar={onFechar}>
+    <Folha titulo="Você tirou..." eyebrow="Envelope aberto" onFechar={onFechar}>
+      {/* Camada 1: contexto (quem e, o que curte). */}
       <div className="as-frente">
         <Avatar instagram={tirou.instagram} pokemon={tirou.pokemon} tam={52} />
         <div className="at">@{tirou.instagram}</div>
+        <div className="as-meta">Criador de Pokémon TCG{pk ? ` · ${pk} como avatar` : ''}</div>
         <a className="ln" href={`https://instagram.com/${tirou.instagram}`} target="_blank" rel="noopener noreferrer"><Ico n="ext" s={14} />Abrir no Instagram, para conhecer o conteúdo</a>
       </div>
       <div className="as-card" style={{ gap: 6, padding: '10px 12px' }}>
         <div className="as-k">O que gostaria de ganhar</div>
-        {tirou.me_surpreenda && <div style={{ fontSize: 14 }}><strong>Me surpreenda.</strong> Escolha livre.</div>}
+        {tirou.me_surpreenda && <div style={{ fontSize: 14 }}><strong>Pode escolher por mim.</strong> Escolha livre, até o teto.</div>}
         {tirou.desejo && <div style={{ fontSize: 14, overflowWrap: 'anywhere' }}>{tirou.desejo}</div>}
-        {tirou.sugestoes.map((s, i) => /^https?:\/\//.test(s)
-          ? <a key={i} className="as-row" href={s} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.replace(/^https?:\/\//, '')}</span><span className="as-meta" style={{ color: 'var(--ac-1)' }}>link</span></a>
-          : <div key={i} className="as-row static"><span>{s}</span></div>)}
+        {tirou.sugestoes.length > 0 && (
+          <div className="as-chips">
+            {tirou.sugestoes.map((s, i) => /^https?:\/\//.test(s)
+              ? <a key={i} className="as-chip" href={s} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', maxWidth: '100%' }}><Ico n="ext" s={12} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.replace(/^https?:\/\/(www\.)?/, '')}</span></a>
+              : <span key={i} className="as-chip">{s}</span>)}
+          </div>
+        )}
       </div>
+      {/* Camada 2: endereco, fechado ate a pessoa pedir. */}
       {endereco ? (
-        <>
-          <div className="as-addr"><b>Endereço de entrega (etiqueta)</b>{endereco}</div>
-          <button type="button" className="as-btn" onClick={copiar}><Ico n="copy" s={16} />{copiado ? 'Copiado' : 'Copiar endereço'}</button>
-          <div className="as-note strong">O nome completo e o endereço aparecem <strong>só aqui e só para você</strong>. Não tire print nem compartilhe. Ao fechar, somem da tela; você reabre pelo cartão da missão.</div>
-        </>
-      ) : <div className="as-note">O endereço desta pessoa já foi apagado (30 dias após a revelação).</div>}
-      <div className="as-meta">Prazo de postagem: <strong>{dataCurta(postarAte)}</strong>{diasAte(postarAte) > 0 ? ` (faltam ${diasAte(postarAte)} dias)` : ''}</div>
-      <button type="button" className="as-btn pri" onClick={onPostei}>{postado ? 'Editar código de rastreio' : 'Já postei: informar código de rastreio'}</button>
+        <div className="as-addr-lock">
+          <button type="button" className="as-row" onClick={() => setEnderecoAberto(v => !v)} aria-expanded={enderecoAberto}>
+            <span className="l"><Ico n="lock" s={18} /><span>Endereço protegido<small>{enderecoAberto ? 'Só aqui e só para você. Não tire print nem compartilhe.' : 'Toque para abrir o endereço completo quando for separar o envio.'}</small></span></span>
+            <Ico n={enderecoAberto ? 'down' : 'chev'} className="arr" />
+          </button>
+          {enderecoAberto && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 0 10px' }}>
+              <div className="as-addr"><b>Endereço de entrega (etiqueta)</b>{endereco}</div>
+              <button type="button" className="as-btn" onClick={copiar}><Ico n="copy" s={16} />{copiado ? 'Copiado' : 'Copiar endereço'}</button>
+              <div className="as-meta">Na etiqueta, só o nome, sem o seu @. Ao fechar, o endereço some da tela; você reabre pelo cartão da missão.</div>
+            </div>
+          )}
+        </div>
+      ) : <div className="as-note">O endereço desta pessoa não está mais disponível. Fale com a organização.</div>}
+      <div className="as-card" style={{ gap: 6, padding: '10px 12px' }}>
+        <div className="as-k">Prazo sugerido</div>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>Postar até {dataCurta(postarAte)}{diasAte(postarAte) > 0 ? <span className="as-meta" style={{ fontWeight: 500 }}> · faltam {diasAte(postarAte)} dias</span> : ''}</div>
+        <div className="as-meta">O código de rastreio é opcional. Também dá para registrar uma entrega em mãos.</div>
+      </div>
+      <button type="button" className="as-btn pri" onClick={onPostei}>{postado ? 'Editar envio' : 'Registrar envio'}</button>
+      <button type="button" className="as-btn" onClick={onAjuda}>Preciso de ajuda</button>
     </Folha>
   )
 }
 
-function FolhaRastreio({ eu, tirou, ocupado, onFechar, onSalvar }: { eu: Eu; tirou: Tirou; ocupado: boolean; onFechar: () => void; onSalvar: (r: string) => void }) {
+function FolhaRastreio({ eu, tirou, postarAte, ocupado, onFechar, onSalvar }: { eu: Eu; tirou: Tirou; postarAte: string; ocupado: boolean; onFechar: () => void; onSalvar: (r: string) => void }) {
   const [cod, setCod] = useState(eu.rastreio || '')
+  const [meio, setMeio] = useState<'correios' | 'transportadora' | 'maos'>(eu.postado_em && !eu.rastreio ? 'maos' : 'correios')
+  const [atrasado] = useState(() => Date.now() > Date.parse(postarAte))
   return (
-    <Folha titulo="Código de rastreio" onFechar={onFechar}>
+    <Folha titulo="Registrar envio" onFechar={onFechar}>
       <p className="as-meta">Dentro da Bynx, @{tirou.instagram} vê só o código e o andamento, nunca o seu @ nem o seu nome.</p>
-      <form onSubmit={e => { e.preventDefault(); onSalvar(cod.trim().toUpperCase()) }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <label className="as-f">
-          <span className="as-lb">Código (Correios ou transportadora)</span>
-          <input className="as-in" value={cod} onChange={e => setCod(e.target.value)} autoCapitalize="characters" placeholder="AA123456789BR" maxLength={40} style={{ fontFamily: 'monospace' }} />
-          <span className="as-hint">Pode deixar em branco se entregou em mãos ou sem rastreio.</span>
-        </label>
-        <div className="as-note strong">O código dos Correios não mostra o nome de quem postou, mas a consulta no site deles mostra a <strong>cidade de postagem</strong>, e a <strong>etiqueta física</strong> leva o nome de quem postou. Dica: na etiqueta, só o nome, sem o @.</div>
-        <button type="submit" className="as-btn pri" disabled={ocupado}>{eu.postado_em ? 'Salvar' : 'Confirmar que postei'}</button>
+      <form onSubmit={e => { e.preventDefault(); onSalvar(meio === 'maos' ? '' : cod.trim().toUpperCase()) }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="as-f">
+          <span className="as-lb">Como foi o envio</span>
+          <div className="as-opts" role="radiogroup" aria-label="Como foi o envio">
+            {([['correios', 'Correios'], ['transportadora', 'Transportadora'], ['maos', 'Em mãos']] as const).map(([k, l]) => (
+              <button key={k} type="button" role="radio" aria-checked={meio === k} className={`as-btn sm${meio === k ? ' on' : ''}`} onClick={() => setMeio(k)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        {meio !== 'maos' && (
+          <label className="as-f">
+            <span className="as-lb">Código de rastreio (opcional)</span>
+            <input className="as-in" value={cod} onChange={e => setCod(e.target.value)} autoCapitalize="characters" placeholder={meio === 'correios' ? 'AA123456789BR' : 'código da transportadora'} maxLength={40} style={{ fontFamily: 'monospace' }} />
+            <span className="as-hint">Pode deixar em branco se o envio não tem rastreio.</span>
+          </label>
+        )}
+        {meio === 'correios' && <div className="as-note strong">A consulta no site dos Correios mostra a <strong>cidade de postagem</strong>, e a <strong>etiqueta física</strong> leva o nome de quem postou. Dica: na etiqueta, só o nome, sem o @.</div>}
+        {atrasado && !eu.postado_em && <div className="as-note">Depois do prazo combinado ({dataCurta(postarAte)}): o envio fica registrado como atrasado. Avise a organização se precisar de ajuda com a entrega.</div>}
+        <button type="submit" className="as-btn pri" disabled={ocupado}>{eu.postado_em ? 'Salvar' : 'Registrar envio'}</button>
       </form>
     </Folha>
   )
@@ -614,7 +718,7 @@ function FolhaEscrever({ tirou, hoje, ocupado, onFechar, onEnviar }: { tirou: Ti
   const [pronta, setPronta] = useState<number | null>(null)
   const restam = MURAL_MAX_DIA - hoje
   return (
-    <Folha titulo="Escrever no mural" onFechar={onFechar}>
+    <Folha titulo="Deixar uma pista" eyebrow="Recado anônimo" onFechar={onFechar}>
       <div className="as-card" style={{ gap: 6 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px', alignItems: 'center' }}>
           <span className="as-pill-lock"><Avatar instagram={tirou.instagram} pokemon={tirou.pokemon} tam={24} />Para @{tirou.instagram}<Ico n="lock" s={14} /></span>
@@ -632,11 +736,37 @@ function FolhaEscrever({ tirou, hoje, ocupado, onFechar, onEnviar }: { tirou: Ti
         <label className="as-f">
           <span className="as-lb">Ou escreva a sua</span>
           <textarea className="as-in ta" value={texto} maxLength={MURAL_MAX_CHARS} onChange={e => { setTexto(e.target.value); setPronta(null) }} placeholder={`Até ${MURAL_MAX_CHARS} caracteres`} />
-          <span className="as-hint">{texto.length} de {MURAL_MAX_CHARS}. Sem o seu nome, sem o seu @, sem link, sem a cidade de onde você manda.</span>
+          <span className="as-hint">{texto.length} de {MURAL_MAX_CHARS}. A Bynx não mostra seu @, mas o texto pode dar pistas: sem nome, @, link, telefone ou cidade. Mantenha o mistério.</span>
         </label>
         <div className="as-note">Você ainda pode publicar <strong>{restam === 1 ? '1 mensagem' : `${restam} mensagens`} hoje</strong> ({hoje} de {MURAL_MAX_DIA} usadas). O limite reinicia à meia-noite.</div>
         <button type="submit" className="as-btn pri" disabled={ocupado || !texto.trim() || restam <= 0}><Ico n="send" s={16} />Publicar no mural</button>
       </form>
+    </Folha>
+  )
+}
+
+function FolhaRecebi({ postado, ocupado, onFechar, onConfirmar }: { postado: boolean; ocupado: boolean; onFechar: () => void; onConfirmar: (emMaos: boolean) => void }) {
+  return (
+    <Folha titulo="Meu presente chegou" onFechar={onFechar}>
+      <div className="as-note strong"><strong>Confirme somente quando o presente estiver com você.</strong> Se foi uma entrega em mãos, escolha essa opção.</div>
+      {!postado && <p className="as-meta">Quem tirou você ainda não registrou o envio, então só a entrega em mãos pode ser confirmada agora.</p>}
+      <button type="button" className="as-btn pri" disabled={ocupado || !postado} onClick={() => onConfirmar(false)}><Ico n="box" s={16} />Chegou pelo correio ou transportadora</button>
+      <button type="button" className="as-btn" disabled={ocupado} onClick={() => onConfirmar(true)}>Recebi em mãos</button>
+      <button type="button" className="as-btn lnk" onClick={onFechar}>Ainda não chegou</button>
+    </Folha>
+  )
+}
+
+function FolhaAjuda({ antes, onFechar }: { antes: boolean; onFechar: () => void }) {
+  return (
+    <Folha titulo="Preciso de ajuda" onFechar={onFechar}>
+      {antes ? (
+        <div className="as-note strong">Mudou de ideia, encontrou um problema ou não vai conseguir cumprir o prazo? <strong>Fale com a organização no grupo antes do sorteio.</strong> Depois do sorteio, a sua saída desfaz um par.</div>
+      ) : (
+        <div className="as-note strong">Problema com endereço, envio ou entrega? <strong>Fale com a organização em privado.</strong> Não publique dados pessoais no mural.</div>
+      )}
+      <p className="as-meta">A organização é quem mandou o link no grupo do Poké Creators Club. Dentro da Bynx, o seu WhatsApp fica visível só para ela.</p>
+      <button type="button" className="as-btn" onClick={onFechar}>Voltar para a sala</button>
     </Folha>
   )
 }

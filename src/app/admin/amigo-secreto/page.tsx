@@ -41,7 +41,7 @@ export default function AdminAmigoSecretoPage() {
       const res = await fetch('/api/admin/amigo-secreto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setErro(d.error || `Erro ${res.status}`); return }
-      setOk(corpo.acao === 'sortear' ? `Sorteio feito: ${d.n} pares.` : 'Fase atualizada.')
+      setOk(corpo.acao === 'sortear' ? `Sorteio feito: ${d.n} pares.` : corpo.acao === 'remover' ? `@${corpo.instagram} removido.` : 'Fase atualizada.')
       await load()
     } finally { setOcupado(false) }
   }
@@ -101,7 +101,7 @@ export default function AdminAmigoSecretoPage() {
             <div className="am-title">Participantes ({lista.length})</div>
             <div className="am-scroll">
               <table className="am-table">
-                <thead><tr><th>@</th><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Cidade</th><th>Perfil</th><th>Postou</th><th>Recebeu</th><th>Entrou</th></tr></thead>
+                <thead><tr><th>@</th><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Cidade</th><th>Perfil</th><th>Postou</th><th>Recebeu</th><th>Entrou</th>{edicao.estado === 'inscricoes' && <th></th>}</tr></thead>
                 <tbody>
                   {lista.map(p => (
                     <tr key={p.instagram}>
@@ -114,9 +114,10 @@ export default function AdminAmigoSecretoPage() {
                       <td>{p.postado_em ? `${dataCurta(p.postado_em)}${p.rastreio ? ` · ${p.rastreio}` : ''}` : 'sem'}</td>
                       <td>{p.recebido_em ? dataCurta(p.recebido_em) : 'sem'}</td>
                       <td>{dataCurta(p.created_at)}</td>
+                      {edicao.estado === 'inscricoes' && <td><button type="button" className="am-btn2 am-sm" disabled={ocupado} onClick={() => acao({ acao: 'remover', instagram: p.instagram }, `Remover @${p.instagram} desta edição? A conta Bynx continua; só a inscrição sai.`)}>Remover</button></td>}
                     </tr>
                   ))}
-                  {lista.length === 0 && <tr><td colSpan={9}>Ninguém entrou ainda.</td></tr>}
+                  {lista.length === 0 && <tr><td colSpan={10}>Ninguém entrou ainda.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -138,6 +139,8 @@ export default function AdminAmigoSecretoPage() {
         .am-btn{min-height:40px;padding:0 16px;border-radius:10px;border:0;background:var(--ac-grad);color:var(--bx-brand-ink);font:inherit;font-weight:700;cursor:pointer}
         .am-btn:disabled{opacity:.45;cursor:default}
         .am-btn2{min-height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--bx-border-2);background:transparent;color:var(--bx-text);font:inherit;font-weight:700;cursor:pointer}
+        .am-sm{min-height:32px;padding:0 10px;font-size:12px;font-weight:600;color:var(--bx-red)}
+        .am-btn2:disabled{opacity:.45;cursor:default}
         .am-erro{font-size:13px;color:var(--bx-red);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 12px}
         .am-ok{font-size:13px;color:var(--bx-green);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px 12px}
         .am-warn{color:var(--ac-1);font-weight:700}
