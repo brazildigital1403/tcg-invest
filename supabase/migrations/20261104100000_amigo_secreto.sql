@@ -12,7 +12,7 @@
 -- O sorteio e a limpeza sao so do service_role (a rota de admin usa
 -- requireAdmin + chave de servico; o admin nao e papel no banco).
 --
--- Rollback (ordem): cron.unschedule('amigo_secreto_limpar');
+-- Rollback (ordem):
 --   drop function ... (as 10 abaixo); drop table amigo_secreto_mensagens,
 --   amigo_secreto_sorteios, amigo_secreto_participantes, amigo_secreto_edicoes.
 -- ============================================================================
@@ -525,5 +525,6 @@ end;
 $$;
 revoke all on function public.amigo_secreto_limpar() from public, anon, authenticated;
 
--- pg_cron roda em GMT: 06:10 UTC = 03:10 de Brasilia.
-select cron.schedule('amigo_secreto_limpar', '10 6 * * *', $$select public.amigo_secreto_limpar()$$);
+-- Sem agendamento (decisao do Du, 04/11/2026: o lead fica, nada e apagado
+-- sozinho). A funcao existe para rodar a mao, se um dia for preciso:
+--   select public.amigo_secreto_limpar();
