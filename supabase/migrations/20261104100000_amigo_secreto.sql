@@ -284,6 +284,20 @@ begin
     returning * into v_me;
   end if;
 
+  -- A conta vira lead: @, WhatsApp e endereco tambem vao para users (so o
+  -- que veio preenchido; nunca apaga o que ja estava la).
+  update public.users set
+    instagram   = coalesce(v_me.instagram, instagram),
+    whatsapp    = coalesce(v_me.whatsapp, whatsapp),
+    cep         = coalesce(v_me.cep, cep),
+    logradouro  = coalesce(v_me.logradouro, logradouro),
+    numero      = coalesce(v_me.numero, numero),
+    complemento = coalesce(v_me.complemento, complemento),
+    bairro      = coalesce(v_me.bairro, bairro),
+    city        = coalesce(v_me.cidade, city),
+    uf          = coalesce(v_me.uf, uf)
+  where id = v_uid;
+
   return public.amigo_secreto_meu(p_slug);
 exception
   when unique_violation then raise exception 'instagram_ja_usado';
