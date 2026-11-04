@@ -506,6 +506,20 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
             </div>
           )}
         </div>
+      ) : rodada.status === 'ao_vivo' ? (
+        <div style={S.corpo}>
+          {erro && <Aviso tom="perigo">{erro}</Aviso>}
+          <PainelAoVivo
+            lojaId={lojaId}
+            rodadaId={rodadaId}
+            statusRodada={rodada.status}
+            onStatusRodada={() => { carregar() }}
+          />
+          <LinkDivulgar numero={rodada.numero} compacto />
+          {podeCancelar && (
+            <button type="button" onClick={cancelar} disabled={ocupado} style={S.cancelar}>Cancelar rodada</button>
+          )}
+        </div>
       ) : (
         <>
           <header style={SH.head}>
@@ -518,9 +532,9 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
 
           {erro && <div style={S.erro} role="alert">{erro}</div>}
 
-          {(rodada.status === 'agendada' || rodada.status === 'ao_vivo') && <LinkDivulgar numero={rodada.numero} />}
+          {rodada.status === 'agendada' && <LinkDivulgar numero={rodada.numero} />}
 
-          {(rodada.status === 'ao_vivo' || rodada.status === 'encerrada') && (
+          {rodada.status === 'encerrada' && (
             <PainelAoVivo
               lojaId={lojaId}
               rodadaId={rodadaId}

@@ -31,7 +31,7 @@ function copiarPorTextarea(texto: string): boolean {
   }
 }
 
-export default function LinkDivulgar({ numero }: { numero: number }) {
+export default function LinkDivulgar({ numero, compacto = false }: { numero: number; compacto?: boolean }) {
   const caminho = urlRodada(numero)
   const origem = typeof window !== 'undefined' ? window.location.origin : 'https://bynx.gg'
   const url = `${origem}${caminho}`
@@ -67,9 +67,11 @@ export default function LinkDivulgar({ numero }: { numero: number }) {
   return (
     <section style={{ ...SH.card, ...S.card }} aria-labelledby="rd-divulgar">
       <h2 id="rd-divulgar" style={{ ...SH.cardH3, marginBottom: 0 }}>Link para divulgar</h2>
-      <p style={S.hint}>
-        Cole na bio, nos stories e no chat da live. Quem abrir acompanha os lotes e dá lance por esta página.
-      </p>
+      {!compacto && (
+        <p style={S.hint}>
+          Cole na bio, nos stories e no chat da live. Quem abrir acompanha os lotes e dá lance por esta página.
+        </p>
+      )}
       <div style={S.linha}>
         <input
           ref={campoRef}

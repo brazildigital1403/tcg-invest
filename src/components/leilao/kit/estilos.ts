@@ -164,6 +164,16 @@ a.lk-linha:hover { background: var(--bx-surface-2); border-color: var(--bx-borde
 .lk-previa-barra > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .lk-previa-corpo { display: flex; flex-direction: column; gap: 14px; padding: 16px; min-width: 0; }
 
+.lk-noar { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: start; min-width: 0; }
+.lk-noar-foto { position: relative; aspect-ratio: 63 / 88; border-radius: 10px; overflow: hidden; border: 1px solid var(--bx-border-2); background: var(--bx-surface-2); }
+.lk-noar-nome { min-width: 0; }
+.lk-noar-info { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (min-width: 769px) {
+  .lk-noar { grid-template-columns: 260px minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lk-noar-foto { grid-row: 1 / 3; border-radius: 12px; }
+  .lk-noar-info { grid-column: 2; }
+}
+
 .lk-esq { display: block; border-radius: 12px; background: var(--bx-surface-2); }
 
 @media (prefers-reduced-motion: reduce) {

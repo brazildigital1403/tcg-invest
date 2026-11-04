@@ -87,12 +87,12 @@ export function Etapas({ itens, direcao = 'v' }: { itens: Etapa[]; direcao?: 'h'
 }
 
 type BotaoProps = {
-  tipo?: 'prim' | 'sec' | 'perigo' | 'leve'; cheio?: boolean; href?: string; children: ReactNode
+  tipo?: 'prim' | 'sec' | 'perigo' | 'leve'; cheio?: boolean; href?: string; target?: string; rel?: string; children: ReactNode
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'>
 
-export function Botao({ tipo = 'prim', cheio = false, href, children, className, ...resto }: BotaoProps) {
+export function Botao({ tipo = 'prim', cheio = false, href, target, rel, children, className, ...resto }: BotaoProps) {
   const cls = `lk-btn lk-btn-${tipo}${cheio ? ' lk-btn-cheio' : ''}${className ? ` ${className}` : ''}`
-  if (href) return <Link href={href} prefetch={false} className={cls}>{children}</Link>
+  if (href) return <Link href={href} prefetch={false} target={target} rel={rel} className={cls}>{children}</Link>
   return <button type="button" className={cls} {...resto}>{children}</button>
 }
 

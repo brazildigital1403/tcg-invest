@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import Image from 'next/image'
 import Link from 'next/link'
 import { IconArrowRight, IconClock, IconPlay } from '@/components/ui/Icons'
-import { formatarBRL, formatarTempoRestante, horarioBrasilia } from '@/lib/leilao'
+import { Aviso, Botao, MiniCarta, Preco, Resumo, Resumos, Rotulo, Selo, Titulo, type Tom } from '@/components/leilao/kit'
+import { formatarBRL, formatarTempoRestante, horarioBrasilia, incrementoCents } from '@/lib/leilao'
 import { urlLote } from '@/lib/leilao-urls'
 import {
   JANELA_FINAL_MS, ROTULO_RESULTADO, intervaloPolling, resultadoDoLote, totaisRodada, type TomResultado,
@@ -20,9 +21,10 @@ const POLL_ENCERRADA_MS = 60_000
 /**
  * Painel "Ao vivo" + "Resultado" da rodada, no editor da loja.
  *
- * - Ao vivo (rodada ao_vivo): lote no ar (foto, preço, lances, líder
- *   mascarado, contagem e horário de fim), a fila dos próximos e os links
- *   (página pública do lote e transmissão).
+ * - Ao vivo (rodada ao_vivo): sala com o lote no ar em destaque (foto, relógio,
+ *   preço, lances, líder mascarado), a fila, os lotes encerrados e os totais
+ *   da rodada. Só o que o motor faz: o relógio e a troca de lote rodam no
+ *   servidor, então a tela não oferece pausar nem avançar.
  * - Resultado (ao vivo e encerrada): um item por lote fechado, com o status do
  *   arremate/pedido, e os totais arrematado e pago.
  *
@@ -92,6 +94,8 @@ export default function PainelAoVivo({
   const [erro, setErro] = useState<string | null>(null)
   /** Hora (relogio do servidor) da ultima resposta boa. */
   const [ultimoOk, setUltimoOk] = useState<number | null>(null)
+  /** "Tentar agora": reinicia o ciclo de busca sem esperar o proximo intervalo. */
+  const [tentativa, setTentativa] = useState(0)
   /** Relogio do SERVIDOR: Date.now() + deslocamento da ultima resposta. */
   const [agora, setAgora] = useState(() => Date.now())
   const deslocamento = useRef(0)
@@ -187,7 +191,7 @@ export default function PainelAoVivo({
       emVoo.current = false
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [aoVivo, buscar])
+  }, [aoVivo, buscar, tentativa])
 
   // Relógio: contagem com a rodada no ar, e o "sem atualização há Xs" com falha.
   const tique = aoVivo || erro !== null
@@ -231,77 +235,115 @@ export default function PainelAoVivo({
     )
     : null
 
+  const segundosSemDado = ultimoOk !== null ? Math.max(0, Math.round((agoraSrv - ultimoOk) / 1000)) : null
+
+  if (aoVivo) {
+    const lancesRecebidos = lotes.reduce((soma, l) => soma + (l.n_lances || 0), 0)
+    return (
+      <div style={S.sala}>
+        <Titulo
+          selo={<Selo tom="vivo">Ao vivo</Selo>}
+          titulo={rodada.titulo || `Rodada #${rodada.numero}`}
+          texto={rodada.inicia_em ? `Começou em ${horarioBrasilia(rodada.inicia_em)}` : undefined}
+        />
+
+        {erro !== null && (
+          <Aviso tom="perigo" titulo="Conexão instável">
+            {segundosSemDado !== null ? `Última atualização há ${segundosSemDado}s. ` : ''}
+            A rodada segue no ar: relógio e lances rodam no servidor.
+            <Botao tipo="leve" onClick={() => setTentativa(n => n + 1)}>Tentar agora</Botao>
+          </Aviso>
+        )}
+
+        <div className="lk-assist">
+          <div style={S.sala}>
+            {ativo ? (
+              <LoteNoAr lote={ativo} total={total} agoraSrv={agoraSrv} />
+            ) : (
+              <section className="lk-card">
+                <Rotulo fraco>Sem lote no ar</Rotulo>
+                <b style={S.semLote}>{fila.length > 0 ? 'Preparando o próximo lote…' : 'Fechando o último lote…'}</b>
+              </section>
+            )}
+            {rodada.link_transmissao && (
+              <Botao tipo="sec" cheio href={rodada.link_transmissao} target="_blank" rel="noopener noreferrer">
+                <IconPlay size={15} /> Abrir transmissão
+              </Botao>
+            )}
+          </div>
+
+          <aside style={S.sala}>
+            <section className="lk-card">
+              <div className="lk-card-t">
+                <Rotulo fraco>Fila</Rotulo>
+                <span style={S.detalhe}>{fila.length} {fila.length === 1 ? 'lote' : 'lotes'}</span>
+              </div>
+              {fila.length === 0 ? <p style={S.suave}>Nenhum lote na fila.</p> : (
+                <ol style={S.lista}>
+                  {fila.map(l => (
+                    <li key={l.id} style={S.linha}>
+                      <span style={S.num}>{l.ordem}</span>
+                      <Miniatura lote={l} />
+                      <div style={S.textoLinha}>
+                        <span style={S.nome}>{l.card_name}</span>
+                        <span style={S.detalhe}>Inicial {formatarBRL(l.lance_inicial_cents)} · {l.duracao_seg}s</span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+
+            <Resumos>
+              <Resumo rotulo="Lances" valor={String(lancesRecebidos)} />
+              <Resumo rotulo="Arrematado" valor={formatarBRL(totais.arrematadoCents)} meta={`${totais.nArrematados} ${totais.nArrematados === 1 ? 'lote' : 'lotes'}`} />
+            </Resumos>
+
+            {fechados.length > 0 && (
+              <section className="lk-card">
+                <div className="lk-card-t">
+                  <Rotulo fraco>Encerrados</Rotulo>
+                  <span style={S.detalhe}>{fechados.length}</span>
+                </div>
+                <ol style={S.lista}>
+                  {fechados.map(l => <LoteFechado key={l.id} lote={l} lojaId={lojaId} />)}
+                </ol>
+              </section>
+            )}
+          </aside>
+        </div>
+
+        <div style={S.encerrar}>
+          {encerrar === 'fechado' ? (
+            <button type="button" style={S.btPerigo} onClick={() => { setEncerrar('confirmando'); setMsgEncerrar(null) }}>
+              Encerrar a rodada agora
+            </button>
+          ) : (
+            <div style={S.confirma} role="alertdialog" aria-label="Encerrar a rodada">
+              <p style={{ margin: 0 }}>
+                O lote no ar termina no tempo dele, com o vencedor que tiver. {fila.length > 0
+                  ? `${fila.length === 1 ? 'O lote seguinte é cancelado' : `Os ${fila.length} lotes seguintes são cancelados`}; para leiloar de novo, cadastre em outra rodada.`
+                  : 'Não há lotes na fila.'}
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" style={S.btPerigo} disabled={encerrar === 'enviando'} onClick={confirmarEncerrar}>
+                  {encerrar === 'enviando' ? 'Encerrando…' : 'Confirmar encerramento'}
+                </button>
+                <button type="button" style={S.btNeutro} disabled={encerrar === 'enviando'} onClick={() => setEncerrar('fechado')}>Voltar</button>
+              </div>
+            </div>
+          )}
+          {msgEncerrar && <p style={S.suave} role="status">{msgEncerrar}</p>}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
-      {aoVivo && (
-        <section style={SH.card}>
-          <div style={S.topo}>
-            <h2 style={{ ...SH.cardH3, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={S.ponto} aria-hidden /> Ao vivo
-            </h2>
-            {rodada.link_transmissao && (
-              <a href={rodada.link_transmissao} target="_blank" rel="noopener noreferrer" style={S.linkChip}>
-                <IconPlay size={14} /> Transmissão
-              </a>
-            )}
-          </div>
-
-          {semAtualizacao}
-
-          {ativo ? (
-            <LoteNoAr lote={ativo} total={total} agoraSrv={agoraSrv} />
-          ) : (
-            <p style={S.suave}>
-              {fila.length > 0 ? 'Preparando o próximo lote…' : 'Fechando o último lote…'}
-            </p>
-          )}
-
-          <h3 style={S.subtitulo}>Próximos · {fila.length}</h3>
-          {fila.length === 0 ? (
-            <p style={S.suave}>Nenhum lote na fila.</p>
-          ) : (
-            <ol style={S.lista}>
-              {fila.map(l => (
-                <li key={l.id} style={S.linha}>
-                  <span style={S.num}>{l.ordem}</span>
-                  <Miniatura lote={l} />
-                  <div style={S.textoLinha}>
-                    <span style={S.nome}>{l.card_name}</span>
-                    <span style={S.detalhe}>Inicial {formatarBRL(l.lance_inicial_cents)} · {l.duracao_seg}s</span>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-
-          <div style={S.encerrar}>
-            {encerrar === 'fechado' ? (
-              <button type="button" style={S.btPerigo} onClick={() => { setEncerrar('confirmando'); setMsgEncerrar(null) }}>
-                Encerrar a rodada agora
-              </button>
-            ) : (
-              <div style={S.confirma} role="alertdialog" aria-label="Encerrar a rodada">
-                <p style={{ margin: 0 }}>
-                  O lote no ar termina no tempo dele, com o vencedor que tiver. {fila.length > 0
-                    ? `Os ${fila.length} ${fila.length === 1 ? 'lote seguinte é cancelado' : 'lotes seguintes são cancelados'}; para leiloar essas cartas, cadastre de novo numa próxima rodada.`
-                    : 'Não há lotes na fila.'}
-                </p>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" style={S.btPerigo} disabled={encerrar === 'enviando'} onClick={confirmarEncerrar}>
-                    {encerrar === 'enviando' ? 'Encerrando…' : 'Confirmar encerramento'}
-                  </button>
-                  <button type="button" style={S.btNeutro} disabled={encerrar === 'enviando'} onClick={() => setEncerrar('fechado')}>Voltar</button>
-                </div>
-              </div>
-            )}
-            {msgEncerrar && <p style={S.suave} role="status">{msgEncerrar}</p>}
-          </div>
-        </section>
-      )}
-
       <section style={SH.card}>
         <h2 style={SH.cardH3}>Resultado</h2>
-        {!aoVivo && semAtualizacao}
+        {semAtualizacao}
         <div style={S.totais}>
           <div style={S.total}>
             <span style={S.totalRot}>Total arrematado</span>
@@ -320,36 +362,7 @@ export default function PainelAoVivo({
           <p style={S.suave}>Nenhum lote encerrado ainda.</p>
         ) : (
           <ol style={S.lista}>
-            {fechados.map(l => {
-              const res = resultadoDoLote(l.status, l.pedido?.status)
-              const rot = ROTULO_RESULTADO[res]
-              const arrematado = ['aguardando_pagamento', 'vendido', 'calote'].includes(l.status) && l.preco_atual_cents != null
-              const linkPedido = l.pedido && l.pedido.status !== 'aguardando_pagamento'
-              return (
-                <li key={l.id} style={S.linha}>
-                  <span style={S.num}>{l.ordem}</span>
-                  <Miniatura lote={l} />
-                  <div style={S.textoLinha}>
-                    <span style={S.nome}>{l.card_name}</span>
-                    <span style={{ ...S.pill, color: COR_TOM[rot.tom] }}>{rot.label}</span>
-                    {arrematado && (
-                      <span style={S.detalhe}>
-                        Arrematado por <strong style={S.forte}>{formatarBRL(l.preco_atual_cents!)}</strong>
-                        {l.lider_apelido ? ` · ${l.lider_apelido}` : ''}
-                      </span>
-                    )}
-                    {res === 'aguardando_pagamento' && l.pagar_ate && (
-                      <span style={S.detalhe}>Prazo: {horarioBrasilia(l.pagar_ate)}</span>
-                    )}
-                    {linkPedido && (
-                      <Link href={`/minha-loja/${lojaId}/pedidos`} style={S.linkPedido}>
-                        Pedido #{l.pedido!.numero} <IconArrowRight size={14} />
-                      </Link>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
+            {fechados.map(l => <LoteFechado key={l.id} lote={l} lojaId={lojaId} />)}
           </ol>
         )}
       </section>
@@ -361,8 +374,39 @@ function Miniatura({ lote }: { lote: LoteAoVivo }) {
   const src = fotoDe(lote)
   return (
     <div style={S.mini}>
-      {src && <Image src={src} alt={lote.card_name} fill sizes="40px" style={{ objectFit: 'cover' }} />}
+      {src && <Image src={src} alt={lote.card_name} fill sizes="40px" loading="eager" style={{ objectFit: 'cover' }} />}
     </div>
+  )
+}
+
+function LoteFechado({ lote: l, lojaId }: { lote: LoteAoVivo; lojaId: string }) {
+  const res = resultadoDoLote(l.status, l.pedido?.status)
+  const rot = ROTULO_RESULTADO[res]
+  const arrematado = ['aguardando_pagamento', 'vendido', 'calote'].includes(l.status) && l.preco_atual_cents != null
+  const linkPedido = l.pedido && l.pedido.status !== 'aguardando_pagamento'
+  return (
+    <li style={S.linha}>
+      <span style={S.num}>{l.ordem}</span>
+      <Miniatura lote={l} />
+      <div style={S.textoLinha}>
+        <span style={S.nome}>{l.card_name}</span>
+        <span style={{ ...S.pill, color: COR_TOM[rot.tom] }}>{rot.label}</span>
+        {arrematado && (
+          <span style={S.detalhe}>
+            Arrematado por <strong style={S.forte}>{formatarBRL(l.preco_atual_cents!)}</strong>
+            {l.lider_apelido ? ` · ${l.lider_apelido}` : ''}
+          </span>
+        )}
+        {res === 'aguardando_pagamento' && l.pagar_ate && (
+          <span style={S.detalhe}>Prazo: {horarioBrasilia(l.pagar_ate)}</span>
+        )}
+        {linkPedido && (
+          <Link href={`/minha-loja/${lojaId}/pedidos`} style={S.linkPedido}>
+            Pedido #{l.pedido!.numero} <IconArrowRight size={14} />
+          </Link>
+        )}
+      </div>
+    </li>
   )
 }
 
@@ -373,58 +417,55 @@ function LoteNoAr({ lote, total, agoraSrv }: { lote: LoteAoVivo; total: number; 
   const src = fotoDe(lote)
   const comLance = lote.n_lances > 0 && lote.preco_atual_cents != null
   const preco = comLance ? lote.preco_atual_cents! : lote.lance_inicial_cents
+  const tomRelogio: Tom = final ? 'perigo' : 'acento'
   // Leitor de tela: so preco e lider (a contagem muda todo segundo e nao entra).
   const anuncio = `${comLance ? 'Lance atual' : 'Lance inicial'} ${formatarBRL(preco)}`
     + (lote.lider_apelido ? `, líder ${lote.lider_apelido}` : '')
+  const meta = [
+    `${lote.n_lances} ${lote.n_lances === 1 ? 'lance' : 'lances'}`,
+    lote.lider_apelido ? `líder ${lote.lider_apelido}` : null,
+    comLance ? `próximo ${formatarBRL(preco + incrementoCents(preco))}` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
-    <div style={S.noAr}>
+    <section className="lk-card lk-card-d">
       <span style={S.somenteLeitor} aria-live="polite" aria-atomic="true">{anuncio}</span>
-      <div style={S.noArTopo}>
-        <div style={S.foto}>
-          {src && <Image src={src} alt={lote.card_name} fill sizes="96px" style={{ objectFit: 'cover' }} />}
-        </div>
-        <div style={S.noArInfo}>
-          <span style={S.detalhe}>Lote {lote.ordem} de {total}</span>
-          <span style={{ ...S.nome, fontSize: 15 }}>
-            {lote.card_name}{lote.card_numero ? ` ${lote.card_numero}` : ''}
-          </span>
-          <span style={S.totalRot}>{comLance ? 'Lance atual' : 'Lance inicial'}</span>
-          <strong style={S.preco}>{formatarBRL(preco)}</strong>
-          <span style={S.detalhe}>
-            {lote.n_lances} {lote.n_lances === 1 ? 'lance' : 'lances'}
-            {lote.lider_apelido ? ` · Líder ${lote.lider_apelido}` : ''}
-          </span>
-        </div>
-      </div>
-
-      <div style={S.relogio}>
-        <IconClock size={16} color={final ? 'var(--bx-red)' : 'var(--bx-text-2)'} />
-        <strong style={{ ...S.contagem, color: final ? 'var(--bx-red)' : 'var(--bx-text)' }}>
+      <div className="lk-card-t">
+        <Rotulo>Lote {lote.ordem} de {total} · No ar</Rotulo>
+        <Selo tom={tomRelogio} tempo icone={<IconClock size={13} />}>
           {Number.isFinite(restante) ? (restante > 0 ? formatarTempoRestante(restante) : 'Encerrando…') : '--:--'}
-        </strong>
-        {lote.termina_em && <span style={S.detalhe}>Fim {horarioBrasilia(lote.termina_em)}</span>}
+        </Selo>
       </div>
-
-      <Link href={urlLote(lote.slug)} target="_blank" rel="noopener noreferrer" style={S.btnGhost}>
-        Abrir página pública do lote <IconArrowRight size={16} />
-      </Link>
-    </div>
+      <div className="lk-noar">
+        <div className="lk-noar-foto">
+          {src && <Image src={src} alt={lote.card_name} fill priority sizes="(min-width: 769px) 260px, 112px" style={{ objectFit: 'cover' }} />}
+        </div>
+        <div className="lk-noar-nome">
+          <b style={S.noArNome}>{lote.card_name}</b>
+          {(lote.card_numero || lote.set_nome) && (
+            <span style={S.noArSet}>{[lote.card_numero, lote.set_nome].filter(Boolean).join(' · ')}</span>
+          )}
+        </div>
+        <div className="lk-noar-info">
+          <Preco rotulo={comLance ? 'Lance atual' : 'Lance inicial'} valor={formatarBRL(preco)} meta={meta} />
+          <Botao tipo="sec" cheio href={urlLote(lote.slug)} target="_blank" rel="noopener noreferrer">
+            Abrir página pública <IconArrowRight size={16} />
+          </Botao>
+        </div>
+      </div>
+    </section>
   )
 }
 
 const S: Record<string, CSSProperties> = {
-  encerrar: { marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--bx-border)', display: 'flex', flexDirection: 'column', gap: 10 },
+  sala: { display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 },
+  semLote: { fontSize: 20, fontWeight: 800, color: 'var(--bx-text)' },
+  noArNome: { display: 'block', fontSize: 22, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.015em', color: 'var(--bx-text)', overflowWrap: 'anywhere' },
+  noArSet: { display: 'block', marginTop: 3, fontSize: 13, color: 'var(--bx-text-2)' },
+  encerrar: { paddingTop: 14, borderTop: '1px solid var(--bx-border)', display: 'flex', flexDirection: 'column', gap: 10 },
   confirma: { display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 10, fontSize: 13.5, lineHeight: 1.5, color: 'var(--bx-text-2)', background: 'color-mix(in srgb, var(--bx-red) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--bx-red) 30%, transparent)' },
   btPerigo: { minHeight: 44, padding: '0 16px', borderRadius: 10, border: '1px solid color-mix(in srgb, var(--bx-red) 45%, transparent)', background: 'color-mix(in srgb, var(--bx-red) 8%, transparent)', color: 'var(--bx-red)', font: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start' },
   btNeutro: { minHeight: 44, padding: '0 16px', borderRadius: 10, border: '1px solid var(--bx-border)', background: 'transparent', color: 'var(--bx-text)', font: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  topo: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 },
-  ponto: { width: 8, height: 8, borderRadius: 999, background: 'var(--bx-red)', display: 'inline-block' },
-  linkChip: {
-    display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44, padding: '0 14px', boxSizing: 'border-box',
-    borderRadius: 10, border: '1px solid var(--bx-border-2)', background: 'var(--bx-surface-2)',
-    color: 'var(--bx-text)', fontSize: 13, fontWeight: 700, textDecoration: 'none',
-  },
   suave: { fontSize: 13, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.45 },
   faixa: {
     fontSize: 12, color: 'var(--bx-text-2)', margin: '0 0 10px', padding: '6px 10px', borderRadius: 8,
@@ -434,20 +475,6 @@ const S: Record<string, CSSProperties> = {
     position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden',
     clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
   },
-  noAr: { display: 'flex', flexDirection: 'column', gap: 12 },
-  noArTopo: { display: 'flex', gap: 12, alignItems: 'flex-start' },
-  foto: {
-    position: 'relative', width: 96, aspectRatio: '63 / 88', flexShrink: 0, borderRadius: 8, overflow: 'hidden',
-    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)',
-  },
-  noArInfo: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
-  preco: { fontSize: 24, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 },
-  relogio: {
-    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 10, padding: '10px 12px',
-  },
-  contagem: { fontSize: 20, fontWeight: 800, fontVariantNumeric: 'tabular-nums', transition: 'color 0.2s ease' },
-  subtitulo: { fontSize: 12, fontWeight: 800, color: 'var(--bx-text-2)', margin: '18px 0 8px' },
   lista: { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column' },
   linha: {
     display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0',
@@ -480,9 +507,4 @@ const S: Record<string, CSSProperties> = {
   totalRot: { fontSize: 11, fontWeight: 700, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' },
   totalVal: { fontSize: 17, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' },
   nota: { fontSize: 11, color: 'var(--bx-text-3)', margin: '8px 0 6px' },
-  btnGhost: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, boxSizing: 'border-box', width: '100%',
-    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',
-    borderRadius: 10, padding: '10px 14px', fontSize: 14, fontWeight: 700, textDecoration: 'none',
-  },
 }
