@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
 import { ticketsPrecisandoResposta } from '@/lib/adminTickets'
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
+import { lerCentralLeilao } from '@/lib/leilaoAdmin'
 
 function supabaseAdmin() {
   return createClient(
@@ -53,7 +55,16 @@ export async function GET(req: NextRequest) {
       const { count } = await sb.from('users').select('*', { count: 'exact', head: true })
       return count || 0
     }
-    const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos] = await Promise.all([
+    // Leilao: o mesmo "Precisa de voce" da central. Falha nao derruba os outros badges.
+    const filaLeilao = async (): Promise<number> => {
+      if (!LEILAO_ATIVO) return 0
+      try {
+        return (await lerCentralLeilao(sb)).fila?.length ?? 0
+      } catch {
+        return 0
+      }
+    }
+    const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos, leiloes] = await Promise.all([
       ticketsPrecisandoResposta(sb),
       lojasPendentes(),
       novosAnuncios(),
@@ -64,9 +75,10 @@ export async function GET(req: NextRequest) {
       novos('lancamentos'),
       cartasPendentes(),
       servicosComABynx(),
+      filaLeilao(),
     ])
 
-    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro, servicos })
+    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro, servicos, leiloes })
   } catch (err: any) {
     console.error('[admin/counts]', err?.message)
     return NextResponse.json({ cartas: 0, tickets: 0, lojas: 0, marketplace: 0, usuarios: 0, financeiro: 0, servicos: 0 })
