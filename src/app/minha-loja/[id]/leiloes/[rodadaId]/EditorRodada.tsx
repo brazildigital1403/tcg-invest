@@ -4,17 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import Link from 'next/link'
 import CardItem from '@/components/ui/CardItem'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { IconArrowDown, IconArrowUp, IconCalendar, IconCheck, IconPlus, IconTag, IconTrash } from '@/components/ui/Icons'
+import { IconArrowDown, IconArrowUp, IconCalendar, IconCheck, IconPlus, IconTag } from '@/components/ui/Icons'
 import { Acoes, Aviso, Botao, Etapas, Resumo, Resumos, Rotulo, Selo, TelaEstado, Titulo } from '@/components/leilao/kit'
 import { CSS_KIT } from '@/components/leilao/kit/estilos'
 import { cardDoLote } from '@/components/leilao/cardDoLote'
 import { formatarBRL, horarioBrasilia, lotePublicoDeLinha } from '@/lib/leilao'
+import { urlRodada } from '@/lib/leilao-urls'
 import { brasiliaParaISO, isoParaBrasilia, linkValido, pendenciasAgendar } from '@/lib/leilao-painel'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../../_shared'
 import { STATUS_RODADA, chamarPainel, type LotePainel, type RodadaResumo } from '../_rodada'
 import NovoLote from './NovoLote'
 import PainelAoVivo from './PainelAoVivo'
 import LinkDivulgar from './LinkDivulgar'
+import FilaLotes from './FilaLotes'
+import LogoLoja from '@/components/leilao/rodada/LogoLoja'
 
 /**
  * Editor de uma rodada ao vivo da loja.
@@ -295,7 +298,7 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
                   <span>Inicial {formatarBRL(l.lance_inicial_cents)}</span>
                   <span>{l.duracao_seg}s{l.condicao ? ` · ${l.condicao}` : ''}</span>
                 </div>
-                {(podeOrdenar || editavel) && (
+                {podeOrdenar && (
                   <div style={S.acoes}>
                     {podeOrdenar && (
                       <>
@@ -306,11 +309,6 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
                           <IconArrowDown size={16} />
                         </button>
                       </>
-                    )}
-                    {editavel && l.status === 'rascunho' && (
-                      <button onClick={() => remover(l)} disabled={ocupado} style={{ ...S.btnIcone, ...S.btnPerigo }} aria-label="Remover lote">
-                        <IconTrash size={16} />
-                      </button>
                     )}
                   </div>
                 )}
@@ -404,7 +402,7 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
 
           {passo === 2 && (
             <>
-              {lotes.length > 0 && grade}
+              {lotes.length > 0 && <FilaLotes lotes={lotes} ocupado={ocupado} onMover={mover} onRemover={remover} />}
               {novoAberto ? (
                 <NovoLote
                   lojaId={lojaId}
@@ -427,37 +425,46 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
           )}
 
           {passo === 3 && (
-            <>
-              <section className="lk-card lk-card-d">
-                <div className="lk-card-t">
-                  <Rotulo>{loja.nome} · Rodada ao vivo</Rotulo>
-                  <Selo tom="atencao">Não publicada</Selo>
+            <section className="lk-previa" aria-label="Prévia da página pública da rodada">
+              <div className="lk-previa-barra">
+                <span>{`bynx.gg${urlRodada(rodada.numero)}`}</span>
+                <Selo tom="atencao">Não publicada</Selo>
+              </div>
+              <div className="lk-previa-corpo">
+                <div style={S.previaLoja}>
+                  <LogoLoja nome={loja.nome} logoUrl={loja.logo_url ?? null} tam={36} />
+                  <div style={{ minWidth: 0 }}>
+                    <b style={S.previaLojaNome}>{loja.nome}</b>
+                    <span style={S.previaNota}>Rodada ao vivo</span>
+                  </div>
                 </div>
                 <h2 style={S.previaHero}>{nomeRodada}</h2>
                 {rodada.descricao && <p style={S.previaDesc}>{rodada.descricao}</p>}
+                <Selo tom="acento">Agendada</Selo>
                 <div style={S.previaMeta}>
                   <span style={S.previaItem}><IconTag size={15} /> {lotes.length} {lotes.length === 1 ? 'lote' : 'lotes'}</span>
-                  <span style={S.previaItem}><IconCalendar size={15} /> {rodada.inicia_em ? horarioBrasilia(rodada.inicia_em) : 'Sem horário definido'}</span>
+                  <span style={S.previaItem}><IconCalendar size={15} /> {rodada.inicia_em ? `Início em ${horarioBrasilia(rodada.inicia_em)}` : 'Sem horário definido'}</span>
                 </div>
-              </section>
-              {lotes.length > 0 && (
-                <>
-                  <Rotulo fraco>Na fila da rodada</Rotulo>
-                  <div style={S.grade}>
-                    {lotes.map(l => (
-                      <CardItem
-                        key={l.id}
-                        card={cardDoLote(lotePublicoDeLinha(l as unknown as Record<string, unknown>))}
-                        mode="readonly"
-                        hidePriceTable
-                        ocultarSemPreco
-                        footerSlot={<span style={S.rodapeInfo}>A partir de {formatarBRL(l.lance_inicial_cents)}</span>}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
+                {lotes.length > 0 && (
+                  <>
+                    <Rotulo fraco>Lotes da rodada · {lotes.length}</Rotulo>
+                    <div style={S.grade}>
+                      {lotes.map((l, i) => (
+                        <CardItem
+                          key={l.id}
+                          card={cardDoLote(lotePublicoDeLinha(l as unknown as Record<string, unknown>))}
+                          mode="readonly"
+                          hidePriceTable
+                          ocultarSemPreco
+                          badge={<span style={S.badge}>{i + 1}</span>}
+                          footerSlot={<span style={S.rodapeInfo}>Inicial {formatarBRL(l.lance_inicial_cents)}</span>}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
           )}
 
           {passo === 4 && (
@@ -581,7 +588,9 @@ const S: Record<string, CSSProperties> = {
   previaData: { fontSize: 13, fontWeight: 600, color: 'var(--bx-text-2)', fontVariantNumeric: 'tabular-nums' },
   previaTitulo: { fontSize: 20, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.015em', color: 'var(--bx-text)', overflowWrap: 'anywhere' },
   previaDesc: { margin: 0, fontSize: 14, lineHeight: 1.45, color: 'var(--bx-text-2)', overflowWrap: 'anywhere' },
-  previaNota: { fontSize: 12, color: 'var(--bx-text-3)' },
+  previaNota: { display: 'block', fontSize: 12, color: 'var(--bx-text-3)' },
+  previaLoja: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 },
+  previaLojaNome: { display: 'block', fontSize: 15, fontWeight: 800, color: 'var(--bx-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   previaHero: { margin: 0, fontSize: 28, fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.02em', color: 'var(--bx-text)', overflowWrap: 'anywhere' },
   previaMeta: { display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 13, color: 'var(--bx-text-2)' },
   previaItem: { display: 'inline-flex', alignItems: 'center', gap: 6, fontVariantNumeric: 'tabular-nums' },
@@ -608,7 +617,6 @@ const S: Record<string, CSSProperties> = {
     width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, color: 'var(--bx-text)', cursor: 'pointer',
   },
-  btnPerigo: { color: 'var(--bx-red)', borderColor: 'color-mix(in srgb, var(--bx-red) 30%, transparent)', marginLeft: 'auto' },
   btnPerigoTexto: { color: 'var(--bx-red)', borderColor: 'color-mix(in srgb, var(--bx-red) 30%, transparent)' },
   btnGhost: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, boxSizing: 'border-box',
