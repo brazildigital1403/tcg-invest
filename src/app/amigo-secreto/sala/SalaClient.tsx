@@ -153,6 +153,8 @@ export default function SalaClient() {
 
   return (
     <Casca>
+      <div className="as-sala">
+      <div className="as-sala-main">
       <Cabeca chip={chipFase} n={edicao?.participantes} />
 
       {estado === 'inscricoes' && (
@@ -251,8 +253,13 @@ export default function SalaClient() {
         </div>
       )}
 
-      {/* ── Mural ── */}
-      <Mural feed={feed} estado={estado} eu={eu!} tirou={tirou} edicao={edicao} hoje={sala.mensagens_hoje} ligado={sala.feed_ligado} onEscrever={() => setFolha('escrever')} />
+      </div>
+
+      {/* ── Mural (no desktop, coluna fixa a direita) ── */}
+      <aside className="as-mural" aria-label="Mural">
+        <Mural feed={feed} estado={estado} eu={eu!} tirou={tirou} edicao={edicao} hoje={sala.mensagens_hoje} ligado={sala.feed_ligado} onEscrever={() => setFolha('escrever')} />
+      </aside>
+      </div>
 
       {/* ── Folhas ── */}
       {folha === 'dados' && <FolhaDados eu={eu} nome={sessao.nome} ocupado={ocupado} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(temEndereco ? null : 'endereco'); carregar() } }} />}

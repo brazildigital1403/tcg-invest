@@ -210,4 +210,50 @@ export const AS_CSS = `
 .as-cnt small{font-size:12px;font-weight:500;color:var(--bx-text-3);display:block;margin-top:4px;letter-spacing:0}
 .as-center{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 0}
 @media (prefers-reduced-motion:reduce){.as *{transition:none !important;animation:none !important}}
+.as-hero-cta,.as-hero-side{display:none}
+/* ── Desktop (>= 1024 px), mockup aprovado em 04/11/2026 ───────────────────
+   Landing: hero em duas colunas (CTA acima da dobra, carta grande e "quem ja
+   entrou" a direita), as 5 regras numa linha, "Como funciona" aberto em 3
+   cartoes. Sala: missao a esquerda, mural fixo a direita com rolagem propria.
+   O celular nao muda: .as-mob some e .as-hero-cta/.as-hero-side aparecem. */
+@media (min-width:1024px){
+  .as-wrap{max-width:1120px}
+  .as-top{height:64px}
+  .as-logo{height:30px}
+  .as-bd{padding-top:28px;gap:20px}
+  .as-h2{font-size:28px}
+  .as-mob{display:none !important}
+  .as-hero{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);grid-template-rows:min-content 1fr;column-gap:56px;row-gap:14px;align-items:start;padding:36px 0 28px}
+  .as-hero .as-eyebrow{grid-column:1;justify-self:start}
+  .as-hero-g{grid-column:1;flex-direction:column;align-items:flex-start;gap:14px}
+  .as-hero-g .as-verso{display:none}
+  .as-h1{font-size:56px;max-width:12ch}
+  .as-p{font-size:17px;max-width:48ch}
+  .as-hero-cta{display:flex;gap:12px;align-items:center;margin-top:6px}
+  .as-hero-cta .as-btn{width:auto;padding:0 28px}
+  .as-hero-side{grid-column:2;grid-row:1/3;align-self:center;display:flex;flex-direction:column;align-items:center;gap:18px}
+  .as-hero-side .as-verso{width:220px}
+  .as-hero-side .as-verso:before{inset:12px;border-radius:10px}
+  .as-hero-side .as-verso:after{inset:24px;border-radius:7px}
+  .as-hero-side .as-card{width:100%}
+  .as-rules{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:0;border:0;background:transparent}
+  .as-rules .as-row{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:10px;border:1px solid var(--bx-border);border-radius:12px;background:var(--bx-surface);padding:14px;min-height:0}
+  .as-rules .as-row .l{flex-direction:column;align-items:flex-start;gap:10px;font-size:14px;line-height:1.3}
+  .as-rules .as-ri{width:36px;height:36px}
+  .as-faq{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:0}
+  .as-faq details{border:1px solid var(--bx-border);border-radius:12px;background:var(--bx-surface);padding:4px 16px 2px}
+  .as-faq summary{pointer-events:none}
+  .as-faq summary .as-ico{display:none}
+  .as-faq p{padding-bottom:16px}
+  .as-sala{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);column-gap:32px;align-items:start}
+  .as-sala-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .as-mis{padding:22px 24px;gap:12px}
+  .as-mis .as-h3{font-size:22px}
+  .as-lane{padding:14px 0}
+  .as-mis .as-lane:last-child{padding-bottom:0}
+  .as-mis .as-chk{min-height:0;padding:2px 0}
+  .as-mural{position:sticky;top:84px;display:flex;flex-direction:column;max-height:calc(100vh - 108px);border:1px solid var(--bx-border);border-radius:14px;background:var(--bx-surface);padding:14px 16px 0;min-width:0}
+  .as-mural>.as-feed{overflow-y:auto;flex:1;padding-right:4px}
+  .as-mural .as-comp{margin:8px -16px 0;padding:10px 16px;border-radius:0 0 14px 14px}
+}
 `

@@ -28,6 +28,7 @@ export default function AmigoSecretoLanding() {
   const [falhou, setFalhou] = useState(false)
   const [folha, setFolha] = useState(false)
   const [aberto, setAberto] = useState(false)
+  const [desktop, setDesktop] = useState(false)
 
   useEffect(() => {
     supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG })
@@ -38,8 +39,12 @@ export default function AmigoSecretoLanding() {
         setAberto(!!e && e.estado === 'inscricoes' && Date.parse(e.inscricoes_ate) > Date.now())
       })
     supabase.auth.getSession().then(({ data }) => setLogado(!!data.session))
+    // No desktop o "Como funciona" abre as 3 respostas lado a lado (sem acordeao).
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const onMq = () => setDesktop(mq.matches)
+    onMq(); mq.addEventListener('change', onMq)
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setLogado(!!s))
-    return () => sub.subscription.unsubscribe()
+    return () => { sub.subscription.unsubscribe(); mq.removeEventListener('change', onMq) }
   }, [])
 
   const inscricoesAbertas = aberto
@@ -50,6 +55,20 @@ export default function AmigoSecretoLanding() {
   }
 
   const fecharFolha = useCallback(() => setFolha(false), [])
+
+  // O mesmo CTA aparece no hero (desktop) e abaixo das regras (celular); o CSS
+  // mostra um de cada vez (.as-hero-cta / .as-mob). E um no de JSX, nao um
+  // componente: criado aqui, seria recriado a cada render.
+  const cta = inscricoesAbertas ? (
+    <>
+      <button type="button" className="as-btn pri cta" onClick={participar} disabled={logado === undefined}>{logado ? 'Abrir a sala' : 'Quero participar'}</button>
+      {logado === false && (
+        <button type="button" className="as-btn lnk" onClick={() => openLogin({ next: SALA, cta: 'Entrar para abrir a sala' })}>Já tenho conta na Bynx. Entrar</button>
+      )}
+    </>
+  ) : logado
+    ? <Link href={SALA} className="as-btn pri cta">Abrir a sala</Link>
+    : <button type="button" className="as-btn cta" onClick={() => openLogin({ next: SALA, cta: 'Entrar para abrir a sala' })}>Já participo. Entrar</button>
 
   return (
     <div className="as">
@@ -71,9 +90,16 @@ export default function AmigoSecretoLanding() {
               <div className="tx">
                 <h1 className="as-h1">Amigo Secreto do <em>Poké Creators Club</em></h1>
                 <p className="as-p">Uma troca de presentes entre criadores de conteúdo de Pokémon TCG. Ninguém sabe quem tirou quem até o fim.</p>
+                {edicao && <div className="as-hero-cta">{cta}</div>}
               </div>
               <div className="as-verso tilt sm" aria-hidden="true"><Ico n="gift" s={28} /></div>
             </div>
+            {edicao && (
+              <div className="as-hero-side">
+                <div className="as-verso tilt" aria-hidden="true"><Ico n="gift" s={40} /></div>
+                <QuemEntrou edicao={edicao} />
+              </div>
+            )}
           </section>
 
           {edicao === undefined && (
@@ -99,48 +125,27 @@ export default function AmigoSecretoLanding() {
                 <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="eye" s={16} /></span><span>Revelação em {dataCurta(edicao.revelacao_em)}</span></span></div>
               </div>
 
-              <div className="as-card">
-                <div className="as-k">
-                  {edicao.participantes === 0 ? 'Seja o primeiro a entrar'
-                    : edicao.participantes === 1 ? '1 criador já entrou'
-                    : `${edicao.participantes} criadores já entraram`}
-                </div>
-                {edicao.lista.length > 0 && (
-                  <div className="as-hs">
-                    {edicao.lista.slice(0, 8).map(p => (
-                      <span key={p.instagram} className="as-h"><Avatar instagram={p.instagram} pokemon={p.pokemon} tam={24} />@{p.instagram}</span>
-                    ))}
-                    {edicao.participantes > 8 && <span className="as-h more">e mais {edicao.participantes - 8}</span>}
-                  </div>
-                )}
-              </div>
+              <div className="as-mob"><QuemEntrou edicao={edicao} /></div>
 
               {inscricoesAbertas ? (
-                <>
-                  <button type="button" className="as-btn pri cta" onClick={participar} disabled={logado === undefined}>{logado ? 'Abrir a sala' : 'Quero participar'}</button>
-                  {logado === false && (
-                    <button type="button" className="as-btn lnk" onClick={() => openLogin({ next: SALA, cta: 'Entrar para abrir a sala' })}>Já tenho conta na Bynx. Entrar</button>
-                  )}
-                </>
+                <div className="as-mob" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{cta}</div>
               ) : (
                 <>
                   <div className="as-note strong"><strong>As inscrições encerraram.</strong> {edicao.estado === 'inscricoes' ? 'O prazo passou.' : 'O sorteio já aconteceu.'} Quem entrou acompanha tudo pela sala.</div>
-                  {logado
-                    ? <Link href={SALA} className="as-btn pri cta">Abrir a sala</Link>
-                    : <button type="button" className="as-btn cta" onClick={() => openLogin({ next: SALA, cta: 'Entrar para abrir a sala' })}>Já participo. Entrar</button>}
+                  <div className="as-mob" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{cta}</div>
                 </>
               )}
 
               <div className="as-faq">
-                <details>
+                <details open={desktop || undefined}>
                   <summary>Como funciona<Ico n="down" /></summary>
                   <p>Você cria a conta, informa o seu @ do Instagram, o endereço de entrega e o que gostaria de ganhar. No dia do sorteio, você descobre quem tirou, compra um presente de até {brl(edicao.teto_cents)} e posta até {dataCurta(edicao.postar_ate)}. Só quem tirou você vê o seu endereço, e só depois do sorteio.</p>
                 </details>
-                <details>
+                <details open={desktop || undefined}>
                   <summary>Quem pode participar<Ico n="down" /></summary>
                   <p>Criadores de conteúdo de Pokémon TCG do Poké Creators Club, com perfil no Instagram e endereço no Brasil. O link circula no grupo; quem recebeu pode entrar.</p>
                 </details>
-                <details>
+                <details open={desktop || undefined}>
                   <summary>Quem paga o frete<Ico n="down" /></summary>
                   <p>Quem envia. O frete não entra no teto de {brl(edicao.teto_cents)}. Na hora de postar, você informa o código de rastreio e a pessoa acompanha sem saber quem mandou.</p>
                 </details>
@@ -251,6 +256,26 @@ function FolhaCadastro({ onFechar, onJaTemConta }: { onFechar: () => void; onJaT
           <button type="button" className="as-btn lnk" onClick={onJaTemConta}>Já tenho conta. Entrar</button>
         </form>
       </div>
+    </div>
+  )
+}
+
+function QuemEntrou({ edicao }: { edicao: EdicaoPublica }) {
+  return (
+    <div className="as-card">
+      <div className="as-k">
+        {edicao.participantes === 0 ? 'Seja o primeiro a entrar'
+          : edicao.participantes === 1 ? '1 criador já entrou'
+          : `${edicao.participantes} criadores já entraram`}
+      </div>
+      {edicao.lista.length > 0 && (
+        <div className="as-hs">
+          {edicao.lista.slice(0, 8).map(p => (
+            <span key={p.instagram} className="as-h"><Avatar instagram={p.instagram} pokemon={p.pokemon} tam={24} />@{p.instagram}</span>
+          ))}
+          {edicao.participantes > 8 && <span className="as-h more">e mais {edicao.participantes - 8}</span>}
+        </div>
+      )}
     </div>
   )
 }
