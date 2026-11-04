@@ -146,7 +146,7 @@ export function TelaEstado({
 }
 
 export function MiniCarta({ src }: { src: string }) {
-  return <Image src={src} alt="" width={88} height={123} sizes="44px" className="lk-mini" />
+  return <Image src={src} alt="" width={88} height={123} sizes="44px" loading="eager" className="lk-mini" />
 }
 
 export function Linhas({ children }: { children: ReactNode }) {

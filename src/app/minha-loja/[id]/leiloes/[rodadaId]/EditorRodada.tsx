@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import CardItem from '@/components/ui/CardItem'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { IconArrowDown, IconArrowUp, IconCalendar, IconCheck, IconPlus, IconTag } from '@/components/ui/Icons'
+import { IconArrowDown, IconArrowUp, IconCalendar, IconCheck, IconClose, IconPlus, IconTag } from '@/components/ui/Icons'
 import { Acoes, Aviso, Botao, Etapas, Resumo, Resumos, Rotulo, Selo, TelaEstado, Titulo } from '@/components/leilao/kit'
 import { CSS_KIT } from '@/components/leilao/kit/estilos'
 import { cardDoLote } from '@/components/leilao/cardDoLote'
@@ -52,6 +53,7 @@ function inicioCurto(iso: string) {
 export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rodadaId: string }) {
   const { estado, loja } = useLojaOwner(lojaId)
   const { showAlert, showConfirm } = useAppModal()
+  const router = useRouter()
   const [rodada, setRodada] = useState<RodadaResumo | null>(null)
   const [lotes, setLotes] = useState<LotePainel[]>([])
   const [recebimento, setRecebimento] = useState<Recebimento | null>(null)
@@ -250,6 +252,21 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
       await carregar()
       setErro((e as Error).message)
     } finally {
+      setOcupado(false)
+    }
+  }
+
+  async function novaRodada() {
+    setOcupado(true)
+    setErro(null)
+    try {
+      const j = await chamarPainel<{ rodada: RodadaResumo }>(`/api/lojas/${lojaId}/leiloes`, {
+        method: 'POST',
+        body: JSON.stringify({ titulo: 'Rodada ao vivo' }),
+      })
+      router.push(`/minha-loja/${lojaId}/leiloes/${j.rodada.id}`)
+    } catch (e) {
+      setErro((e as Error).message)
       setOcupado(false)
     }
   }
@@ -520,6 +537,34 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
             <button type="button" onClick={cancelar} disabled={ocupado} style={S.cancelar}>Cancelar rodada</button>
           )}
         </div>
+      ) : rodada.status === 'encerrada' ? (
+        <PainelAoVivo
+          lojaId={lojaId}
+          rodadaId={rodadaId}
+          statusRodada={rodada.status}
+          onStatusRodada={() => { carregar() }}
+        />
+      ) : rodada.status === 'cancelada' ? (
+        <TelaEstado
+          icone={<IconClose size={38} />}
+          tom="neutro"
+          selo={<Selo tom="neutro" icone={<IconClose size={13} />}>Rodada cancelada</Selo>}
+          titulo="Esta rodada não foi ao ar"
+          texto="Ninguém deu lance, e nenhum pagamento foi gerado."
+          acoes={(
+            <>
+              <section className="lk-card">
+                <b style={S.previaTitulo}>{nomeRodada}</b>
+                <span style={S.previaDesc}>
+                  {lotes.length} {lotes.length === 1 ? 'lote' : 'lotes'}
+                  {rodada.inicia_em ? ` · estava marcada para ${horarioBrasilia(rodada.inicia_em)}` : ''}
+                </span>
+              </section>
+              <Botao cheio onClick={novaRodada} disabled={ocupado}>Criar nova rodada</Botao>
+              <Botao tipo="sec" cheio href={base}>Voltar aos leilões</Botao>
+            </>
+          )}
+        />
       ) : (
         <>
           <header style={SH.head}>
@@ -532,16 +577,7 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
 
           {erro && <div style={S.erro} role="alert">{erro}</div>}
 
-          {rodada.status === 'agendada' && <LinkDivulgar numero={rodada.numero} />}
-
-          {rodada.status === 'encerrada' && (
-            <PainelAoVivo
-              lojaId={lojaId}
-              rodadaId={rodadaId}
-              statusRodada={rodada.status}
-              onStatusRodada={() => { carregar() }}
-            />
-          )}
+          <LinkDivulgar numero={rodada.numero} />
 
           {/* ─── Dados da rodada ─── */}
           <section style={SH.card}>

@@ -9,5 +9,5 @@ import EditorRodada from './EditorRodada'
 export default async function LojaRodadaPage({ params }: { params: Promise<{ id: string; rodadaId: string }> }) {
   if (!LEILAO_ATIVO) notFound()
   const { id, rodadaId } = await params
-  return <EditorRodada lojaId={id} rodadaId={rodadaId} />
+  return <EditorRodada key={rodadaId} lojaId={id} rodadaId={rodadaId} />
 }

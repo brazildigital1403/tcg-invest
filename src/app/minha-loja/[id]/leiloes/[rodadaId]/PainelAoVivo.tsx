@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { IconArrowRight, IconClock, IconPlay } from '@/components/ui/Icons'
-import { Aviso, Botao, MiniCarta, Preco, Resumo, Resumos, Rotulo, Selo, Titulo, type Tom } from '@/components/leilao/kit'
+import { IconArrowRight, IconClock, IconBox, IconPlay } from '@/components/ui/Icons'
+import { Aviso, Botao, Etapas, Linha, MiniCarta, Preco, ProximaAcao, Recolhido, Resumo, Resumos, Rotulo, Selo, Titulo, type Etapa, type Tom } from '@/components/leilao/kit'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia, incrementoCents } from '@/lib/leilao'
 import { urlLote } from '@/lib/leilao-urls'
 import {
@@ -66,6 +66,8 @@ interface RespostaAoVivo {
   rodada: { id: string; numero: number; titulo: string | null; status: string; inicia_em: string | null; link_transmissao: string | null }
   lotes: LoteAoVivo[]
 }
+
+const TOM_RESULTADO: Record<TomResultado, Tom> = { vivo: 'vivo', ok: 'frente', alerta: 'atencao', perigo: 'perigo', neutro: 'neutro' }
 
 const COR_TOM: Record<TomResultado, string> = {
   vivo: 'var(--bx-red)',
@@ -339,34 +341,119 @@ export default function PainelAoVivo({
     )
   }
 
-  return (
-    <>
-      <section style={SH.card}>
-        <h2 style={SH.cardH3}>Resultado</h2>
-        {semAtualizacao}
-        <div style={S.totais}>
-          <div style={S.total}>
-            <span style={S.totalRot}>Total arrematado</span>
-            <strong style={S.totalVal}>{formatarBRL(totais.arrematadoCents)}</strong>
-            <span style={S.detalhe}>{totais.nArrematados} {totais.nArrematados === 1 ? 'lote' : 'lotes'}</span>
-          </div>
-          <div style={S.total}>
-            <span style={S.totalRot}>Total pago</span>
-            <strong style={{ ...S.totalVal, color: 'var(--bx-green)' }}>{formatarBRL(totais.pagoCents)}</strong>
-            <span style={S.detalhe}>{totais.nPagos} {totais.nPagos === 1 ? 'lote' : 'lotes'}</span>
-          </div>
-        </div>
-        <p style={S.nota}>Valores dos arremates, sem frete.</p>
+  // Rodada encerrada: resumo, proxima acao e pos-venda de cada arremate.
+  const arrematados = fechados.filter(l => ['aguardando_pagamento', 'vendido', 'calote'].includes(l.status))
+  const semVenda = fechados.filter(l => !arrematados.includes(l))
+  const aguardando = lotes.filter(l => l.status === 'aguardando_pagamento').length
+  const aEnviar = lotes.filter(l => resultadoDoLote(l.status, l.pedido?.status) === 'pago').length
+  const pedidos = `/minha-loja/${lojaId}/pedidos`
 
-        {fechados.length === 0 ? (
-          <p style={S.suave}>Nenhum lote encerrado ainda.</p>
-        ) : (
-          <ol style={S.lista}>
-            {fechados.map(l => <LoteFechado key={l.id} lote={l} lojaId={lojaId} />)}
-          </ol>
-        )}
-      </section>
-    </>
+  return (
+    <div style={S.sala}>
+      <Titulo
+        rotulo={`Rodada encerrada${rodada.inicia_em ? ` · ${horarioBrasilia(rodada.inicia_em)}` : ''}`}
+        titulo="Resultado da rodada"
+      />
+      {semAtualizacao}
+
+      <Resumos>
+        <Resumo rotulo="Arrematados" valor={`${totais.nArrematados} / ${total}`} meta={total === 1 ? 'lote na rodada' : 'lotes na rodada'} />
+        <Resumo rotulo="Valor arrematado" valor={formatarBRL(totais.arrematadoCents)} meta="Sem frete" />
+        <Resumo
+          rotulo="Pagamentos"
+          valor={`${totais.nPagos} / ${totais.nArrematados}`}
+          meta={aguardando > 0 ? `${aguardando} aguardando` : formatarBRL(totais.pagoCents)}
+          tom={aguardando > 0 ? 'atencao' : undefined}
+        />
+      </Resumos>
+
+      {aEnviar > 0 && (
+        <ProximaAcao
+          icone={<IconBox size={22} />}
+          titulo={aEnviar === 1 ? '1 lote pago para enviar' : `${aEnviar} lotes pagos para enviar`}
+          texto="O endereço de quem venceu está no pedido."
+          acao={<Botao cheio href={pedidos}>Ver pedidos</Botao>}
+        />
+      )}
+      {aguardando > 0 && (
+        <Aviso tom="atencao" icone={<IconClock size={17} />} titulo="Você não precisa cobrar">
+          O vencedor paga pela Bynx. Depois do pagamento, o endereço aparece em Pedidos.
+        </Aviso>
+      )}
+
+      {arrematados.length > 0 && (
+        <section style={S.sala}>
+          <Rotulo fraco>Arrematados · {arrematados.length}</Rotulo>
+          <div className="lk-linhas">
+            {arrematados.map(l => <LoteArrematado key={l.id} lote={l} pedidos={pedidos} />)}
+          </div>
+        </section>
+      )}
+
+      {semVenda.length > 0 && (
+        <Recolhido titulo={`Sem venda · ${semVenda.length}`} aberto={arrematados.length === 0}>
+          <div className="lk-linhas">
+            {semVenda.map(l => {
+              const rot = ROTULO_RESULTADO[resultadoDoLote(l.status, l.pedido?.status)]
+              const img = fotoDe(l)
+              return (
+                <Linha
+                  key={l.id}
+                  midia={img ? <MiniCarta src={img} /> : undefined}
+                  titulo={l.card_name}
+                  meta={`Lote ${l.ordem}`}
+                  selo={<Selo tom={TOM_RESULTADO[rot.tom]}>{rot.label}</Selo>}
+                />
+              )
+            })}
+          </div>
+        </Recolhido>
+      )}
+
+      <Botao tipo="sec" cheio href={`/minha-loja/${lojaId}/leiloes`}>Voltar aos leilões</Botao>
+    </div>
+  )
+}
+
+/** Etapas do pos-venda: arremate, pagamento, envio e conclusao. */
+function etapasPosVenda(res: string): Etapa[] {
+  const atual = res === 'aguardando_pagamento' ? 1 : res === 'pago' ? 2 : 3
+  return ['Arremate', 'Pagamento', 'Envio', 'Concluído'].map((titulo, i) => ({
+    titulo,
+    estado: i < atual ? 'feito' : i === atual ? 'atual' : 'futuro',
+  }))
+}
+
+function LoteArrematado({ lote: l, pedidos }: { lote: LoteAoVivo; pedidos: string }) {
+  const res = resultadoDoLote(l.status, l.pedido?.status)
+  const rot = ROTULO_RESULTADO[res]
+  const img = fotoDe(l)
+  const linkPedido = l.pedido && l.pedido.status !== 'aguardando_pagamento'
+  return (
+    <div className="lk-card" style={{ gap: 12, padding: 14 }}>
+      <div className="lk-card-t">
+        <Rotulo fraco>Lote {l.ordem}</Rotulo>
+        <Selo tom={TOM_RESULTADO[rot.tom]}>{rot.label}</Selo>
+      </div>
+      <div style={S.arrematado}>
+        {img && <MiniCarta src={img} />}
+        <span className="lk-linha-c">
+          <b>{l.card_name}</b>
+          {l.lider_apelido && <small>{l.lider_apelido}</small>}
+        </span>
+        <span className="lk-linha-v">{l.preco_atual_cents != null ? formatarBRL(l.preco_atual_cents) : ''}</span>
+      </div>
+      {res !== 'calote' && res !== 'entregue' && <Etapas direcao="h" itens={etapasPosVenda(res)} />}
+      {res === 'aguardando_pagamento' && l.pagar_ate && (
+        <span style={S.detalhe}>O vencedor tem até {horarioBrasilia(l.pagar_ate)} para pagar.</span>
+      )}
+      {res === 'calote' && <span style={S.detalhe}>O prazo de pagamento acabou sem pagamento.</span>}
+      {linkPedido && (
+        <Link href={pedidos} prefetch={false} style={S.linkPedido}>
+          Pedido #{l.pedido!.numero} <IconArrowRight size={14} />
+        </Link>
+      )}
+    </div>
   )
 }
 
@@ -459,6 +546,7 @@ function LoteNoAr({ lote, total, agoraSrv }: { lote: LoteAoVivo; total: number; 
 
 const S: Record<string, CSSProperties> = {
   sala: { display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 },
+  arrematado: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
   semLote: { fontSize: 20, fontWeight: 800, color: 'var(--bx-text)' },
   noArNome: { display: 'block', fontSize: 22, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.015em', color: 'var(--bx-text)', overflowWrap: 'anywhere' },
   noArSet: { display: 'block', marginTop: 3, fontSize: 13, color: 'var(--bx-text-2)' },
@@ -499,12 +587,4 @@ const S: Record<string, CSSProperties> = {
     display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 44, fontSize: 13, fontWeight: 700,
     color: 'var(--ac-1)', textDecoration: 'none',
   },
-  totais: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10 },
-  total: {
-    display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0,
-    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 10, padding: '10px 12px',
-  },
-  totalRot: { fontSize: 11, fontWeight: 700, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  totalVal: { fontSize: 17, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' },
-  nota: { fontSize: 11, color: 'var(--bx-text-3)', margin: '8px 0 6px' },
 }
