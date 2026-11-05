@@ -23,7 +23,7 @@ export const metadata = {
   },
 }
 
-const UPDATED = '30 de agosto de 2026'
+const UPDATED = '5 de novembro de 2026'
 
 export default function PrivacidadePage() {
   return (
@@ -95,6 +95,28 @@ export default function PrivacidadePage() {
             <li>Eventos cadastrados pela loja (data, descrição, fotos).</li>
           </ul>
           <P>Esses dados podem ser exibidos publicamente no perfil da loja, conforme o plano contratado.</P>
+
+          <SubTitle>2.5 Dados do Poké Creators Club:</SubTitle>
+          <P>O Poké Creators Club é a área da Bynx para o grupo de criadores de conteúdo de Pokémon TCG, em <strong>bynx.gg/pokecreatorsclub</strong>. Participar é opcional.</P>
+          <P><strong>Amigo Secreto.</strong> Para participar, você informa:</P>
+          <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '8px 0 16px' }}>
+            <li>seu @ do Instagram;</li>
+            <li>WhatsApp;</li>
+            <li>nome completo;</li>
+            <li>endereço de entrega;</li>
+            <li>uma dica de presente;</li>
+            <li>um Pokémon de perfil, se quiser.</li>
+          </ul>
+          <P>Quem pode ver o quê:</P>
+          <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '8px 0 16px' }}>
+            <li><strong>Lista de participantes:</strong> mostra para qualquer visitante só o seu @ e o Pokémon escolhido;</li>
+            <li><strong>Quem tirou você:</strong> depois do sorteio, vê seu nome, endereço e dica de presente, para enviar o presente;</li>
+            <li><strong>Organização:</strong> vê seu nome, e-mail, WhatsApp e cidade;</li>
+            <li><strong>Mural de recados:</strong> os recados aparecem para quem está na sala, sem o nome de quem escreveu;</li>
+            <li><strong>Revelação final:</strong> só acontece se as duas pessoas aceitarem.</li>
+          </ul>
+          <P>O @, o WhatsApp e o endereço também ficam salvos na sua conta Bynx.</P>
+          <P><strong>Aniversariantes.</strong> Se você entrar na lista, informa seu @, o dia e o mês do aniversário, sem o ano, e uma foto, se quiser. Esses dados ficam visíveis para qualquer pessoa com conta na Bynx. A foto fica em um endereço público: quem tiver o link direto consegue abri-la. Você pode editar ou sair da lista a qualquer momento. Ao sair, a foto, o @ e a data são apagados.</P>
         </Section>
 
         <Section title="3. Por Que Coletamos Esses Dados (Base Legal — LGPD Art. 7º)">
@@ -111,6 +133,8 @@ export default function PrivacidadePage() {
                 ['Processar pagamentos e assinaturas', 'Execução de contrato (Art. 7º, V)'],
                 ['Exibir anúncios no Marketplace', 'Execução de contrato (Art. 7º, V)'],
                 ['Exibir perfil público de loja (B2B)', 'Execução de contrato (Art. 7º, V)'],
+                ['Amigo Secreto do Poké Creators Club', 'Execução de contrato (Art. 7º, V)'],
+                ['Lista de Aniversariantes do Poké Creators Club', 'Consentimento (Art. 7º, I)'],
                 ['Enviar e-mails transacionais', 'Execução de contrato (Art. 7º, V)'],
                 ['Escaneamento de cartas por IA', 'Consentimento (Art. 7º, I)'],
                 ['Verificação de idade mínima', 'Cumprimento de obrigação legal (Art. 7º, II)'],
@@ -144,6 +168,8 @@ export default function PrivacidadePage() {
             <li><strong style={{ color: '#f0f0f0' }}>Melhor Envio</strong> — cotação de frete;</li>
             <li><strong style={{ color: '#f0f0f0' }}>ViaCEP</strong> — preenchimento automático do endereço;</li>
             <li><strong style={{ color: '#f0f0f0' }}>A loja ou vendedor da sua compra</strong> — recebe seu nome e endereço de entrega para despachar o pedido, e a partir daí responde por esses dados de forma independente;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Outros participantes do Amigo Secreto</strong> — quem tirou você recebe seu nome, endereço e dica de presente para enviar o presente;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Pokémon Database (pokemondb.net)</strong> — fornece as imagens dos Pokémon de perfil. Ao carregar a imagem, o seu navegador acessa esse site, que recebe o seu endereço IP;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Catálogos públicos de cartas</strong> — consulta de dados da carta, sem dados pessoais.</li>
           </ul>
           <P>A identificação completa dos fornecedores está na nossa <a href="/subprocessadores" style={{ color: '#f59e0b' }}>lista de subprocessadores</a>, mantida atualizada.</P>
@@ -160,6 +186,7 @@ export default function PrivacidadePage() {
             <li>Anúncios moderados (removidos pela Bynx): mantidos como histórico interno por até 12 (doze) meses para fins de auditoria;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Pedidos de compra e venda</strong> (valores, endereço de entrega, rastreio): 5 (cinco) anos, pelo mesmo motivo fiscal — e porque é o prazo em que uma das partes ainda pode reclamar da transação;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Avaliações públicas do Marketplace</strong>: permanecem após a exclusão da conta de quem avaliou, de forma desvinculada do perfil. Elas fazem parte da reputação de <em>outra</em> pessoa, que não pode perder o histórico dela porque alguém saiu;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Poké Creators Club</strong>: os dados do Amigo Secreto ficam guardados enquanto a conta existir, e o endereço só aparece para quem tirou você durante a edição. Os dados de Aniversariantes ficam até você sair da lista ou excluir a conta;</li>
             <li>Após exclusão da conta: dados são anonimizados ou excluídos em até 30 (trinta) dias, exceto os itens acima e onde houver obrigação legal de retenção.</li>
           </ul>
         </Section>
@@ -221,6 +248,7 @@ export default function PrivacidadePage() {
 
         <Section title="10. Dados de Crianças e Adolescentes">
           <P>A Bynx não coleta intencionalmente dados de menores de 13 (treze) anos. O cadastro é bloqueado abaixo dessa idade por verificação da data de nascimento no momento da inscrição.</P>
+          <P>O cadastro pelo Amigo Secreto do Poké Creators Club não pede data de nascimento; ele é feito por convite no grupo de criadores.</P>
           <P>Esse corte é uma política nossa, <strong>mais restritiva do que a lei exige</strong>: no Brasil, criança é quem tem menos de 12 (doze) anos, e é para esse grupo que o Art. 14, §1º da LGPD exige consentimento específico e destacado de um dos pais ou do responsável legal.</P>
           <P>Dos 13 aos 17 anos, o cadastro pede que você declare ter autorização de um responsável legal, e o tratamento dos dados observa o melhor interesse do adolescente, na forma do Art. 14 da LGPD. Podemos solicitar comprovação dessa autorização e suspender contas em caso de irregularidade.</P>
           <P>Caso identifiquemos o tratamento de dados de criança ou adolescente sem a devida autorização, esses dados serão excluídos.</P>
