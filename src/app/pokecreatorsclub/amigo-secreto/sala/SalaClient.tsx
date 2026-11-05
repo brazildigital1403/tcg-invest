@@ -16,9 +16,10 @@ import {
   POKEMON_PERFIL, brl, cepBonito, dataCurta, dataHora, diasAte, erroAmigoSecreto, horaCurta, limparInstagram, rotuloDia,
   nomePokemon, spritePokemon, type EdicaoPublica, type Eu, type MensagemMural, type MinhaSala, type Tirou,
 } from '@/lib/amigoSecreto'
-import { AS_CSS, Avatar, Ico, LOGO_PCC } from '../estilo'
+import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
+import { AS_CSS, Avatar, Ico, VoltarClub } from '../estilo'
 
-const SALA = '/amigo-secreto/sala'
+const SALA = AMIGO_SECRETO_SALA
 const SLUG = AMIGO_SECRETO_SLUG
 const CHAVE_ABRI = `bynx_as_abri_${SLUG}`
 
@@ -102,7 +103,7 @@ export default function SalaClient() {
           <h2 className="as-h2">Entre para abrir a sala</h2>
           <p className="as-p">A sala do Amigo Secreto é só de quem está dentro.</p>
           <button type="button" className="as-btn pri cta" style={{ maxWidth: 320 }} onClick={() => openLogin({ next: SALA, cta: 'Entrar para abrir a sala' })}>Entrar na minha conta</button>
-          <Link href="/amigo-secreto" className="as-btn lnk">Ainda não participo</Link>
+          <Link href={AMIGO_SECRETO} className="as-btn lnk">Ainda não participo</Link>
         </div>
       </Casca>
     )
@@ -137,7 +138,7 @@ export default function SalaClient() {
             <div className="as-eye"><Ico n="alert" s={14} />Inscrições encerradas</div>
             <h3 className="as-h3">Esta edição já fechou</h3>
             <p className="as-meta">{estado === 'inscricoes' ? 'O prazo de inscrição passou.' : 'O sorteio já aconteceu e a sala está fechada para quem não entrou.'} Fique de olho no grupo para a próxima.</p>
-            <Link href="/amigo-secreto" className="as-btn">Voltar</Link>
+            <Link href={AMIGO_SECRETO} className="as-btn">Voltar</Link>
           </div>
         )}
         {erro && <div className="as-erro" role="alert">{erro}</div>}
@@ -316,7 +317,7 @@ function Casca({ children }: { children: React.ReactNode }) {
     <div className="as">
       <header className="as-top bx-gutter">
         <div className="as-wrap">
-          <Link href="/amigo-secreto" aria-label="Amigo Secreto" className="as-logo-a"><Image src={LOGO_PCC} alt="Poké Creators Club" width={438} height={218} className="as-logo" priority /></Link>
+          <VoltarClub href={CLUB} />
           <span className="t">Amigo Secreto</span>
           <Link href="/minha-conta" className="as-ib" aria-label="Minha conta"><Ico n="user" s={22} /></Link>
         </div>

@@ -1,6 +1,6 @@
 // src/app/api/amigo-secreto/cadastro/route.ts
 //
-// Cadastro em um passo do Amigo Secreto (/amigo-secreto). Molde de
+// Cadastro em um passo do Amigo Secreto (/pokecreatorsclub/amigo-secreto). Molde de
 // api/criadores/cadastro: a conta nasce no servidor, ja confirmada, e o
 // navegador troca o hash do link magico por sessao com verifyOtp. A conta e
 // uma conta Bynx comum (vira lead); o @ do Instagram, o endereco e o desejo
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         signup_utm_source: 'whatsapp',
         signup_utm_medium: 'grupo',
         signup_utm_campaign: AMIGO_SECRETO_SLUG,
-        signup_landing_page: '/amigo-secreto',
+        signup_landing_page: '/pokecreatorsclub/amigo-secreto',
       },
     })
 

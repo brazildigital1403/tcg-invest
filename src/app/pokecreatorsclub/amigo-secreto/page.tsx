@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Amigo Secreto do Poké Creators Club',
     description: 'Troca de presentes entre criadores de Pokémon TCG. Presente até R$ 100, sorteio anônimo e um mural de recados até a revelação.',
-    url: 'https://bynx.gg/amigo-secreto',
+    url: 'https://bynx.gg/pokecreatorsclub/amigo-secreto',
     siteName: 'Bynx',
     locale: 'pt_BR',
     type: 'website',

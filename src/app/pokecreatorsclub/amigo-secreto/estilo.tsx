@@ -8,6 +8,7 @@
 // raiz (o body do site e Arial) e usa o .bx-gutter. So tokens --bx-* / --ac-*.
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { spritePokemon } from '@/lib/amigoSecreto'
 
 const PATHS: Record<string, React.ReactNode> = {
@@ -57,6 +58,16 @@ export function Avatar({ instagram, pokemon, tam = 32 }: { instagram: string; po
 
 export const LOGO_PCC = '/amigo-secreto/poke-creators-club.png'
 
+/** Volta sempre para a casa do Club: quem chega pelo WhatsApp nao tem historico. */
+export function VoltarClub({ href }: { href: string }) {
+  return (
+    <Link href={href} className="as-voltar">
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+      Club
+    </Link>
+  )
+}
+
 export const AS_CSS = `
 .as{min-height:100vh;background:var(--bx-bg);color:var(--bx-text);font-family:var(--font-dm-sans),'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45;padding-bottom:40px}
 .as *{box-sizing:border-box}
@@ -66,6 +77,9 @@ export const AS_CSS = `
 .as-top .as-wrap{display:flex;align-items:center;justify-content:space-between;width:100%}
 .as-logo-a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;margin-left:-4px;border-radius:10px}
 .as-logo{height:24px;width:auto;display:block}
+.as-voltar{display:inline-flex;align-items:center;gap:4px;min-height:44px;padding:0 8px 0 4px;margin-left:-4px;border-radius:10px;font-size:13px;font-weight:600;color:var(--bx-text-2);text-decoration:none;transition:background .15s ease,color .15s ease}
+.as-voltar:hover{background:var(--bx-surface-2);color:var(--bx-text)}
+.as-voltar:focus-visible{outline:2px solid var(--bx-text);outline-offset:3px}
 .as-top .t{font-size:13px;color:var(--bx-text-2);font-weight:600}
 .as-ib{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:var(--bx-text-2);background:transparent;border:0;cursor:pointer;font:inherit;transition:background .15s ease,color .15s ease}
 .as-ib:hover{background:var(--bx-surface-2);color:var(--bx-text)}

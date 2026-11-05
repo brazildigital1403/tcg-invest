@@ -95,6 +95,17 @@ const nextConfig: NextConfig = {
    * 2. LGPD: dados ficam no mesmo domínio da Bynx (1st-party cookies)
    * 3. Performance: leve, mas evita 1 DNS lookup separado
    */
+  // Poke Creators Club (05/11/2026): links ja enviados no grupo continuam
+  // funcionando. Temporario por enquanto e sem curinga: public/amigo-secreto/
+  // ainda guarda o logo e o estudo, e redirect roda antes de public/.
+  async redirects() {
+    return [
+      { source: '/amigo-secreto', destination: '/pokecreatorsclub/amigo-secreto', permanent: false },
+      { source: '/amigo-secreto/sala', destination: '/pokecreatorsclub/amigo-secreto/sala', permanent: false },
+      { source: '/pcc', destination: '/pokecreatorsclub', permanent: false },
+    ]
+  },
+
   async rewrites() {
     return [
       {

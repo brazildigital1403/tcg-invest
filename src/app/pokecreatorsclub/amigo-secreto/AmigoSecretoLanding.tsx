@@ -5,7 +5,6 @@
 // cai na sala. Quem acabou de criar a conta vai direto para a sala.
 
 import { useCallback, useEffect, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
@@ -16,9 +15,10 @@ import { SENHA_REGRA_MSG } from '@/lib/senha'
 import {
   AMIGO_SECRETO_SLUG, brl, dataCurta, dataHora, horaCurta, type EdicaoPublica,
 } from '@/lib/amigoSecreto'
-import { AS_CSS, Avatar, Ico, LOGO_PCC } from './estilo'
+import { AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
+import { AS_CSS, Avatar, Ico, VoltarClub } from './estilo'
 
-const SALA = '/amigo-secreto/sala'
+const SALA = AMIGO_SECRETO_SALA
 
 export default function AmigoSecretoLanding() {
   const router = useRouter()
@@ -76,7 +76,7 @@ export default function AmigoSecretoLanding() {
     <div className="as">
       <header className="as-top bx-gutter">
         <div className="as-wrap">
-          <Image src={LOGO_PCC} alt="Poké Creators Club" width={438} height={218} className="as-logo" priority />
+          <VoltarClub href={CLUB} />
           <span className="t">Amigo Secreto</span>
           {logado
             ? <Link href={SALA} className="as-ib sq" aria-label="Abrir a sala"><Ico n="user" s={22} /></Link>

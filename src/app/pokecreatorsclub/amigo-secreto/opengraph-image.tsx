@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
- * Imagem de compartilhamento da /amigo-secreto (1200x630): e o que aparece
+ * Imagem de compartilhamento do Amigo Secreto (1200x630): e o que aparece
  * quando o organizador cola o link no grupo de WhatsApp. Logo do Poké
  * Creators Club, o titulo e as regras fixas (teto, anonimato). Sem data nem
  * contagem: o WhatsApp guarda a previa por semanas.
@@ -54,7 +54,7 @@ export default async function Image() {
             ))}
           </div>
         </div>
-        <div style={{ position: 'absolute', left: 72, bottom: 44, display: 'flex', fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>bynx.gg/amigo-secreto</div>
+        <div style={{ position: 'absolute', left: 72, bottom: 44, display: 'flex', fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>bynx.gg/pokecreatorsclub/amigo-secreto</div>
       </div>
     ),
     { ...size, fonts: fontes },
