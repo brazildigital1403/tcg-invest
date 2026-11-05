@@ -4,8 +4,7 @@
 // Uma tarefa por vez no topo e as frentes logo abaixo. A casa nunca mostra o par
 // do sorteio, porque criador grava a tela: o @ so existe dentro da sala.
 //
-// Hoje o Amigo Secreto e a unica frente no ar. Nova frente entra como mais um
-// cartao, sem "em breve".
+// Nova frente entra como mais um cartao, sem "em breve".
 
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
@@ -15,10 +14,12 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
   AMIGO_SECRETO_SLUG, dataCurta, dataHora, type EdicaoPublica, type MinhaSala,
 } from '@/lib/amigoSecreto'
-import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
+import { instagramUrl, ordenarProximos, quandoTexto, type ListaAniversarios } from '@/lib/pcc/aniversarios'
+import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, CLUB } from '@/lib/pcc/rotas'
 import { AS_CSS, Ico, LOGO_PCC } from './amigo-secreto/estilo'
+import { Rosto } from './aniversariantes/AniversariantesClient'
 
-type Tarefa = { titulo: string; texto: string; botao: string }
+type Tarefa = { titulo: string; texto: string; botao: string; href: string }
 
 /** Tarefas da pessoa no Amigo Secreto, da mais urgente para a menos urgente. */
 function tarefasDe(sala: MinhaSala | null): Tarefa[] {
@@ -29,12 +30,12 @@ function tarefasDe(sala: MinhaSala | null): Tarefa[] {
     const temEndereco = !!(eu.cep && eu.numero)
     const temDica = eu.me_surpreenda || !!(eu.desejo && eu.desejo.trim())
     const faltam = [temEndereco, temDica].filter(ok => !ok).length
-    return [{ titulo: 'Falta completar seu perfil', texto: `Amigo Secreto: ${faltam === 1 ? 'falta 1' : `faltam ${faltam}`} de 3 itens.`, botao: 'Completar' }]
+    return [{ titulo: 'Falta completar seu perfil', texto: `Amigo Secreto: ${faltam === 1 ? 'falta 1' : `faltam ${faltam}`} de 3 itens.`, botao: 'Completar', href: AMIGO_SECRETO_SALA }]
   }
   if (estado === 'encerrado') return []
   const lista: Tarefa[] = []
-  if (tirou && !eu.postado_em) lista.push({ titulo: 'Você tem um presente para enviar', texto: `Postar até ${dataCurta(sala.postar_ate)}.`, botao: 'Ver' })
-  if (recebo?.postado_em && !eu.recebido_em) lista.push({ titulo: 'Seu presente chegou?', texto: 'Confirme só com o presente na mão.', botao: 'Confirmar' })
+  if (tirou && !eu.postado_em) lista.push({ titulo: 'Você tem um presente para enviar', texto: `Postar até ${dataCurta(sala.postar_ate)}.`, botao: 'Ver', href: AMIGO_SECRETO_SALA })
+  if (recebo?.postado_em && !eu.recebido_em) lista.push({ titulo: 'Seu presente chegou?', texto: 'Confirme só com o presente na mão.', botao: 'Confirmar', href: AMIGO_SECRETO_SALA })
   return lista
 }
 
@@ -43,6 +44,7 @@ export default function CasaClub() {
   const [logado, setLogado] = useState<boolean | undefined>(undefined)
   const [edicao, setEdicao] = useState<EdicaoPublica | null | undefined>(undefined)
   const [sala, setSala] = useState<MinhaSala | null>(null)
+  const [aniv, setAniv] = useState<ListaAniversarios | null>(null)
   const [falhou, setFalhou] = useState(false)
 
   useEffect(() => {
@@ -54,23 +56,31 @@ export default function CasaClub() {
   const carregar = useCallback(async () => {
     if (logado === undefined) return
     setFalhou(false)
-    const [e, m] = await Promise.all([
+    const [e, m, a] = await Promise.all([
       supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG }),
       logado ? supabase.rpc('amigo_secreto_meu', { p_slug: AMIGO_SECRETO_SLUG }) : Promise.resolve({ data: null, error: null }),
+      logado ? supabase.rpc('club_aniversarios_lista') : Promise.resolve({ data: null, error: null }),
     ])
     if (e.error) { setFalhou(true); setEdicao(null) } else setEdicao((e.data as EdicaoPublica | null) ?? null)
     if (m.error) { setFalhou(true); setSala(null) } else setSala((m.data as MinhaSala | null) ?? null)
+    if (a.error) { setFalhou(true); setAniv(null) } else setAniv((a.data as ListaAniversarios | null) ?? null)
   }, [logado])
 
   useEffect(() => { carregar() }, [carregar])
 
   const inscrito = !!sala?.inscrito
+  const proximos = ordenarProximos(aniv?.lista || [])
+  const naLista = !!aniv?.lista.some(p => p.eu)
   const tarefas = tarefasDe(sala)
+  if (aniv && !naLista) tarefas.push({ titulo: 'Coloque sua data', texto: 'Aniversariantes: só dia e mês.', botao: 'Entrar na lista', href: ANIVERSARIANTES })
   const tarefa = tarefas[0]
+  const aniversarioHoje = proximos.filter(p => p.emDias === 0 && !p.eu)
+  const proximoAniv = proximos.find(p => p.emDias > 0 && !p.eu)
   const encerrada = edicao?.estado === 'encerrado'
   const aberta = !!edicao && edicao.estado === 'inscricoes' && Date.parse(edicao.inscricoes_ate) > Date.now()
   const destino = inscrito ? AMIGO_SECRETO_SALA : AMIGO_SECRETO
-  const mostrarApresentacao = !inscrito
+  const membro = inscrito || naLista
+  const mostrarApresentacao = !membro
 
   return (
     <div className="as cl">
@@ -98,10 +108,20 @@ export default function CasaClub() {
               <div className="as-eye"><Ico n="star" s={14} />Sua missão agora</div>
               <h2 className="as-h3">{tarefa.titulo}</h2>
               <p className="as-meta">{tarefa.texto}</p>
-              <Link href={AMIGO_SECRETO_SALA} className="as-btn pri">{tarefa.botao}</Link>
-              {tarefas.length > 1 && <Link href={AMIGO_SECRETO_SALA} className="as-btn lnk">Ver mais 1 tarefa</Link>}
+              <Link href={tarefa.href} className="as-btn pri">{tarefa.botao}</Link>
+              {tarefas.length > 1 && <Link href={tarefas[1].href} className="as-btn lnk">{tarefas.length === 2 ? 'Ver mais 1 tarefa' : `Ver mais ${tarefas.length - 1} tarefas`}</Link>}
             </section>
           )}
+
+          {aniversarioHoje.map(p => (
+            <section key={p.instagram} className="as-frente cl-hoje">
+              <Rosto p={p} tam={64} />
+              <div className="as-meta">Hoje é dia de</div>
+              <div className="at">@{p.instagram}</div>
+              <a className="as-btn pri" href={instagramUrl(p.instagram)} target="_blank" rel="noopener noreferrer">Dar parabéns</a>
+              <div className="as-meta">Abre o Instagram</div>
+            </section>
+          ))}
 
           {mostrarApresentacao ? (
             <section className="cl-hero">
@@ -126,7 +146,7 @@ export default function CasaClub() {
 
           {encerrada && edicao && (
             <>
-              <div className="as-center cl-vazio"><span className="as-meta">Nada aberto agora.<br />Novidade sai no grupo.</span></div>
+              <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
               <div className="as-k">Edições passadas</div>
               <div className="as-card cl-passadas">
                 <Link href={destino} className="as-row">
@@ -137,7 +157,11 @@ export default function CasaClub() {
             </>
           )}
 
-          {!inscrito && logado !== undefined && <div className="as-note">O Club vive no grupo de WhatsApp. Para entrar, fale com quem administra.</div>}
+          {edicao !== undefined && !encerrada && (
+            <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
+          )}
+
+          {!membro && logado !== undefined && <div className="as-note">O Club vive no grupo de WhatsApp. Para entrar, fale com quem administra.</div>}
 
           <footer className="as-foot">
             <span>Poké Creators Club na Bynx</span>
@@ -147,6 +171,21 @@ export default function CasaClub() {
       </main>
       <style>{AS_CSS + CL_CSS}</style>
     </div>
+  )
+}
+
+function CartaoAniversariantes({ logado, proximo }: { logado: boolean; proximo: string | null }) {
+  return (
+    <section className="as-card cl-frente">
+      <div className="cl-frente-g">
+        <div className="as-verso sm" aria-hidden="true"><Ico n="cal" s={24} /></div>
+        <div className="cl-frente-tx">
+          <h2 className="as-h3">Aniversariantes</h2>
+          <p className="as-meta">{logado && proximo ? proximo : 'Quem faz aniversário no Club.'}</p>
+        </div>
+      </div>
+      <Link href={ANIVERSARIANTES} className="as-btn">Ver calendário</Link>
+    </section>
   )
 }
 
@@ -203,7 +242,9 @@ const CL_CSS = `
 .cl-frente-tx{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
 .cl-frente .as-verso{width:84px}
 .cl-frente .as-verso.sm{width:56px}
-.cl-vazio{padding:24px 0;border:1px dashed var(--bx-border-2);border-radius:12px}
+.cl-hoje{gap:8px;padding:18px 16px}
+.cl-hoje .at{margin-top:0}
+.cl-hoje .as-btn{width:100%}
 .cl-passadas{padding:0 12px}
 .cl-passadas .as-row{text-decoration:none;min-height:64px}
 .cl-passadas .as-verso.cl-verso-mini{width:28px;border-radius:6px}
@@ -221,5 +262,6 @@ const CL_CSS = `
   .cl-frente{padding:24px}
   .cl-frente-g{gap:20px;align-items:center}
   .cl-frente .as-btn{width:auto;align-self:flex-start;min-width:220px}
+  .cl-hoje{max-width:520px;width:100%;margin:0 auto}
 }
 `

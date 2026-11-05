@@ -4,3 +4,4 @@
 export const CLUB = '/pokecreatorsclub'
 export const AMIGO_SECRETO = `${CLUB}/amigo-secreto`
 export const AMIGO_SECRETO_SALA = `${AMIGO_SECRETO}/sala`
+export const ANIVERSARIANTES = `${CLUB}/aniversariantes`
