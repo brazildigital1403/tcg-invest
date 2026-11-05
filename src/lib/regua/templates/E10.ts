@@ -61,7 +61,10 @@ export type DadosE10 = {
       largura: number
       altura: number
       titulo: string
+      /** Carta da historia (link para /carta). Ignorado quando `url` existe. */
       slug: string
+      /** Destino da historia quando nao e uma carta (ex.: /centralizacao). */
+      url?: string
       texto: string
       pergunta: string
       dica: string
@@ -173,7 +176,7 @@ function montar(d: DadosE10, ctx: CtxRegua) {
         ${h2(esc(h.titulo))}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080a0f" style="background-color:#080a0f;border:1px solid #202227;border-radius:16px;">
           <tr><td bgcolor="#080a0f" style="background-color:#080a0f;border-radius:16px 16px 0 0;font-size:0;line-height:0;">
-            <a href="${attr(link(caminhoCarta(h.slug), CAMPANHA, 'historia'))}" target="_blank" style="text-decoration:none;color:#f0f0f0;"><img src="${attr(urlArte('e10', h.arquivo))}" width="${h.largura}" height="${h.altura}" alt="${attr(h.alt)}" style="display:block;width:100%;max-width:${h.largura}px;height:auto;border:0;border-radius:16px 16px 0 0;color:#f0f0f0;${FONT}font-size:14px;font-weight:700;background-color:#080a0f;"/></a>
+            <a href="${attr(link(h.url || caminhoCarta(h.slug), CAMPANHA, 'historia'))}" target="_blank" style="text-decoration:none;color:#f0f0f0;"><img src="${attr(urlArte('e10', h.arquivo))}" width="${h.largura}" height="${h.altura}" alt="${attr(h.alt)}" style="display:block;width:100%;max-width:${h.largura}px;height:auto;border:0;border-radius:16px 16px 0 0;color:#f0f0f0;${FONT}font-size:14px;font-weight:700;background-color:#080a0f;"/></a>
           </td></tr>
           <tr><td style="padding:16px 16px 6px;${FONT}">
             <p style="margin:0 0 10px;font-size:16px;line-height:25px;color:#a1a2a4;">${esc(h.texto)} <b style="color:#f0f0f0;">${esc(h.pergunta)}</b> ${esc(h.dica)}</p>
