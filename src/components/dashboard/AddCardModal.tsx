@@ -180,7 +180,14 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         // 72ms no pior multi-token, contra um teto de 8.000ms. Em troca,
         // maçarico 0->2, martelo esmagador 2->11, bola rapida 7->10.
         // v1 a v4 continuam no banco — reverter e trocar este nome.
-        const { data, error } = await supabase.rpc('smart_search_cards_v8', {
+        //
+        // v9 (04/11/2026): a fila de "carta faltando" provou 24 cartas que
+        // existiam e a busca nao achava. Numero com letra ("celebi 106" ->
+        // 106c), numero antes do nome ("076 crobat"), typo junto com numero
+        // ("Snolarx 119", "mega darkai"), SET por nome em qualquer idioma
+        // ("30 anos", "obsidiana em chamas charmander") e ruido de copiar e
+        // colar ("Blastoise-EX (029"). Envelopa a v8: zero regressao medida.
+        const { data, error } = await supabase.rpc('smart_search_cards_v9', {
           q: value,
           limit_n: PAGE_SIZE,
           offset_n: 0,
@@ -210,7 +217,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (loadingMore || !hasMore || !searchTerm.trim()) return
     setLoadingMore(true)
     try {
-      const { data, error } = await supabase.rpc('smart_search_cards_v8', {
+      const { data, error } = await supabase.rpc('smart_search_cards_v9', {
         q: searchTerm,
         limit_n: PAGE_SIZE,
         offset_n: offset,
