@@ -80,7 +80,6 @@ export default function CasaClub() {
   const aberta = !!edicao && edicao.estado === 'inscricoes' && Date.parse(edicao.inscricoes_ate) > Date.now()
   const destino = inscrito ? AMIGO_SECRETO_SALA : AMIGO_SECRETO
   const membro = inscrito || naLista
-  const mostrarApresentacao = !membro
 
   return (
     <div className="as cl">
@@ -123,20 +122,19 @@ export default function CasaClub() {
             </section>
           ))}
 
-          {mostrarApresentacao ? (
-            <section className="cl-hero">
-              <div className="cl-hero-tx">
-                <Image src={LOGO_PCC} alt="Poké Creators Club" width={438} height={218} className="cl-marca" priority />
-                <h1 className="as-h1">A casa do <em>Club</em></h1>
-                <p className="as-p">O que o grupo faz junto, em um lugar só.</p>
-              </div>
-              <div className="cl-leque" aria-hidden="true">
-                <div className="as-verso"><Ico n="gift" s={32} /></div>
-                <div className="as-verso"><Image src={LOGO_PCC} alt="" width={438} height={218} className="cl-verso-logo" /></div>
-                <div className="as-verso"><Ico n="star" s={32} /></div>
-              </div>
-            </section>
-          ) : <h1 className="as-h2">A casa do Club</h1>}
+          {/* Hero para todo mundo, membro tambem (pedido do Du, 05/11). */}
+          <section className="cl-hero">
+            <div className="cl-hero-tx">
+              <Image src={LOGO_PCC} alt="Poké Creators Club" width={438} height={218} className="cl-marca" priority />
+              <h1 className="as-h1">A casa do <em>Club</em></h1>
+              <p className="as-p">O que o grupo faz junto, em um lugar só.</p>
+            </div>
+            <div className="cl-leque" aria-hidden="true">
+              <div className="as-verso"><Ico n="gift" s={32} /></div>
+              <div className="as-verso"><Image src={LOGO_PCC} alt="" width={438} height={218} className="cl-verso-logo" /></div>
+              <div className="as-verso"><Ico n="star" s={32} /></div>
+            </div>
+          </section>
 
           {edicao === undefined && <div className="as-card" aria-busy="true"><div className="as-k">Carregando o Club...</div></div>}
 
