@@ -202,7 +202,7 @@ function montar(d: DadosE10, ctx: CtxRegua) {
     links: ctx.links,
     preheader,
     rotulo: `Radar Bynx · Nº ${e.numero}`,
-    assinatura: true,
+    assinatura: false,
     promocao: blocoPromocao('dupla', ctx.promocoes),
   })
   return { assunto, preheader, html }
