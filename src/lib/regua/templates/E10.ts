@@ -69,6 +69,8 @@ export type DadosE10 = {
       pergunta: string
       dica: string
     }
+    /** Segunda historia, opcional, mesmo formato (bloco "03"). */
+    historia2?: DadosE10['edicao']['historia']
     despedida: string
   }
   /** Abertura 5+ cartas; null = abertura padrao. */
@@ -152,6 +154,17 @@ function montar(d: DadosE10, ctx: CtxRegua) {
   const rotuloPlacar = (t: string, cor: string, margem: string) => `<p style="margin:${margem};font-size:14px;line-height:20px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:${cor};">${t}</p>`
 
   const h = e.historia
+  const blocoHistoria = (x: DadosE10['edicao']['historia'], rotulo: string, utm: string) => linha(`
+        ${kicker(rotulo)}
+        ${h2(esc(x.titulo))}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080a0f" style="background-color:#080a0f;border:1px solid #202227;border-radius:16px;">
+          <tr><td bgcolor="#080a0f" style="background-color:#080a0f;border-radius:16px 16px 0 0;font-size:0;line-height:0;">
+            <a href="${attr(link(x.url || caminhoCarta(x.slug), CAMPANHA, utm))}" target="_blank" style="text-decoration:none;color:#f0f0f0;"><img src="${attr(urlArte('e10', x.arquivo))}" width="${x.largura}" height="${x.altura}" alt="${attr(x.alt)}" style="display:block;width:100%;max-width:${x.largura}px;height:auto;border:0;border-radius:16px 16px 0 0;color:#f0f0f0;${FONT}font-size:14px;font-weight:700;background-color:#080a0f;"/></a>
+          </td></tr>
+          <tr><td style="padding:16px 16px 6px;${FONT}">
+            <p style="margin:0 0 10px;font-size:16px;line-height:25px;color:#a1a2a4;">${esc(x.texto)} <b style="color:#f0f0f0;">${esc(x.pergunta)}</b> ${esc(x.dica)}</p>
+          </td></tr>
+        </table>`, '22px 32px 0')
   const conteudo = [
     estiloCelular('.e10-h2{font-size:21px!important;line-height:27px!important}.e10-cta{padding-top:16px!important}'),
     hero({ src: urlArte('e10', e.capa.arquivo), alt: e.capa.alt, href: link(caminhoCarta(m.slug), CAMPANHA, 'hero'), largura: e.capa.largura, altura: e.capa.altura, fundo: '#080a0f' }),
@@ -171,17 +184,8 @@ function montar(d: DadosE10, ctx: CtxRegua) {
         ${pl.sustos.length ? rotuloPlacar(pl.sustos.length === 1 ? 'Susto' : 'Sustos', '#ef4444', '8px 0 8px') + lista(pl.sustos) : ''}
         ${p(`Menor preço no Mercado Brasileiro, 30 dias até ${esc(pl.ate)}. Toque na carta para ver a versão exata.`, 'margin:6px 0 0;font-size:14px;line-height:20px;color:#a3a4a6;')}`, '22px 32px 0'),
     sep,
-    linha(`
-        ${kicker('02 &middot; A história')}
-        ${h2(esc(h.titulo))}
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080a0f" style="background-color:#080a0f;border:1px solid #202227;border-radius:16px;">
-          <tr><td bgcolor="#080a0f" style="background-color:#080a0f;border-radius:16px 16px 0 0;font-size:0;line-height:0;">
-            <a href="${attr(link(h.url || caminhoCarta(h.slug), CAMPANHA, 'historia'))}" target="_blank" style="text-decoration:none;color:#f0f0f0;"><img src="${attr(urlArte('e10', h.arquivo))}" width="${h.largura}" height="${h.altura}" alt="${attr(h.alt)}" style="display:block;width:100%;max-width:${h.largura}px;height:auto;border:0;border-radius:16px 16px 0 0;color:#f0f0f0;${FONT}font-size:14px;font-weight:700;background-color:#080a0f;"/></a>
-          </td></tr>
-          <tr><td style="padding:16px 16px 6px;${FONT}">
-            <p style="margin:0 0 10px;font-size:16px;line-height:25px;color:#a1a2a4;">${esc(h.texto)} <b style="color:#f0f0f0;">${esc(h.pergunta)}</b> ${esc(h.dica)}</p>
-          </td></tr>
-        </table>`, '22px 32px 0'),
+    blocoHistoria(h, '02 &middot; A história', 'historia'),
+    ...(e.historia2 ? [blocoHistoria(e.historia2, '03 &middot; Mais uma história', 'historia2')] : []),
     linha(`
         ${p(esc(e.despedida), 'margin:0 0 18px;font-size:16px;line-height:25px;color:#a3a4a6;')}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
