@@ -84,7 +84,7 @@ export default function AmigoSecretoLanding() {
         </div>
       </header>
 
-      <main className="bx-gutter">
+      <main className="bx-gutter as-main-hero">
         <div className="as-wrap as-bd">
           <section className="as-hero">
             <span className="as-eyebrow"><Ico n="gift" s={14} />{edicao ? `Edição de ${new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'America/Sao_Paulo' }).format(new Date(edicao.revelacao_em))} · convite do grupo` : 'Poké Creators Club'}</span>

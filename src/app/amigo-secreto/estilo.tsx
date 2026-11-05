@@ -183,7 +183,10 @@ export const AS_CSS = `
 .as-pk:hover{background:var(--bx-surface-2)}
 .as-pk.on{border-color:var(--ac-1);background:rgba(var(--ac-1-rgb),.10);color:var(--bx-text)}
 .as-pk img{width:44px;height:44px;object-fit:contain}
-.as-hero{background:var(--bx-hero-wash);padding:20px 0 18px;display:flex;flex-direction:column;gap:10px}
+.as-hero{padding:20px 0 18px;display:flex;flex-direction:column;gap:10px}
+/* O brilho do hero fica no main (largura toda da tela), nao na secao dentro do
+   .as-wrap de 1120 px: em monitor largo o fundo parava na borda da coluna (05/11). */
+.as-main-hero{background:var(--bx-hero-wash);background-repeat:no-repeat;background-size:100% 520px}
 .as-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ac-1);background:rgba(var(--ac-1-rgb),.10);border:1px solid rgba(var(--ac-1-rgb),.25);padding:5px 10px;border-radius:999px;align-self:flex-start}
 .as-h1{font-size:clamp(30px,8vw,38px);font-weight:800;letter-spacing:-.03em;line-height:1.08;text-wrap:balance}
 .as-h1 em{font-style:normal;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -245,6 +248,7 @@ export const AS_CSS = `
   .as-bd{padding-top:28px;gap:20px}
   .as-h2{font-size:28px}
   .as-mob{display:none !important}
+  .as-main-hero{background-size:100% 640px}
   .as-hero{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);grid-template-rows:min-content 1fr;column-gap:56px;row-gap:14px;align-items:start;padding:36px 0 28px}
   .as-hero .as-eyebrow{grid-column:1;justify-self:start}
   .as-hero-g{grid-column:1;flex-direction:column;align-items:flex-start;gap:14px}
