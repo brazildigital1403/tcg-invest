@@ -218,6 +218,7 @@ export const AS_CSS = `
 .as-chip.ok{color:var(--bx-green);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.08)}
 .as-chip.wait{color:var(--ac-1);border-color:rgba(var(--ac-1-rgb),.35);background:rgba(var(--ac-1-rgb),.08)}
 .as-eye-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.as-eye-row .as-btn{white-space:nowrap;flex:none}
 .as-grupo{font-size:12.5px;color:var(--bx-text-3);line-height:1.45}
 .as-rev{gap:8px}
 .as-rev-box{border:1px solid var(--bx-border);border-radius:10px;padding:10px 12px;background:var(--bx-surface);display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--bx-text-2)}
