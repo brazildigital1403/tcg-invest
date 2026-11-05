@@ -142,6 +142,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Parceiros', href: '/admin/parceiros', Icon: IconParceirosAdmin },
   { label: 'Convites', href: '/admin/convites', Icon: IconStar },
   { label: 'Amigo Secreto', href: '/admin/amigo-secreto', Icon: IconStar },
+  { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconStar },
   { label: 'Promoções', href: '/admin/promocoes', Icon: IconTag },
   { label: 'Links', href: '/admin/links', Icon: IconLink },
   { label: 'Régua', href: '/admin/regua', Icon: IconReguaAdmin },
