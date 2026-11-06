@@ -129,9 +129,9 @@ export default function CasaClub() {
               <p className="as-p">O que o grupo faz junto, em um lugar só.</p>
             </div>
             <div className="cl-leque" aria-hidden="true">
-              <div className="as-verso"><Ico n="gift" s={32} /></div>
+              <div className="as-verso"><Selo src={SELO_AMIGO_SECRETO} /></div>
               <div className="as-verso"><Image src={LOGO_PCC} alt="" width={438} height={218} className="cl-verso-logo" /></div>
-              <div className="as-verso"><Ico n="star" s={32} /></div>
+              <div className="as-verso"><Selo src={SELO_ANIVERSARIANTES} /></div>
             </div>
           </section>
 
@@ -272,7 +272,8 @@ const CL_CSS = `
   .cl-hero{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);column-gap:24px;align-items:center;padding:24px 0}
   .cl-marca{display:none}
   .cl-leque{display:flex;justify-content:center;padding:12px 0}
-  .cl-leque .as-verso{width:172px;margin:0 -22px}
+  .cl-leque .as-verso{width:clamp(128px,13.4vw,172px);margin:0 -6px}
+  .cl-leque .cl-selo{position:relative;width:79%;height:auto}
   .cl-leque .as-verso:nth-child(1){transform:rotate(-10deg)}
   .cl-leque .as-verso:nth-child(2){position:relative;z-index:1}
   .cl-leque .as-verso:nth-child(3){transform:rotate(10deg)}
