@@ -36,7 +36,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const { data: lojas } = await sb
       .from('lojas')
-      .select('id, nome, owner_user_id, verificacao_ticket_id')
+      // `natureza` decide o checklist: colecionador nao tem CNPJ. Sem ela aqui
+      // o botao manual do admin mandaria sempre a lista de loja.
+      .select('id, nome, owner_user_id, verificacao_ticket_id, natureza')
       .eq('id', id)
       .limit(1)
 

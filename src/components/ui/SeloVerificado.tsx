@@ -16,11 +16,32 @@ import { IconCheck } from '@/components/ui/Icons'
  * O glifo virou `IconCheck`: a regra da casa e icone SVG do `Icons.tsx`, e
  * glifo de fonte muda de desenho conforme o sistema.
  */
-export default function SeloVerificado({ size = 14 }: { size?: number }) {
+/**
+ * ★ O ROTULO SEGUE A NATUREZA (06/11/2026). O desenho e o mesmo -- quem
+ * verifica e a Bynx, e o circulo azul quer dizer a mesma coisa nos dois casos
+ * --, mas o TEXTO nao pode dizer "Loja verificada" para quem vende da propria
+ * colecao. O e-mail de verificacao passou a chamar esse selo de "Colecionador
+ * Verificado" para pessoa fisica, e o rotulo aqui tem que bater: a mesma coisa
+ * com dois nomes e como um numero cravado em dois lugares.
+ *
+ * `colecionador` e opcional e o default e loja, que e o default do banco.
+ * Hoje NENHUM colecionador esta verificado (0 de 6), entao as 13 telas que
+ * montam o selo seguem no default sem exibir rotulo errado a ninguem -- mas
+ * quem souber a natureza deve passar, e a primeira verificacao de
+ * colecionador pede essa volta.
+ */
+export default function SeloVerificado({
+  size = 14,
+  colecionador = false,
+}: {
+  size?: number
+  colecionador?: boolean
+}) {
+  const rotulo = colecionador ? 'Colecionador verificado' : 'Loja verificada'
   return (
     <span
-      title="Loja verificada"
-      aria-label="Loja verificada"
+      title={rotulo}
+      aria-label={rotulo}
       style={{
         width: size, height: size, borderRadius: '50%', background: '#1877F2',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

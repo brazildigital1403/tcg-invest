@@ -129,7 +129,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Nao repete se a loja JA e verificada.
       if (!loja.verificada) {
         try {
-          const r = await abrirVerificacaoDeLoja(sb, loja)
+          // ★ A NATUREZA VEM DO PATCH, NAO DE `loja` (06/11/2026). O objeto
+          //   `loja` foi lido ANTES do update, entao quando o admin corrige a
+          //   classificacao na propria aprovacao -- que e o caso que mais
+          //   importa -- ele ainda carrega a natureza antiga, e o checklist
+          //   sairia pedindo CNPJ de quem acabou de ser marcado colecionador.
+          const r = await abrirVerificacaoDeLoja(sb, {
+            ...loja,
+            natureza: (patch.natureza as string | undefined) ?? loja.natureza,
+          })
           if (!r.ok) console.error('[admin/lojas/approve] verificacao:', r.erro)
         } catch (e: any) {
           // Nao derruba a aprovacao: a loja ja esta no ar, e da pra pedir

@@ -1731,13 +1731,26 @@ export async function sendAdminNovaConversaEmail(args: {
 // o pedido de documento nao parecer golpe, o texto diz onde o envio acontece
 // (dentro da conta, conversa privada) e o que acontece com os arquivos.
 
+/**
+ * ★ DUAS LISTAS, PORQUE COLECIONADOR NAO TEM CNPJ (06/11/2026). Este e-mail
+ * pedia Cartao CNPJ e fotos da LOJA FISICA de todo mundo -- inclusive de quem
+ * cadastrou a pagina para vender da propria colecao. Cinco colecionadores ja
+ * tinham recebido o pedido e NENHUM se verificou.
+ *
+ * O texto aqui espelha `mensagemInicial` em lib/verificacaoLoja: quem recebe
+ * le os dois (o e-mail e a conversa), e divergir seria pedir duas listas
+ * diferentes para a mesma pessoa.
+ */
 export async function sendEmailLojaVerificacao(args: {
   to: string
   nomeUser: string
   nomeLoja: string
   ticketId: string
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
   const primeiro = primeiroNome(args.nomeUser, 'tudo bem')
+  const ehCol = !!args.colecionador
   const item = (t: string) => `<tr>
       <td valign="top" style="padding:0 10px 10px 0;font-size:14px;color:${B2B_LINK_COLOR};${FONT}">•</td>
       <td valign="top" style="padding:0 0 10px;font-size:14px;color:rgba(255,255,255,0.72);line-height:1.6;${FONT}">${t}</td>
@@ -1748,13 +1761,21 @@ export async function sendEmailLojaVerificacao(args: {
     <div style="height:16px;"></div>
     ${h1('Falta pouco para o seu selo')}
     ${p(`Olá, ${escapeHtml(primeiro)}, tudo bem?`)}
-    ${p(`Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — precisamos confirmar alguns itens:`)}
+    ${p(ehCol
+      ? `Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Colecionador Verificado</strong> no seu perfil — o selo é o que sinaliza a quem compra que existe uma pessoa real, com coleção real, do outro lado — precisamos confirmar alguns itens:`
+      : `Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — precisamos confirmar alguns itens:`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 4px;">
-      ${item('Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)')}
+      ${ehCol
+        ? item('CPF do responsável pela conta')
+        : item('Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)')}
       ${item('Documento do responsável pela conta (RG ou CNH)')}
-      ${item('Um canal ativo de vendas (site, Instagram ou perfil em marketplace)')}
-      ${item('Uma ou duas fotos da loja física ou do estoque')}
+      ${ehCol
+        ? item('Um canal ativo de vendas (Instagram ou perfil em marketplace)')
+        : item('Um canal ativo de vendas (site, Instagram ou perfil em marketplace)')}
+      ${ehCol
+        ? item('Uma ou duas fotos da sua coleção')
+        : item('Uma ou duas fotos da loja física ou do estoque')}
     </table>
 
     ${p('Clique no botão abaixo e envie os arquivos por lá — é uma conversa privada entre você e a Bynx, dentro da sua conta. Usamos essas informações apenas para a validação e não compartilhamos com terceiros. Assim que conferirmos, o selo é ativado no mesmo dia e os arquivos são apagados.')}
@@ -1769,7 +1790,7 @@ export async function sendEmailLojaVerificacao(args: {
       Qualquer dúvida, é só responder por lá que ajudamos.
     </p>
     ${assinaturaLogo()}
-  `, `${escapeHtml(args.nomeLoja)}: falta pouco para o Selo de Loja Validada`)
+  `, `${escapeHtml(args.nomeLoja)}: falta pouco para o ${ehCol ? 'Selo de Colecionador Verificado' : 'Selo de Loja Validada'}`)
 
   return enviar({ template: 'email-loja-verificacao', from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
 }

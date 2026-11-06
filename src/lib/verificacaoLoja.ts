@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmailLojaVerificacao } from '@/lib/email'
+import { ehColecionador } from '@/lib/naturezaLoja'
 
 export interface ResultadoVerificacao {
   ok: boolean
@@ -20,17 +21,39 @@ export interface ResultadoVerificacao {
   erro?: string
 }
 
-/** Texto do checklist. Espelha o e-mail — quem responde le este aqui. */
-function mensagemInicial(nomeLoja: string): string {
+/**
+ * Texto do checklist. Espelha o e-mail — quem responde le este aqui.
+ *
+ * ★ COLECIONADOR NAO TEM CNPJ (06/11/2026). Ate hoje este texto era um so e
+ * pedia Cartao CNPJ e fotos da LOJA FISICA de todo mundo, inclusive de quem
+ * cadastrou a pagina para vender da propria colecao. Cinco colecionadores ja
+ * tinham recebido esse pedido e NENHUM se verificou -- pedir documento que a
+ * pessoa nao tem como emitir e um caminho sem saida, e e o mesmo erro que
+ * travou o Connect de duas pessoas em outubro, quando a conta nascia como
+ * empresa (#449).
+ *
+ * As duas listas trocam item a item: CNPJ vira CPF, foto da loja vira foto da
+ * colecao, e o selo muda de nome -- "Loja Validada" nao serve para quem nao e
+ * loja, e a justificativa ("e uma empresa real") muito menos.
+ */
+function mensagemInicial(nomeLoja: string, colecionador: boolean): string {
+  const selo = colecionador ? 'Selo de Colecionador Verificado' : 'Selo de Loja Validada'
+  const itens = colecionador
+    ? `• CPF do responsável pela conta\n` +
+      `• Documento do responsável pela conta (RG ou CNH)\n` +
+      `• Um canal ativo de vendas (Instagram ou perfil em marketplace)\n` +
+      `• Uma ou duas fotos da sua coleção\n`
+    : `• Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)\n` +
+      `• Documento do responsável pela conta (RG ou CNH)\n` +
+      `• Um canal ativo de vendas (site, Instagram ou perfil em marketplace)\n` +
+      `• Uma ou duas fotos da loja física ou do estoque\n`
+
   return (
     `Olá! Aqui é o Eduardo, fundador da Bynx.\n\n` +
-    `Para liberar o Selo de Loja Validada da ${nomeLoja}, preciso confirmar alguns itens. ` +
+    `Para liberar o ${selo} da ${nomeLoja}, preciso confirmar alguns itens. ` +
     `É só anexar aqui nesta conversa:\n\n` +
-    `• Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)\n` +
-    `• Documento do responsável pela conta (RG ou CNH)\n` +
-    `• Um canal ativo de vendas (site, Instagram ou perfil em marketplace)\n` +
-    `• Uma ou duas fotos da loja física ou do estoque\n\n` +
-    `Uso essas informações apenas para a validação e não compartilho com terceiros. ` +
+    itens +
+    `\nUso essas informações apenas para a validação e não compartilho com terceiros. ` +
     `Assim que eu conferir, o selo é ativado no mesmo dia e os arquivos são apagados.\n\n` +
     `Um detalhe importante: dados bancários e fiscais para receber pagamentos não entram aqui — ` +
     `isso é feito de forma segura na hora de ativar o recebimento pela plataforma.`
@@ -39,7 +62,14 @@ function mensagemInicial(nomeLoja: string): string {
 
 export async function abrirVerificacaoDeLoja(
   sb: SupabaseClient,
-  loja: { id: string; nome: string; owner_user_id: string | null; verificacao_ticket_id?: string | null }
+  loja: {
+    id: string
+    nome: string
+    owner_user_id: string | null
+    verificacao_ticket_id?: string | null
+    /** Decide o checklist e o nome do selo. Ausente = loja, o default do banco. */
+    natureza?: string | null
+  }
 ): Promise<ResultadoVerificacao> {
   if (!loja.owner_user_id) return { ok: false, erro: 'Loja sem dono vinculado' }
 
@@ -71,7 +101,7 @@ export async function abrirVerificacaoDeLoja(
       ticket_id: ticketId,
       sender_type: 'admin',
       sender_id: null,
-      content: mensagemInicial(loja.nome),
+      content: mensagemInicial(loja.nome, ehColecionador(loja.natureza)),
     })
     if (mErr) return { ok: false, erro: mErr.message }
 
@@ -85,6 +115,9 @@ export async function abrirVerificacaoDeLoja(
     nomeUser: dono.name || '',
     nomeLoja: loja.nome,
     ticketId: ticketId!,
+    // O e-mail e a mensagem do ticket precisam dizer A MESMA coisa: quem
+    // recebe le os dois, e divergir aqui e pedir duas listas diferentes.
+    colecionador: ehColecionador(loja.natureza),
   })
 
   return {
