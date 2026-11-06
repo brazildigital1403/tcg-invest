@@ -219,7 +219,13 @@ function CartaoAmigoSecreto({ edicao, inscrito, aberta, destaque, destino, sala,
           <p className="as-meta">{linha}</p>
         </div>
       </div>
-      <Link href={destino} className={`as-btn${principal ? ' pri' : ''}`}>{botao}</Link>
+      {inscrito ? (
+        // Quem ja participa tambem volta para a landing (regras e datas), pedido do Du em 05/11.
+        <div className="cl-acoes">
+          <Link href={destino} className="as-btn pri">{botao}</Link>
+          <Link href={AMIGO_SECRETO} className="as-btn">Regras e datas</Link>
+        </div>
+      ) : <Link href={destino} className={`as-btn${principal ? ' pri' : ''}`}>{botao}</Link>}
     </section>
   )
 }
@@ -241,6 +247,7 @@ const CL_CSS = `
 .cl-frente .as-verso.sm{width:56px}
 .cl-hoje{gap:8px;padding:18px 16px}
 .cl-frentes{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cl-acoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .cl-hoje .at{margin-top:0}
 .cl-hoje .as-btn{width:100%}
 .cl-passadas{padding:0 12px}
@@ -261,6 +268,8 @@ const CL_CSS = `
   .cl-frente-g{gap:20px;align-items:center}
   .cl-frentes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
   .cl-frente .as-btn{width:auto;align-self:flex-start;min-width:220px;margin-top:auto}
+  .cl-acoes{display:flex;flex-wrap:wrap;margin-top:auto}
+  .cl-acoes .as-btn{min-width:180px;margin-top:0}
   .cl-hoje{max-width:520px;width:100%;margin:0 auto}
 }
 `
