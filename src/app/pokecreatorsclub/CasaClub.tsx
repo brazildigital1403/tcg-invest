@@ -137,8 +137,12 @@ export default function CasaClub() {
 
           {edicao === undefined && <div className="as-card" aria-busy="true"><div className="as-k">Carregando o Club...</div></div>}
 
+          {/* Frentes: uma embaixo da outra no celular, em 2 colunas no computador. */}
           {edicao !== undefined && !encerrada && (
-            <CartaoAmigoSecreto edicao={edicao} inscrito={inscrito} aberta={aberta} destaque={!tarefa} destino={destino} sala={sala} logado={!!logado} />
+            <div className="cl-frentes">
+              <CartaoAmigoSecreto edicao={edicao} inscrito={inscrito} aberta={aberta} destaque={!tarefa} destino={destino} sala={sala} logado={!!logado} />
+              <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
+            </div>
           )}
 
           {encerrada && edicao && (
@@ -152,10 +156,6 @@ export default function CasaClub() {
                 </Link>
               </div>
             </>
-          )}
-
-          {edicao !== undefined && !encerrada && (
-            <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
           )}
 
           {!membro && logado !== undefined && <div className="as-note">O Club vive no grupo de WhatsApp. Para entrar, fale com quem administra.</div>}
@@ -240,6 +240,7 @@ const CL_CSS = `
 .cl-frente .as-verso{width:84px}
 .cl-frente .as-verso.sm{width:56px}
 .cl-hoje{gap:8px;padding:18px 16px}
+.cl-frentes{display:flex;flex-direction:column;gap:12px;min-width:0}
 .cl-hoje .at{margin-top:0}
 .cl-hoje .as-btn{width:100%}
 .cl-passadas{padding:0 12px}
@@ -258,7 +259,8 @@ const CL_CSS = `
   .cl-leque .as-verso:nth-child(3){transform:rotate(10deg)}
   .cl-frente{padding:24px}
   .cl-frente-g{gap:20px;align-items:center}
-  .cl-frente .as-btn{width:auto;align-self:flex-start;min-width:220px}
+  .cl-frentes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
+  .cl-frente .as-btn{width:auto;align-self:flex-start;min-width:220px;margin-top:auto}
   .cl-hoje{max-width:520px;width:100%;margin:0 auto}
 }
 `
