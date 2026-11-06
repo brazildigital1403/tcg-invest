@@ -171,11 +171,21 @@ export default function CasaClub() {
   )
 }
 
+// Selos ilustrados das frentes (06/11, pedido do Du: "cara de Pokemon").
+// Decorativos: o titulo do cartao ja diz o que e, por isso alt vazio.
+const SELO_AMIGO_SECRETO = '/pokecreatorsclub/selo-amigo-secreto.webp'
+const SELO_ANIVERSARIANTES = '/pokecreatorsclub/selo-aniversariantes.webp'
+
+function Selo({ src, grande = false }: { src: string; grande?: boolean }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" width={256} height={256} className={`cl-selo${grande ? ' g' : ''}`} />
+}
+
 function CartaoAniversariantes({ logado, proximo }: { logado: boolean; proximo: string | null }) {
   return (
     <section className="as-card cl-frente">
       <div className="cl-frente-g">
-        <div className="as-verso sm" aria-hidden="true"><Ico n="cal" s={24} /></div>
+        <Selo src={SELO_ANIVERSARIANTES} />
         <div className="cl-frente-tx">
           <h2 className="as-h3">Aniversariantes</h2>
           <p className="as-meta">{logado && proximo ? proximo : 'Quem faz aniversário no Club.'}</p>
@@ -194,7 +204,7 @@ function CartaoAmigoSecreto({ edicao, inscrito, aberta, destaque, destino, sala,
     return (
       <section className="as-card cl-frente">
         <div className="cl-frente-g">
-          <div className="as-verso sm" aria-hidden="true"><Ico n="gift" s={24} /></div>
+          <Selo src={SELO_AMIGO_SECRETO} />
           <div className="cl-frente-tx"><h2 className="as-h3">Amigo Secreto</h2><p className="as-meta">Troca de presentes em segredo.</p></div>
         </div>
         <Link href={destino} className="as-btn">Abrir</Link>
@@ -212,7 +222,7 @@ function CartaoAmigoSecreto({ edicao, inscrito, aberta, destaque, destino, sala,
   return (
     <section className={principal ? 'as-mis cl-frente' : 'as-card cl-frente'}>
       <div className="cl-frente-g">
-        <div className={`as-verso${principal ? '' : ' sm'}`} aria-hidden="true"><Ico n="gift" s={principal ? 28 : 24} /></div>
+        <Selo src={SELO_AMIGO_SECRETO} grande={principal} />
         <div className="cl-frente-tx">
           <span className={`as-chip${principal ? ' fill' : completo ? ' ok' : ''}`}>{chip}</span>
           <h2 className="as-h3">Amigo Secreto</h2>
@@ -231,6 +241,8 @@ function CartaoAmigoSecreto({ edicao, inscrito, aberta, destaque, destino, sala,
 }
 
 const CL_CSS = `
+.cl-selo{width:88px;height:88px;flex:none;object-fit:contain;display:block}
+.cl-selo.g{width:104px;height:104px}
 .cl .as-logo.cl-logo{height:36px}
 .cl-entrar{min-height:44px;padding:0 8px;margin-right:-4px}
 .cl-falha{display:flex;align-items:center;justify-content:space-between;gap:8px}
