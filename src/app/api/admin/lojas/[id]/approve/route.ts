@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { sendEmailLojaAprovada } from '@/lib/email'
 import { abrirVerificacaoDeLoja } from '@/lib/verificacaoLoja'
 import { requireAdmin } from '@/lib/admin-auth'
-import { normalizarNatureza } from '@/lib/naturezaLoja'
+import { normalizarNatureza, ehColecionador } from '@/lib/naturezaLoja'
 
 function supabaseAdmin() {
   return createClient(
@@ -95,6 +95,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     // 4) Envia email apenas na primeira aprovação (não spammar reativações)
     if (primeiraAprovacao && loja.owner_user_id) {
+      // Mesma regra do checklist de verificacao: a natureza vale a do PATCH,
+      // porque `loja` foi lido antes do update e o admin pode ter corrigido a
+      // classificacao nesta mesma aprovacao.
+      const naturezaFinal = (patch.natureza as string | undefined) ?? loja.natureza
+      const ehCol = ehColecionador(naturezaFinal)
       try {
         const { data: owner } = await sb
           .from('users')
@@ -110,6 +115,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             // Data real do fim do trial. O email caia em "14 dias" sem ela, e
             // "14 dias" a partir de quando e exatamente o que a pessoa nao sabe.
             trialAte:  patch.plano_expira_em ?? loja.plano_expira_em,
+            colecionador: ehCol,
           })
         }
       } catch (e: any) {
@@ -134,10 +140,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           //   classificacao na propria aprovacao -- que e o caso que mais
           //   importa -- ele ainda carrega a natureza antiga, e o checklist
           //   sairia pedindo CNPJ de quem acabou de ser marcado colecionador.
-          const r = await abrirVerificacaoDeLoja(sb, {
-            ...loja,
-            natureza: (patch.natureza as string | undefined) ?? loja.natureza,
-          })
+          const r = await abrirVerificacaoDeLoja(sb, { ...loja, natureza: naturezaFinal })
           if (!r.ok) console.error('[admin/lojas/approve] verificacao:', r.erro)
         } catch (e: any) {
           // Nao derruba a aprovacao: a loja ja esta no ar, e da pra pedir

@@ -89,10 +89,17 @@ export async function abrirVerificacaoDeLoja(
     else ticketId = null   // referencia orfa (ticket apagado) — abre outra
   }
 
+  const ehCol = ehColecionador(loja.natureza)
+
   if (!ticketId) {
     const { data: criados, error: tErr } = await sb
       .from('tickets')
-      .insert({ user_id: loja.owner_user_id, subject: `Verificação da ${loja.nome}` })
+      .insert({
+        user_id: loja.owner_user_id,
+        // "Verificação da joao guilherme kindel" nao se le -- o artigo
+        // pressupoe nome de estabelecimento. Pessoa: fala do perfil.
+        subject: ehCol ? `Verificação do perfil ${loja.nome}` : `Verificação da ${loja.nome}`,
+      })
       .select('id').limit(1)
     if (tErr || !criados?.[0]) return { ok: false, erro: tErr?.message || 'Falha ao criar a conversa' }
     ticketId = criados[0].id
@@ -101,7 +108,7 @@ export async function abrirVerificacaoDeLoja(
       ticket_id: ticketId,
       sender_type: 'admin',
       sender_id: null,
-      content: mensagemInicial(loja.nome, ehColecionador(loja.natureza)),
+      content: mensagemInicial(loja.nome, ehCol),
     })
     if (mErr) return { ok: false, erro: mErr.message }
 
@@ -117,7 +124,7 @@ export async function abrirVerificacaoDeLoja(
     ticketId: ticketId!,
     // O e-mail e a mensagem do ticket precisam dizer A MESMA coisa: quem
     // recebe le os dois, e divergir aqui e pedir duas listas diferentes.
-    colecionador: ehColecionador(loja.natureza),
+    colecionador: ehCol,
   })
 
   return {

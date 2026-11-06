@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmailLojaSuspensa } from '@/lib/email'
 import { requireAdmin } from '@/lib/admin-auth'
+import { ehColecionador } from '@/lib/naturezaLoja'
 
 function supabaseAdmin() {
   return createClient(
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // 2) Busca loja
     const { data: lojas, error: lErr } = await sb
       .from('lojas')
-      .select('id, nome, slug, status, owner_user_id')
+      .select('id, nome, slug, status, owner_user_id, natureza')
       .eq('id', id)
       .limit(1)
     if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 })
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             nomeUser:  owner[0].name || 'colecionador',
             nomeLoja:  loja.nome,
             motivo,
+            colecionador: ehColecionador(loja.natureza),
           })
         }
       } catch (e: any) {

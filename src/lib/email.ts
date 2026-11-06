@@ -1732,6 +1732,62 @@ export async function sendAdminNovaConversaEmail(args: {
 // (dentro da conta, conversa privada) e o que acontece com os arquivos.
 
 /**
+ * ★ O VOCABULARIO INTEIRO MUDA QUANDO QUEM VENDE NAO E LOJA (06/11/2026).
+ *
+ * Uma linha de `lojas` com `natureza = 'colecionador'` e uma PESSOA vendendo
+ * da propria colecao -- ela nao tem loja, nao tem balcao e nao tem prateleira.
+ * Os doze e-mails desta familia chamavam todo mundo de loja e de lojista, e o
+ * primeiro que o Joao recebeu em 06/11 dizia "Que bom ter A joao guilherme
+ * kindel na Bynx": o artigo pressupoe nome de estabelecimento.
+ *
+ * Centralizado de proposito. Com doze ternarios soltos, o proximo ajuste de
+ * texto acerta um e-mail e deixa os outros onze dizendo outra coisa -- foi
+ * exatamente o que aconteceu com a lista de documentos, que ficou certa
+ * enquanto a moldura em volta continuava falando de loja.
+ *
+ * ★ "Guia de Lojas" continua sendo o nome da pagina, e o colecionador aparece
+ * nela na ABA de Colecionadores (`?quem=colecionadores`, ver lib/naturezaLoja).
+ * O e-mail diz a aba em vez de inventar um "Guia de Colecionadores" que nao
+ * existe. As URLs (`/lojas/[slug]`, `/minha-loja`) NAO mudam.
+ */
+interface VocVendedor {
+  /** Eyebrow dos e-mails da regua. */
+  badge: string
+  /** Com artigo, para meio de frase: "o plano da sua loja". */
+  possessivo: string
+  /** Sem artigo: "a sua <b>loja</b> continua no ar". */
+  substantivo: string
+  /** Fallback do primeiro nome quando `users.name` esta vazio. */
+  tratamento: string
+  /** Fallback de `args.loja` vazio. */
+  semNome: string
+  /** Onde a pagina publica aparece. */
+  ondeAparece: string
+}
+
+const VOC_LOJA: VocVendedor = {
+  badge: 'Sua loja',
+  possessivo: 'sua loja',
+  substantivo: 'loja',
+  tratamento: 'lojista',
+  semNome: 'sua loja',
+  ondeAparece: 'no Guia de Lojas',
+}
+
+const VOC_COLECIONADOR: VocVendedor = {
+  badge: 'Sua página',
+  possessivo: 'sua página',
+  substantivo: 'página',
+  tratamento: 'colecionador',
+  semNome: 'sua página',
+  ondeAparece: 'no Guia, na aba de Colecionadores',
+}
+
+function voc(colecionador?: boolean | null): VocVendedor {
+  return colecionador ? VOC_COLECIONADOR : VOC_LOJA
+}
+
+/**
  * ★ DUAS LISTAS, PORQUE COLECIONADOR NAO TEM CNPJ (06/11/2026). Este e-mail
  * pedia Cartao CNPJ e fotos da LOJA FISICA de todo mundo -- inclusive de quem
  * cadastrou a pagina para vender da propria colecao. Cinco colecionadores ja
@@ -1757,12 +1813,14 @@ export async function sendEmailLojaVerificacao(args: {
     </tr>`
 
   const html = baseLayout(`
-    ${badge('Verificação de loja', B2B_LINK_COLOR, 'rgba(96,165,250,0.15)')}
+    ${badge(ehCol ? 'Verificação de perfil' : 'Verificação de loja', B2B_LINK_COLOR, 'rgba(96,165,250,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Falta pouco para o seu selo')}
     ${p(`Olá, ${escapeHtml(primeiro)}, tudo bem?`)}
     ${p(ehCol
-      ? `Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Colecionador Verificado</strong> no seu perfil — o selo é o que sinaliza a quem compra que existe uma pessoa real, com coleção real, do outro lado — precisamos confirmar alguns itens:`
+      // Sem "a {nome}" aqui: o artigo pressupoe nome de estabelecimento, e
+      // este e-mail vai para uma pessoa -- "ter a joao guilherme kindel".
+      ? `Que bom ter você na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Colecionador Verificado</strong> na página <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> — o selo é o que sinaliza a quem compra que existe uma pessoa real, com coleção real, do outro lado — precisamos confirmar alguns itens:`
       : `Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — precisamos confirmar alguns itens:`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 4px;">
@@ -1792,7 +1850,13 @@ export async function sendEmailLojaVerificacao(args: {
     ${assinaturaLogo()}
   `, `${escapeHtml(args.nomeLoja)}: falta pouco para o ${ehCol ? 'Selo de Colecionador Verificado' : 'Selo de Loja Validada'}`)
 
-  return enviar({ template: 'email-loja-verificacao', from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
+  return enviar({
+    template: 'email-loja-verificacao', from: FROM, to: args.to,
+    // "Verificação da joao guilherme kindel" nao se le. Para pessoa o assunto
+    // fala do perfil; o nome dela ja aparece no preheader e no corpo.
+    subject: subjUser(ehCol ? 'Verificação do seu perfil' : `Verificação da ${args.nomeLoja}`),
+    html,
+  })
 }
 
 // ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
@@ -1856,8 +1920,12 @@ export async function sendEmailLojaAprovada(args: {
   slug: string
   /** ISO de `lojas.plano_expira_em`. Sem ela o texto cai em "14 dias". */
   trialAte?: string | null
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+  const ehCol = !!args.colecionador
+  const V = voc(ehCol)
   const fimTrial = args.trialAte ? new Date(args.trialAte) : null
   const quandoTrial = fimTrial && Number.isFinite(fimTrial.getTime())
     ? fimTrial.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', timeZone: 'America/Sao_Paulo' })
@@ -1869,8 +1937,8 @@ export async function sendEmailLojaAprovada(args: {
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:48px;line-height:1;">🎉</div>
     </div>
-    ${h1('Sua loja foi aprovada!')}
-    ${p(`${escapeHtml(firstName)}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe da Bynx e já está no ar no Guia de Lojas.`)}
+    ${h1(ehCol ? 'Sua página foi aprovada!' : 'Sua loja foi aprovada!')}
+    ${p(`${escapeHtml(firstName)}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe da Bynx e já está no ar ${V.ondeAparece}.`)}
     ${divider()}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
@@ -1879,21 +1947,27 @@ export async function sendEmailLojaAprovada(args: {
       <tr><td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Painel de edição</td></tr>
       <tr><td style="padding:0 18px 14px;font-size:13px;${FONT}"><a href="${addUtm(urlEdicao, 'loja-approved', 'link-edicao')}" style="color:${B2B_LINK_COLOR};text-decoration:none;">${urlEdicao}</a></td></tr>
     </table>
-    ${btnB2B('Abrir minha loja →', addUtm(urlEdicao, 'loja-approved', 'cta-button'))}
+    ${btnB2B(ehCol ? 'Abrir minha página →' : 'Abrir minha loja →', addUtm(urlEdicao, 'loja-approved', 'cta-button'))}
     ${divider()}
     ${p('<strong style="color:#60a5fa;">Faltam três coisas para ela vender:</strong>')}
     ${checklist([
-      { feito: false, texto: 'Subir o logo e escrever a descrição' },
+      { feito: false, texto: ehCol ? 'Subir uma imagem e escrever a descrição' : 'Subir o logo e escrever a descrição' },
       { feito: false, texto: 'Colocar pelo menos um item à venda' },
       { feito: false, texto: 'Ativar os recebimentos, senão não há botão de comprar' },
     ])}
     ${divider()}
-    ${p(`<strong style="color:#60a5fa;">⭐ O seu Pro começou agora</strong> e vai até <strong style="color:#f0f0f0;">${quandoTrial || 'daqui a 14 dias'}</strong>. Ele libera 5 fotos da loja, redes sociais e descrição sem limite.`)}
-    ${p('Depois dessa data, você escolhe entre continuar no <strong style="color:#f0f0f0;">Pro (R$ 39/mês)</strong> ou seguir no <strong style="color:#f0f0f0;">Básico (grátis)</strong>. A loja continua no ar nos dois casos.')}
+    ${p(`<strong style="color:#60a5fa;">⭐ O seu Pro começou agora</strong> e vai até <strong style="color:#f0f0f0;">${quandoTrial || 'daqui a 14 dias'}</strong>. Ele libera 5 fotos na ${V.substantivo}, redes sociais e descrição sem limite.`)}
+    ${p(`Depois dessa data, você escolhe entre continuar no <strong style="color:#f0f0f0;">Pro (R$ 39/mês)</strong> ou seguir no <strong style="color:#f0f0f0;">Básico (grátis)</strong>. A ${V.substantivo} continua no ar nos dois casos.`)}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
-  `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
+  `, ehCol
+    ? `${args.nomeLoja} foi aprovada e já está no ar!`
+    : `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
-  return enviar({ template: 'email-loja-aprovada', from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
+  return enviar({
+    template: 'email-loja-aprovada', from: FROM, to: args.to,
+    subject: subjUser(ehCol ? `🎉 Sua página foi aprovada!` : `🎉 Sua loja foi aprovada!`),
+    html,
+  })
 }
 
 // ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
@@ -1906,25 +1980,35 @@ export async function sendEmailLojaSuspensa(args: {
   nomeUser: string
   nomeLoja: string
   motivo: string
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+  const ehCol = !!args.colecionador
+  const V = voc(ehCol)
 
   const html = baseLayout(`
-    ${badge('Loja suspensa', '#ef4444', 'rgba(239,68,68,0.15)')}
+    ${badge(ehCol ? 'Página suspensa' : 'Loja suspensa', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
-    ${h1('Sua loja foi suspensa')}
+    ${h1(ehCol ? 'Sua página foi suspensa' : 'Sua loja foi suspensa')}
     ${p(`${escapeHtml(firstName)}, precisamos te avisar que <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi suspensa temporariamente no Guia da Bynx.`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(239,68,68,0.3);margin-top:16px;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#ef4444;${FONT}text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Motivo</td></tr>
       <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.motivo)}</td></tr>
     </table>
     ${divider()}
-    ${p('Enquanto suspensa, sua loja <strong style="color:#ef4444;">não aparece</strong> no guia público. Para contestar ou pedir a reativação, é só responder este email explicando o que mudou.')}
+    ${p(`Enquanto suspensa, a ${V.possessivo} <strong style="color:#ef4444;">não aparece</strong> no guia público. Para contestar ou pedir a reativação, é só responder este email explicando o que mudou.`)}
     ${p('Nossa equipe analisa todos os pedidos e responde em até 48 horas úteis.')}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
-  `, `Sua loja ${args.nomeLoja} foi suspensa na Bynx`)
+  `, ehCol
+    ? `${args.nomeLoja} foi suspensa na Bynx`
+    : `Sua loja ${args.nomeLoja} foi suspensa na Bynx`)
 
-  return enviar({ template: 'email-loja-suspensa', from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
+  return enviar({
+    template: 'email-loja-suspensa', from: FROM, to: args.to,
+    subject: subjUser(ehCol ? `Sua página foi suspensa` : `Sua loja foi suspensa`),
+    html,
+  })
 }
 
 // ── 11. LOJAS — plano alterado (para o owner) ────────────────────────────────
@@ -1994,8 +2078,12 @@ export async function sendEmailLojaPlanoAlterado(args: {
   planoAnterior: 'basico' | 'pro' | 'premium'
   planoNovo: 'basico' | 'pro' | 'premium'
   expiraEm: string | null  // ISO date string ou null para permanente
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+  const ehCol = !!args.colecionador
+  const V = voc(ehCol)
   const cfgNovo = PLANO_INFO[args.planoNovo]
   const cfgAnterior = PLANO_INFO[args.planoAnterior]
   const urlEdicao = `${APP_URL}/minha-loja`
@@ -2005,12 +2093,12 @@ export async function sendEmailLojaPlanoAlterado(args: {
   const isUpgrade = ordemPlanos[args.planoNovo] > ordemPlanos[args.planoAnterior]
 
   const titulo = isUpgrade
-    ? `Sua loja foi promovida para ${cfgNovo.label}!`
-    : `Plano da sua loja foi atualizado`
+    ? `${ehCol ? 'Sua página' : 'Sua loja'} foi promovida para ${cfgNovo.label}!`
+    : `Plano da ${V.possessivo} foi atualizado`
 
   const introducao = isUpgrade
     ? `${escapeHtml(firstName)}, ótima notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> agora está no plano <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>! 🎉`
-    : `${escapeHtml(firstName)}, queremos te avisar que o plano da sua loja <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi alterado de <strong style="color:${cfgAnterior.color};">${cfgAnterior.label}</strong> para <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>.`
+    : `${escapeHtml(firstName)}, queremos te avisar que o plano da ${V.possessivo} <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi alterado de <strong style="color:${cfgAnterior.color};">${cfgAnterior.label}</strong> para <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>.`
 
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;">
@@ -2048,20 +2136,20 @@ export async function sendEmailLojaPlanoAlterado(args: {
 
     ${p(`<strong style="color:#f0f0f0;">O que isso significa:</strong> ${cfgNovo.descricao}`)}
 
-    ${btnB2B('Acessar minha loja →', addUtm(urlEdicao, 'loja-plano-changed', 'cta-button'), cfgNovo.gradient, cfgNovo.msoSolid)}
+    ${btnB2B(ehCol ? 'Acessar minha página →' : 'Acessar minha loja →', addUtm(urlEdicao, 'loja-plano-changed', 'cta-button'), cfgNovo.gradient, cfgNovo.msoSolid)}
 
     ${divider()}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida sobre essa mudança, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, isUpgrade
-    ? `Sua loja ${args.nomeLoja} foi promovida para ${cfgNovo.label}!`
-    : `Plano da loja ${args.nomeLoja} foi atualizado para ${cfgNovo.label}`)
+    ? `${ehCol ? '' : 'Sua loja '}${args.nomeLoja} foi promovida para ${cfgNovo.label}!`
+    : `Plano da ${ehCol ? 'página' : 'loja'} ${args.nomeLoja} foi atualizado para ${cfgNovo.label}`)
 
   // subjUser poe o sufixo "— Bynx.gg". Por isso o "na Bynx" sai do meio: a
   // convencao no topo do arquivo pede exatamente isso ("Bem-vindo a Bynx —
   // Bynx.gg" fica bobo).
   const subject = subjUser(isUpgrade
-    ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label}`
-    : `Plano da sua loja foi atualizado para ${cfgNovo.label}`)
+    ? `${cfgNovo.emoji} ${ehCol ? 'Sua página' : 'Sua loja'} agora é ${cfgNovo.label}`
+    : `Plano da ${V.possessivo} foi atualizado para ${cfgNovo.label}`)
 
   return enviar({ template: 'email-loja-plano-alterado', from: FROM, to: args.to, subject, html })
 }
@@ -2621,13 +2709,16 @@ export async function sendNegociacaoConcluidaEmail(args: {
  */
 export async function sendTrialLojaExpirandoEmail(args: {
   to: string; nome: string; loja: string; lojaId: string; dias: number
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const V = voc(args.colecionador)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/plano`, 'loja_trial_expirando', 'cta-button')
   const quando = args.dias === 1 ? 'amanha' : `em ${args.dias} dias`
   const html = baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1('Seu Pro termina em breve ⏳')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`O período Pro da <b style="color:#f0f0f0;">${loja}</b> termina <b style="color:#f0f0f0;">${quando}</b>. Depois disso ela continua no ar, no plano Básico — mas a galeria de fotos e o selo Pro saem da sua página pública.`)}
@@ -2644,19 +2735,27 @@ export async function sendTrialLojaExpirandoEmail(args: {
  */
 export async function sendTrialLojaExpirouEmail(args: {
   to: string; nome: string; loja: string; lojaId: string
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const ehCol = !!args.colecionador
+  const V = voc(ehCol)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/plano`, 'loja_trial_expirou', 'cta-button')
   const html = baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
-    ${h1('Sua loja está no plano Básico 🔓')}
+    ${badge(V.badge, '#f59e0b', '')}
+    ${h1(`${ehCol ? 'Sua página' : 'Sua loja'} está no plano Básico 🔓`)}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`O período Pro da <b style="color:#f0f0f0;">${loja}</b> terminou. Ela <b style="color:#f0f0f0;">continua no ar</b> e vendendo — nada do que você cadastrou foi apagado.`)}
     ${p('O que saiu da sua página pública: a galeria de fotos e o selo Pro. Assinando, tudo volta na hora, com as mesmas fotos.')}
     ${btn('Voltar para o Pro →', url)}
-  `, `O Pro da ${args.loja} terminou — a loja segue no ar, no Básico`)
-  return enviar({ template: 'trial-loja-expirou', from: FROM, to: args.to, subject: subjUser(`Sua loja agora está no plano Básico`), html })
+  `, `O Pro da ${args.loja} terminou — a ${V.substantivo} segue no ar, no Básico`)
+  return enviar({
+    template: 'trial-loja-expirou', from: FROM, to: args.to,
+    subject: subjUser(`${ehCol ? 'Sua página' : 'Sua loja'} agora está no plano Básico`),
+    html,
+  })
 }
 
 /**
@@ -2761,9 +2860,12 @@ export async function sendLojaSemCaraEmail(args: {
   /** Pro mock: se tiver logo, ele aparece; se nao, o quadrado cinza real. */
   logoUrl?: string | null
   temDescricao: boolean
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const V = voc(args.colecionador)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/vitrine`, 'regua_loja_sem_cara', 'cta-button')
   // Concordancia e junção natural ("o logo e as redes sociais"). O assunto era
   // fixo em "sem foto e sem descricao" qualquer que fosse o caso -- e foto nem
@@ -2772,7 +2874,7 @@ export async function sendLojaSemCaraEmail(args: {
   const verbo = args.falta.length > 1 ? 'Faltam' : 'Falta'
   const lista = juntar(args.falta.map(f => `<strong style="color:#f0f0f0;">${escapeHtml(f)}</strong>`))
   const montarHtml = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1('A sua página ainda está sem cara')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`${verbo} ${lista} na <b style="color:#f0f0f0;">${loja}</b>. É assim que ela aparece para quem chega:`)}
@@ -2793,17 +2895,25 @@ export async function sendLojaSemCaraEmail(args: {
  */
 export async function sendLojaSemFotoEmail(args: {
   to: string; nome: string; loja: string; lojaId: string; limite: number
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const ehCol = !!args.colecionador
+  const V = voc(ehCol)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/vitrine`, 'regua_loja_sem_foto', 'cta-button')
   const montarHtml = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1(`Você tem ${args.limite} fotos sobrando 📷`)}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`O seu plano libera <b style="color:#f0f0f0;">${args.limite} fotos</b> da <b style="color:#f0f0f0;">${loja}</b> na página pública:`)}
     ${vagasDeFoto(0, args.limite)}
-    ${p('A galeria é o que separa a sua página da de uma loja no plano Básico. Uma foto do balcão, da prateleira ou da vitrine já resolve — não precisa de produção.')}
+    ${p(ehCol
+        // Colecionador nao tem balcao nem prateleira -- o exemplo tem que ser
+        // uma coisa que ele realmente consegue fotografar hoje.
+        ? 'A galeria é o que separa a sua página de uma no plano Básico. Uma foto da estante, das pastas ou de algumas cartas na mão já resolve — não precisa de produção.'
+        : 'A galeria é o que separa a sua página da de uma loja no plano Básico. Uma foto do balcão, da prateleira ou da vitrine já resolve — não precisa de produção.')}
     ${btn('Subir as fotos →', url)}${rodape}
   `, `${args.loja}: ${args.limite} fotos disponíveis e nenhuma no ar`)
   return enviarNurture({ template: 'loja-sem-foto', from: FROM, to: args.to, subject: subjUser(`📷 ${args.limite} fotos sobrando no plano da ${args.loja}`), montarHtml })
@@ -2812,17 +2922,20 @@ export async function sendLojaSemFotoEmail(args: {
 /** PASSO 4 · vitrine vazia: nada a venda, nem carta nem produto. */
 export async function sendLojaVitrineVaziaEmail(args: {
   to: string; nome: string; loja: string; lojaId: string
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const V = voc(args.colecionador)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/produtos`, 'regua_loja_vitrine_vazia', 'cta-button')
   const montarHtml = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1('A sua vitrine ainda está vazia')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
-    ${p(`A <b style="color:#f0f0f0;">${loja}</b> está no ar e aparece no Guia de Lojas, mas não tem nada à venda:`)}
+    ${p(`A <b style="color:#f0f0f0;">${loja}</b> está no ar e aparece ${V.ondeAparece}, mas não tem nada à venda:`)}
     ${prateleiraVazia()}
-    ${p('Uma carta pelo Marketplace ou um selado pelo painel de produtos já colocam a loja em funcionamento. Um item só já muda a página.')}
+    ${p(`Uma carta pelo Marketplace ou um selado pelo painel de produtos já colocam a ${V.substantivo} em funcionamento. Um item só já muda a página.`)}
     ${btn('Colocar o primeiro item →', url)}${rodape}
   `, `A vitrine da ${args.loja} está vazia`)
   return enviarNurture({ template: 'loja-vitrine-vazia', from: FROM, to: args.to, subject: subjUser(`A vitrine da ${args.loja} não tem nada à venda`), montarHtml })
@@ -2836,17 +2949,20 @@ export async function sendLojaVitrineVaziaEmail(args: {
  */
 export async function sendLojaPerdeuProEmail(args: {
   to: string; nome: string; loja: string; lojaId: string; fotos: number
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const V = voc(args.colecionador)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/plano`, 'regua_loja_perdeu_pro', 'cta-button')
   const montarHtml = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1('As suas fotos saíram da página')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`Faz uma semana que a <b style="color:#f0f0f0;">${loja}</b> voltou para o plano Básico, e desde então ${args.fotos === 1 ? 'a sua foto saiu' : `as suas <b style="color:#f0f0f0;">${args.fotos} fotos</b> saíram`} da página pública.`)}
     ${vagasDeFoto(0, Math.max(args.fotos, 3))}
-    ${p('Elas não foram apagadas: continuam guardadas e voltam no mesmo lugar no instante em que você assinar. A loja segue no ar e vendendo do mesmo jeito.')}
+    ${p(`Elas não foram apagadas: continuam guardadas e voltam no mesmo lugar no instante em que você assinar. A ${V.substantivo} segue no ar e vendendo do mesmo jeito.`)}
     ${btn('Voltar para o Pro →', url)}${rodape}
   `, `As fotos da ${args.loja} saíram da página pública`)
   return enviarNurture({ template: 'loja-perdeu-pro', from: FROM, to: args.to, subject: subjUser(`As fotos da ${args.loja} saíram da página`), montarHtml })
@@ -2864,15 +2980,18 @@ export async function sendLojaPerdeuProEmail(args: {
 export async function sendLojaResumoMensalEmail(args: {
   to: string; nome: string; loja: string; lojaId: string; mes: string
   cliques: number; itens: number; pedidos: number; premium: boolean
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const V = voc(args.colecionador)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/analytics`, 'regua_loja_resumo', 'cta-button')
   // Escala comum pras tres barras: comparar cliques com pedidos so significa
   // alguma coisa se as barras dividirem o mesmo maximo.
   const teto = Math.max(args.cliques, args.itens, args.pedidos, 1)
   const montarHtml = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1(`A ${loja} em ${escapeHtml(args.mes)}`)}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     <div style="margin:20px 0 6px;">
@@ -2897,17 +3016,21 @@ export async function sendLojaResumoMensalEmail(args: {
  */
 export async function sendLojaReativacaoEmail(args: {
   to: string; nome: string; loja: string; lojaId: string; dias: number
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const ehCol = !!args.colecionador
+  const V = voc(ehCol)
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}`, 'regua_loja_reativacao', 'cta-button')
   const montarHtml = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1('Ainda faz sentido para você?')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`A <b style="color:#f0f0f0;">${loja}</b> está há <b style="color:#f0f0f0;">${args.dias} dias</b> sem movimento por aqui. Este é o único email que eu mando sobre isso — se não for a hora, é só ignorar que eu não insisto.`)}
-    ${p('A loja continua no ar e nada do que você cadastrou foi apagado. Se quiser retomar, o painel está do mesmo jeito que você deixou.')}
-    ${btn('Abrir minha loja →', url)}${rodape}
+    ${p(`A ${V.substantivo} continua no ar e nada do que você cadastrou foi apagado. Se quiser retomar, o painel está do mesmo jeito que você deixou.`)}
+    ${btn(ehCol ? 'Abrir minha página →' : 'Abrir minha loja →', url)}${rodape}
   `, `A ${args.loja} está parada há ${args.dias} dias`)
   return enviarNurture({ template: 'loja-reativacao', from: FROM, to: args.to, subject: subjUser(`A ${args.loja} está parada faz um tempo`), montarHtml })
 }

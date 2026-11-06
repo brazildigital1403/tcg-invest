@@ -28,6 +28,7 @@ import { sendPurchaseConfirmationEmail, sendPaginaLendariaEmail, sendEmailLojaPl
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
+import { ehColecionador } from '@/lib/naturezaLoja'
 import { registrarVendaParceiro, registrarRenovacaoParceiro, reverterComissaoParceiro } from '@/lib/parceiros'
 import { carimbarConvite } from '@/lib/campanhaConvites'
 import { valorLancamentoAposEstorno } from '@/lib/estornoLancamento'
@@ -1313,7 +1314,7 @@ export async function POST(req: NextRequest) {
             // Lê plano anterior pra mandar email correto (upgrade vs ativação inicial)
             const { data: lojaAtual } = await supabase
               .from('lojas')
-              .select('plano, nome, slug')
+              .select('plano, nome, slug, natureza')
               .eq('id', lojaId)
               .limit(1)
             const planoAnterior = (lojaAtual?.[0]?.plano || 'basico') as 'basico' | 'pro' | 'premium'
@@ -1345,6 +1346,7 @@ export async function POST(req: NextRequest) {
                 planoAnterior,
                 planoNovo: tier,
                 expiraEm,
+                colecionador: ehColecionador((lojaAtual[0] as { natureza?: string | null }).natureza),
               }).catch(console.error)
             }
 

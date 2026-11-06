@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notify } from '@/lib/notify'
 import { sendTrialLojaExpirandoEmail, sendTrialLojaExpirouEmail } from '@/lib/email'
+import { ehColecionador } from '@/lib/naturezaLoja'
 
 /**
  * GET /api/cron-loja-trial  (Vercel Cron, ver vercel.json)
@@ -53,6 +54,8 @@ function supabaseAdmin() {
 type Loja = {
   id: string; nome: string; slug: string; plano: string
   plano_expira_em: string; owner_user_id: string
+  /** 'loja' | 'colecionador'. Decide o vocabulario do e-mail. */
+  natureza: string | null
 }
 
 export async function GET(req: NextRequest) {
@@ -65,7 +68,7 @@ export async function GET(req: NextRequest) {
   try {
     const { data, error } = await sb
       .from('lojas')
-      .select('id, nome, slug, plano, plano_expira_em, owner_user_id')
+      .select('id, nome, slug, plano, plano_expira_em, owner_user_id, natureza')
       .in('plano', ['pro', 'premium'])
       .not('plano_expira_em', 'is', null)   // NULL = permanente, nao se toca
       .is('stripe_subscription_id', null)   // quem paga e governado pelo webhook
@@ -135,6 +138,7 @@ export async function GET(req: NextRequest) {
       if (u?.email) {
         await sendTrialLojaExpirandoEmail({
           to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, dias: l.dias,
+          colecionador: ehColecionador(l.natureza),
         }).catch(e => console.error('[loja-trial] email aviso', l.slug, e?.message))
       }
       avisadas++
@@ -171,6 +175,7 @@ export async function GET(req: NextRequest) {
       if (u?.email) {
         await sendTrialLojaExpirouEmail({
           to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id,
+          colecionador: ehColecionador(l.natureza),
         }).catch(e => console.error('[loja-trial] email fim', l.slug, e?.message))
       }
     }

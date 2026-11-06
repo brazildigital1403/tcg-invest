@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
 import { sendEmailLojaPlanoAlterado } from '@/lib/email'
+import { ehColecionador } from '@/lib/naturezaLoja'
 
 /**
  * POST /api/admin/lojas/[id]/plano
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const sb = supabaseAdmin()
     const { data: lojas, error: lojaErr } = await sb
       .from('lojas')
-      .select('id, nome, slug, plano, owner_user_id')
+      .select('id, nome, slug, plano, owner_user_id, natureza')
       .eq('id', lojaId)
       .limit(1)
 
@@ -143,6 +144,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             planoAnterior,
             planoNovo,
             expiraEm: planoExpiraEm,
+            colecionador: ehColecionador(loja.natureza),
           })
         } catch (emailErr) {
           // Não bloqueia — update já foi bem sucedido

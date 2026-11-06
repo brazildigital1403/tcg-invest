@@ -5,6 +5,7 @@ import {
   sendRecebimentosParadosEmail, sendLojaPerdeuProEmail, sendLojaResumoMensalEmail,
   sendLojaReativacaoEmail,
 } from '@/lib/email'
+import { ehColecionador } from '@/lib/naturezaLoja'
 
 export const maxDuration = 60
 
@@ -53,6 +54,8 @@ type Loja = {
   connect_charges_enabled: boolean | null
   instagram: string | null; facebook: string | null; tiktok: string | null
   youtube: string | null; twitter: string | null; discord: string | null
+  /** 'loja' | 'colecionador'. Decide o vocabulario dos seis e-mails. */
+  natureza: string | null
 }
 
 type Passo = {
@@ -92,7 +95,7 @@ export async function GET(req: NextRequest) {
   try {
     const { data, error } = await db
       .from('lojas')
-      .select('id, nome, slug, owner_user_id, plano, plano_expira_em, created_at, updated_at, logo_url, descricao, fotos, connect_charges_enabled, instagram, facebook, tiktok, youtube, twitter, discord')
+      .select('id, nome, slug, owner_user_id, plano, plano_expira_em, created_at, updated_at, logo_url, descricao, fotos, connect_charges_enabled, instagram, facebook, tiktok, youtube, twitter, discord, natureza')
       .eq('status', 'ativa')
       .neq('oculta', true)
       // A loja da casa nao entra na regua (decisao do Du, 12/09). A simulacao
@@ -116,6 +119,9 @@ export async function GET(req: NextRequest) {
 
     for (const l of lojas) {
       const idade = dias(l.created_at)
+      // Quem vende da propria colecao nao tem loja, balcao nem prateleira --
+      // os seis e-mails desta regua trocam o vocabulario inteiro por isso.
+      const ehCol = ehColecionador(l.natureza)
 
       const [anun, prod, pedidos] = await Promise.all([
         db.from('marketplace').select('id, card_name, price', { count: 'exact' })
@@ -163,6 +169,7 @@ export async function GET(req: NextRequest) {
             return sendLojaResumoMensalEmail({
               to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, mes,
               cliques: count || 0, itens, pedidos: pedidos.count || 0, premium: l.plano === 'premium',
+              colecionador: ehCol,
             })
           },
         } : null,
@@ -175,7 +182,7 @@ export async function GET(req: NextRequest) {
           link: `${base}/pagamentos`,
           repete: REPETE_CONNECT_DIAS,
           lembrete: {
-            titulo: 'Falta um passo para a sua loja vender',
+            titulo: `Falta um passo para a sua ${ehCol ? 'página' : 'loja'} vender`,
             mensagem: `A ${l.nome} continua com ${quantos} à venda e sem botão de comprar. Só falta ativar os recebimentos.`,
           },
           email: (u, vez) => sendRecebimentosParadosEmail({
@@ -190,10 +197,10 @@ export async function GET(req: NextRequest) {
         itens === 0 && idade >= D_VITRINE ? {
           chave: `vitrine:${l.id}`,
           titulo: 'A sua vitrine está vazia',
-          mensagem: `A ${l.nome} está no Guia de Lojas, mas não tem nada à venda.`,
+          mensagem: `A ${l.nome} está ${ehCol ? 'no Guia, na aba de Colecionadores' : 'no Guia de Lojas'}, mas não tem nada à venda.`,
           link: `${base}/produtos`,
           repete: 0,
-          email: (u) => sendLojaVitrineVaziaEmail({ to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id }),
+          email: (u) => sendLojaVitrineVaziaEmail({ to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, colecionador: ehCol }),
         } : null,
 
         // 3. Sem cara: o mais barato de resolver, muda a pagina na hora.
@@ -206,6 +213,7 @@ export async function GET(req: NextRequest) {
           email: (u) => sendLojaSemCaraEmail({
             to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, falta: semCara,
             logoUrl: l.logo_url, temDescricao: (l.descricao || '').trim().length >= 40,
+            colecionador: ehCol,
           }),
         } : null,
 
@@ -218,6 +226,7 @@ export async function GET(req: NextRequest) {
           repete: 0,
           email: (u) => sendLojaSemFotoEmail({
             to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, limite: FOTOS_DO_PLANO[l.plano],
+            colecionador: ehCol,
           }),
         } : null,
 
@@ -225,12 +234,13 @@ export async function GET(req: NextRequest) {
         //    nao recupera ninguem e queima o dominio de quem ainda le.
         idade >= D_REATIVACAO && dias(l.updated_at) >= D_REATIVACAO && itens === 0 ? {
           chave: `reativa:${l.id}`,
-          titulo: 'A sua loja está parada',
+          titulo: `A sua ${ehCol ? 'página' : 'loja'} está parada`,
           mensagem: `Faz ${Math.round(dias(l.updated_at))} dias sem movimento na ${l.nome}.`,
           link: base,
           repete: 0,
           email: (u) => sendLojaReativacaoEmail({
             to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, dias: Math.round(dias(l.updated_at)),
+            colecionador: ehCol,
           }),
         } : null,
       ]
