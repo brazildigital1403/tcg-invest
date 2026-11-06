@@ -128,8 +128,10 @@ export default function AmigoSecretoLanding() {
                 <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="gift" s={16} /></span><span>Presente até <strong>{brl(edicao.teto_cents)}</strong><small>frete à parte</small></span></span></div>
                 <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="cal" s={16} /></span><span>Inscrições até {dataCurta(edicao.inscricoes_ate)}<small>{horaCurta(edicao.inscricoes_ate)}, horário de Brasília</small></span></span></div>
                 <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="clock" s={16} /></span><span>Sorteio em {dataHora(edicao.sorteio_em)}<small>horário de Brasília</small></span></span></div>
-                <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="box" s={16} /></span><span>Envio até {dataCurta(edicao.postar_ate)}<small>tente cumprir o prazo</small></span></span></div>
+                <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="box" s={16} /></span><span>Entrega até {dataCurta(edicao.postar_ate)}<small>o presente precisa chegar até lá</small></span></span></div>
                 <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="eye" s={16} /></span><span>Revelação em {dataHora(edicao.revelacao_em)}<small>se os dois aceitarem</small></span></span></div>
+                {/* Periodo combinado com os organizadores (05/11): a semana que comeca na revelacao. */}
+                <div className="as-row static"><span className="l"><span className="as-ri"><Ico n="star" s={16} /></span><span>Vídeos e collabs de {dataCurta(edicao.revelacao_em)} a {dataCurta(new Date(Date.parse(edicao.revelacao_em) + 6 * 86_400_000).toISOString())}<small>abrindo os presentes</small></span></span></div>
               </div>
 
               <div className="as-mob"><QuemEntrou edicao={edicao} convite={inscricoesAbertas && logado !== true} /></div>

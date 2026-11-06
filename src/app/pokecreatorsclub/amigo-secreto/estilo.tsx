@@ -276,7 +276,7 @@ export const AS_CSS = `
   .as-hero-side .as-verso:before{inset:12px;border-radius:10px}
   .as-hero-side .as-verso:after{inset:24px;border-radius:7px}
   .as-hero-side .as-card{width:100%}
-  .as-rules{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:0;border:0;background:transparent}
+  .as-rules{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;padding:0;border:0;background:transparent}
   .as-rules .as-row{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:10px;border:1px solid var(--bx-border);border-radius:12px;background:var(--bx-surface);padding:14px;min-height:0}
   .as-rules .as-row .l{flex-direction:column;align-items:flex-start;gap:10px;font-size:14px;line-height:1.3}
   .as-rules .as-ri{width:36px;height:36px}

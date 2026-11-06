@@ -170,7 +170,7 @@ export default function SalaClient() {
         <div className="as-meta">Sorteio em <strong>{dataHora(sala.sorteio_em)}</strong>. {diasAte(sala.sorteio_em) === 0 ? 'É hoje.' : `Faltam ${diasAte(sala.sorteio_em)} dias.`}</div>
       )}
       {(estado === 'sorteado' || estado === 'entregas') && (
-        <div className="as-meta">Postagem até <strong>{dataCurta(sala.postar_ate)}</strong>. {diasAte(sala.postar_ate) === 0 ? 'Último dia.' : `Faltam ${diasAte(sala.postar_ate)} dias.`}</div>
+        <div className="as-meta">Entrega até <strong>{dataCurta(sala.postar_ate)}</strong>. {diasAte(sala.postar_ate) === 0 ? 'Último dia.' : `Faltam ${diasAte(sala.postar_ate)} dias.`}</div>
       )}
 
       {erro && <div className="as-erro" role="alert">{erro}</div>}
@@ -207,7 +207,7 @@ export default function SalaClient() {
         <div className="as-mis">
           <div className="as-eye"><Ico n="star" s={14} />{estado === 'encerrado' ? 'Edição encerrada' : 'Sua missão agora'}</div>
           <h3 className="as-h3">{estado === 'encerrado' ? 'Obrigado por participar' : !tirou ? 'Sorteio em preparação' : eu!.recebido_em ? 'Presente recebido' : eu!.postado_em ? 'Presente a caminho' : 'Você tirou alguém!'}</h3>
-          {estado !== 'encerrado' && tirou && !eu!.postado_em && <p className="as-meta">Agora é preparar um presente legal e manter o mistério. Prazo sugerido para postar: <strong>{dataCurta(sala.postar_ate)}</strong>.</p>}
+          {estado !== 'encerrado' && tirou && !eu!.postado_em && <p className="as-meta">Agora é preparar um presente legal e manter o mistério. O presente precisa chegar até <strong>{dataCurta(sala.postar_ate)}</strong>. Poste com antecedência.</p>}
           {estado !== 'encerrado' && <Energia rotulo="Energia da entrega" segs={energiaEntrega} />}
 
           <div className="as-lane envio first">
@@ -673,9 +673,9 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
         </div>
       ) : <div className="as-note">O endereço desta pessoa não está mais disponível. Fale com a organização.</div>}
       <div className="as-card" style={{ gap: 6, padding: '10px 12px' }}>
-        <div className="as-k">Prazo sugerido</div>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>Postar até {dataCurta(postarAte)}{diasAte(postarAte) > 0 ? <span className="as-meta" style={{ fontWeight: 500 }}> · faltam {diasAte(postarAte)} dias</span> : ''}</div>
-        <div className="as-meta">O código de rastreio é opcional. Também dá para registrar uma entrega em mãos.</div>
+        <div className="as-k">Prazo de entrega</div>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>Chegar até {dataCurta(postarAte)}{diasAte(postarAte) > 0 ? <span className="as-meta" style={{ fontWeight: 500 }}> · faltam {diasAte(postarAte)} dias</span> : ''}</div>
+        <div className="as-meta">Poste com antecedência. O código de rastreio é opcional, e também dá para registrar uma entrega em mãos.</div>
       </div>
       <button type="button" className="as-btn pri" onClick={onPostei}>{postado ? 'Editar envio' : 'Registrar envio'}</button>
       <button type="button" className="as-btn" onClick={onAjuda}>Preciso de ajuda</button>

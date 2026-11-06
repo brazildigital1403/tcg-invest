@@ -34,7 +34,7 @@ function tarefasDe(sala: MinhaSala | null): Tarefa[] {
   }
   if (estado === 'encerrado') return []
   const lista: Tarefa[] = []
-  if (tirou && !eu.postado_em) lista.push({ titulo: 'Você tem um presente para enviar', texto: `Postar até ${dataCurta(sala.postar_ate)}.`, botao: 'Ver', href: AMIGO_SECRETO_SALA })
+  if (tirou && !eu.postado_em) lista.push({ titulo: 'Você tem um presente para enviar', texto: `Entrega até ${dataCurta(sala.postar_ate)}.`, botao: 'Ver', href: AMIGO_SECRETO_SALA })
   if (recebo?.postado_em && !eu.recebido_em) lista.push({ titulo: 'Seu presente chegou?', texto: 'Confirme só com o presente na mão.', botao: 'Confirmar', href: AMIGO_SECRETO_SALA })
   return lista
 }
@@ -205,7 +205,7 @@ function CartaoAmigoSecreto({ edicao, inscrito, aberta, destaque, destino, sala,
   const chip = edicao.estado === 'inscricoes'
     ? (inscrito && completo ? 'Perfil pronto' : aberta ? 'Inscrições abertas' : 'Inscrições encerradas')
     : edicao.estado === 'sorteado' ? 'Sorteio feito' : 'Entregas'
-  const linhaData = edicao.estado === 'inscricoes' ? `Sorteio em ${dataHora(edicao.sorteio_em)}.` : `Postar até ${dataCurta(edicao.postar_ate)}.`
+  const linhaData = edicao.estado === 'inscricoes' ? `Sorteio em ${dataHora(edicao.sorteio_em)}.` : `Entrega até ${dataCurta(edicao.postar_ate)}.`
   const linha = inscrito ? linhaData : `Troca de presentes em segredo. ${linhaData}`
   const botao = inscrito ? 'Abrir a sala' : aberta ? (logado ? 'Abrir' : 'Participar') : 'Ver'
   const principal = destaque && !inscrito && aberta
