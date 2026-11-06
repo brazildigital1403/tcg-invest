@@ -20,6 +20,11 @@ import { AS_CSS, Avatar, Ico, VoltarClub } from './estilo'
 
 const SALA = AMIGO_SECRETO_SALA
 
+// Perguntas (Como funciona, Quem ve o que, Quem pode participar, Quem paga o
+// frete, Precisa de ajuda) ocultas por enquanto, pedido do Du em 05/11. O texto
+// fica aqui para voltar trocando para true.
+const MOSTRAR_PERGUNTAS = false
+
 export default function AmigoSecretoLanding() {
   const router = useRouter()
   const { openLogin } = useAuthModal()
@@ -138,7 +143,7 @@ export default function AmigoSecretoLanding() {
                 </>
               )}
 
-              <div className="as-faq">
+              {MOSTRAR_PERGUNTAS && <div className="as-faq">
                 <details open={desktop || undefined}>
                   <summary>Como funciona<Ico n="down" /></summary>
                   <p>Você cria a conta, informa o seu @ do Instagram, o endereço de entrega e uma pista do que gostaria de ganhar. No sorteio, você descobre quem vai presentear, compra um presente de até {brl(edicao.teto_cents)} e tenta postar até {dataCurta(edicao.postar_ate)}. O sorteio acontece com pelo menos {Math.max(3, edicao.minimo)} participantes e com o perfil de todo mundo completo.</p>
@@ -159,7 +164,7 @@ export default function AmigoSecretoLanding() {
                   <summary>Precisa de ajuda<Ico n="down" /></summary>
                   <p>Mudou de ideia, encontrou um problema ou não vai conseguir cumprir o prazo? Fale com a organização no grupo, em privado. Não publique dados pessoais no mural.</p>
                 </details>
-              </div>
+              </div>}
             </>
           )}
 
