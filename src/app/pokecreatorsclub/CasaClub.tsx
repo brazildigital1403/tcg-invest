@@ -129,9 +129,11 @@ export default function CasaClub() {
               <p className="as-p">O que o grupo faz junto, em um lugar só.</p>
             </div>
             <div className="cl-leque" aria-hidden="true">
-              <div className="as-verso"><Selo src={SELO_AMIGO_SECRETO} /></div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={CARTA_AMIGO_SECRETO} alt="" width={400} height={600} className="cl-carta" />
               <div className="as-verso"><Image src={LOGO_PCC} alt="" width={438} height={218} className="cl-verso-logo" /></div>
-              <div className="as-verso"><Selo src={SELO_ANIVERSARIANTES} /></div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={CARTA_ANIVERSARIANTES} alt="" width={400} height={600} className="cl-carta" />
             </div>
           </section>
 
@@ -175,6 +177,9 @@ export default function CasaClub() {
 // Decorativos: o titulo do cartao ja diz o que e, por isso alt vazio.
 const SELO_AMIGO_SECRETO = '/pokecreatorsclub/selo-amigo-secreto.webp'
 const SELO_ANIVERSARIANTES = '/pokecreatorsclub/selo-aniversariantes.webp'
+// Cartas ilustradas do leque do hero (06/11), proporcao 2:3.
+const CARTA_AMIGO_SECRETO = '/pokecreatorsclub/carta-amigo-secreto.webp'
+const CARTA_ANIVERSARIANTES = '/pokecreatorsclub/carta-aniversariantes.webp'
 
 function Selo({ src, grande = false }: { src: string; grande?: boolean }) {
   // eslint-disable-next-line @next/next/no-img-element
@@ -271,12 +276,13 @@ const CL_CSS = `
   .cl .as-logo.cl-logo{height:40px}
   .cl-hero{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);column-gap:24px;align-items:center;padding:24px 0}
   .cl-marca{display:none}
-  .cl-leque{display:flex;justify-content:center;padding:12px 0}
-  .cl-leque .as-verso{width:clamp(128px,13.4vw,172px);margin:0 -6px}
-  .cl-leque .cl-selo{position:relative;width:79%;height:auto}
-  .cl-leque .as-verso:nth-child(1){transform:rotate(-10deg)}
-  .cl-leque .as-verso:nth-child(2){position:relative;z-index:1}
-  .cl-leque .as-verso:nth-child(3){transform:rotate(10deg)}
+  .cl-leque{display:flex;justify-content:center;align-items:center;padding:12px 0}
+  .cl-leque > *{width:clamp(128px,13.4vw,172px);margin:0 -6px;flex:none}
+  .cl-leque .as-verso{aspect-ratio:2/3}
+  .cl-leque .cl-carta{height:auto;display:block}
+  .cl-leque > :nth-child(1){transform:rotate(-10deg)}
+  .cl-leque > :nth-child(2){position:relative;z-index:1}
+  .cl-leque > :nth-child(3){transform:rotate(10deg)}
   .cl-frente{padding:24px}
   .cl-frente-g{gap:20px;align-items:center}
   .cl-frentes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
