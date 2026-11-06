@@ -86,7 +86,6 @@ export default function CasaClub() {
       <header className="as-top bx-gutter">
         <div className="as-wrap">
           <Link href={CLUB} className="as-logo-a" aria-label="Poké Creators Club"><Image src={LOGO_PCC} alt="" width={438} height={218} className="as-logo cl-logo" priority /></Link>
-          <span className="t">na Bynx</span>
           {logado
             ? <Link href="/minha-conta" className="as-ib" aria-label="Minha conta"><Ico n="user" s={22} /></Link>
             : <button type="button" className="as-btn lnk sm cl-entrar" disabled={logado === undefined} onClick={() => openLogin({ next: CLUB, cta: 'Entrar no Club' })}>Entrar</button>}
@@ -162,7 +161,7 @@ export default function CasaClub() {
           {!membro && logado !== undefined && <div className="as-note">O Club vive no grupo de WhatsApp. Para entrar, fale com quem administra.</div>}
 
           <footer className="as-foot">
-            <span>Poké Creators Club na Bynx</span>
+            <span>Poké Creators Club</span>
             <span><Link href="/termos">Termos</Link>·<Link href="/privacidade">Privacidade</Link></span>
           </footer>
         </div>
