@@ -77,7 +77,7 @@ export default function AdminConvitesPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div className="cg-page">
       <style>{CSS}</style>
       <div className="cg-head">
         <div style={{ flex: 1, minWidth: 180 }}>
@@ -160,6 +160,8 @@ export default function AdminConvitesPage() {
 }
 
 const CSS = `
+.cg-page{max-width:1100px;margin:0 auto;padding:32px 24px}
+@media (max-width:640px){.cg-page{padding:20px 16px}}
 .cg-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
 .cg-h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0 0 4px;color:var(--bx-text)}
 .cg-sub{font-size:12.5px;color:var(--bx-text-3);margin:6px 0 0}

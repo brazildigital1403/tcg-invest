@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CentralLeilao } from '@/lib/leilaoAdmin'
 import CentralLeilaoView from './CentralLeilaoView'
+import { AdminPage, AdminVazio } from '@/components/admin/AdminPage'
 
 // Central do leilao no Admin: a operacao inteira em uma tela, so leitura.
 // Atualiza a cada 30 s com a aba visivel. Sem resposta, mantem o ultimo retrato
@@ -40,14 +41,14 @@ export default function AdminLeiloesPage() {
   }, [carregar])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <AdminPage titulo="Leilões" subtitulo="A operação inteira em uma tela, só leitura. Atualiza a cada 30 segundos com a aba aberta." largura="media">
       {erro && (
-        <div role="alert" style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.09)', color: '#f4f5f7', fontSize: 13, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div role="alert" style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.09)', color: '#f0f0f0', fontSize: 13, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
           <span>{dados ? 'Sem atualização: o que aparece abaixo pode estar velho.' : erro}</span>
-          <button type="button" onClick={carregar} style={{ minHeight: 44, padding: '0 14px', borderRadius: 9, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Tentar de novo</button>
+          <button type="button" onClick={carregar} style={{ minHeight: 44, padding: '0 14px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Tentar de novo</button>
         </div>
       )}
-      {dados ? <CentralLeilaoView dados={dados} /> : !erro && <p style={{ margin: 0, color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>Carregando…</p>}
-    </div>
+      {dados ? <CentralLeilaoView dados={dados} /> : !erro && <AdminVazio>Carregando...</AdminVazio>}
+    </AdminPage>
   )
 }

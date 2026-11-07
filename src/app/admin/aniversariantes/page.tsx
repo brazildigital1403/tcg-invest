@@ -5,6 +5,7 @@
 // aprovacao previa, e a pessoa continua na lista.
 
 import { useEffect, useState } from 'react'
+import { AdminPage, AdminVazio, AdminFaixa } from '@/components/admin/AdminPage'
 
 type Linha = { instagram: string; dia: number; mes: number; foto_path: string | null; foto_url: string | null; created_at: string; updated_at: string }
 
@@ -40,20 +41,15 @@ export default function AdminAniversariantesPage() {
   const comFoto = (lista || []).filter(l => l.foto_url).length
 
   return (
-    <div className="an">
-      <div>
-        <h1 className="an-h1">Aniversariantes</h1>
-        <p className="an-sub">Poké Creators Club. Qualquer pessoa logada vê esta lista. Foto imprópria sai daqui na hora.</p>
-      </div>
-
-      {erro && <div className="an-erro">{erro}</div>}
-      {ok && <div className="an-ok">{ok}</div>}
-      {lista === null && !erro && <p className="an-sub">Carregando...</p>}
+    <AdminPage titulo="Aniversariantes" subtitulo="Poké Creators Club. Qualquer pessoa logada vê esta lista. Foto imprópria sai daqui na hora.">
+      {erro && <AdminFaixa tom="erro">{erro}</AdminFaixa>}
+      {ok && <AdminFaixa tom="ok">{ok}</AdminFaixa>}
+      {lista === null && !erro && <AdminVazio>Carregando...</AdminVazio>}
 
       {lista && (
         <div className="an-box">
-          <div className="an-title">Na lista: {lista.length} · com foto: {comFoto}</div>
-          {lista.length === 0 && <p className="an-sub">Ninguém entrou na lista ainda.</p>}
+          <div className="an-rotulo">Na lista: {lista.length} · com foto: {comFoto}</div>
+          {lista.length === 0 && <AdminVazio>Ninguém entrou na lista ainda.</AdminVazio>}
           <div className="an-grid">
             {lista.map(l => (
               <div key={l.instagram} className="an-item">
@@ -73,23 +69,18 @@ export default function AdminAniversariantesPage() {
       )}
 
       <style>{`
-        .an{display:flex;flex-direction:column;gap:16px}
-        .an-h1{font-size:22px;font-weight:800;margin:0}
-        .an-sub{font-size:13px;color:var(--bx-text-3);margin:4px 0 0}
         .an-box{border:1px solid var(--bx-border);border-radius:12px;background:var(--bx-surface);padding:16px;display:flex;flex-direction:column;gap:12px}
-        .an-title{font-size:15px;font-weight:700}
+        .an-rotulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--bx-text-3)}
         .an-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-        .an-item{display:flex;align-items:center;gap:10px;border:1px solid var(--bx-border);border-radius:10px;padding:10px;min-width:0}
+        .an-item{display:flex;align-items:center;gap:10px;background:var(--bx-surface);border:1px solid var(--bx-border);border-radius:12px;padding:12px 14px;min-width:0}
         .an-foto{width:48px;height:48px;border-radius:50%;object-fit:cover;flex:none;background:var(--bx-surface-3)}
         .an-sem{display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:var(--bx-text-2)}
         .an-tx{flex:1;min-width:0;display:flex;flex-direction:column;font-size:13px}
         .an-tx a{color:var(--ac-1);text-decoration:none;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .an-tx span{color:var(--bx-text-3)}
-        .an-btn{min-height:36px;padding:0 10px;border-radius:10px;border:1px solid rgba(239,68,68,.3);background:transparent;color:var(--bx-red);font:inherit;font-size:12px;font-weight:700;cursor:pointer;flex:none}
+        .an-btn{min-height:44px;padding:0 12px;border-radius:8px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.12);color:var(--bx-red);font:inherit;font-size:12px;font-weight:700;cursor:pointer;flex:none}
         .an-btn:disabled{opacity:.45;cursor:default}
-        .an-erro{font-size:13px;color:var(--bx-red);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 12px}
-        .an-ok{font-size:13px;color:var(--bx-green);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px 12px}
       `}</style>
-    </div>
+    </AdminPage>
   )
 }

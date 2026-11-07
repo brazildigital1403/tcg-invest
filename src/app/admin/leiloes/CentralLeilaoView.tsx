@@ -90,7 +90,6 @@ export default function CentralLeilaoView({ dados }: { dados: CentralLeilao }) {
       <style>{CSS}</style>
 
       <div className="cl-topo">
-        <h1>Leilões</h1>
         <div className="cl-saude">
           <span className={`cl-pill${!rel || rel.estado !== 'ok' ? ' cl-pill-m' : ''}`}>
             {!rel ? 'Relógio sem leitura'
@@ -253,23 +252,22 @@ function Kpi({ rotulo, valor, meta, alerta }: { rotulo: string; valor: string; m
 }
 
 const CSS = `
-.cl { display: flex; flex-direction: column; gap: 20px; min-width: 0; color: #f4f5f7; font-size: 14px; line-height: 1.45; }
+.cl { display: flex; flex-direction: column; gap: 20px; min-width: 0; color: #f0f0f0; font-size: 14px; line-height: 1.45; }
 .cl h1, .cl h2, .cl p { margin: 0; }
-.cl-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.cl-topo h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.cl-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .cl-saude { display: flex; flex-wrap: wrap; gap: 8px; }
-.cl-pill { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 3px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,0.68); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cl-pill { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 3px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.68); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cl-pill::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: #22c55e; }
 .cl-pill-m { color: #ef4444; border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.08); }
 .cl-pill-m::before { background: #ef4444; }
 .cl-alerta { padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(239,68,68,0.5); background: rgba(239,68,68,0.09); color: rgba(255,255,255,0.68); }
-.cl-alerta b { display: block; color: #f4f5f7; }
+.cl-alerta b { display: block; color: #f0f0f0; }
 .cl-alerta-a { border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.07); }
 .cl-bloco { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .cl-bloco-t { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
 .cl-bloco-t h2 { font-size: 15px; font-weight: 800; }
 .cl-bloco-t small { font-size: 12px; color: rgba(255,255,255,0.45); }
-.cl-vazio { padding: 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; color: rgba(255,255,255,0.68); }
+.cl-vazio { padding: 40px 20px; border: 1px dashed rgba(255,255,255,0.14); border-radius: 14px; text-align: center; color: rgba(255,255,255,0.6); }
 .cl-vez { display: flex; flex-direction: column; border: 1px solid rgba(245,158,11,0.35); border-radius: 14px; overflow: hidden; background: rgba(245,158,11,0.04); }
 .cl-vez > div { display: grid; grid-template-columns: 124px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; }
 .cl-vez > div + div { border-top: 1px solid rgba(255,255,255,0.08); }
@@ -277,8 +275,8 @@ const CSS = `
 .cl-prazo-r { color: #ef4444; }
 .cl-vez-t { min-width: 0; }
 .cl-vez-t b { display: block; font-weight: 700; overflow-wrap: anywhere; }
-.cl-vez-t small { display: block; font-size: 12.5px; color: rgba(255,255,255,0.68); }
-.cl-vez a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #f4f5f7; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background 0.15s ease; }
+.cl-vez-t small { display: block; font-size: 13px; color: rgba(255,255,255,0.68); }
+.cl-vez a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #f0f0f0; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background 0.15s ease; }
 .cl-vez a:hover { background: rgba(255,255,255,0.1); }
 .cl-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .cl-kpi { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(255,255,255,0.03); }
@@ -288,19 +286,19 @@ const CSS = `
 .cl-kpi-w b { color: #f59e0b; } .cl-kpi-r b { color: #ef4444; }
 .cl-duas { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .cl-filtros { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.cl-busca { flex: 1 1 180px; min-width: 0; min-height: 44px; padding: 6px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.03); color: #f4f5f7; font: inherit; font-size: 16px; outline: none; }
+.cl-busca { flex: 1 1 180px; min-width: 0; min-height: 44px; padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.03); color: #f0f0f0; font: inherit; font-size: 16px; outline: none; }
 .cl-busca:focus-visible, .cl-chip:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
-.cl-chip { min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(255,255,255,0.68); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.cl-chip { min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(255,255,255,0.68); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
 .cl-chip:hover { background: rgba(255,255,255,0.06); }
 .cl-chip[aria-pressed="true"] { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.1); }
 .cl-tab { overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
 .cl-tab table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.cl-tab th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.45); border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
-.cl-tab td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.68); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cl-tab th { text-align: left; padding: 11px 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.45); border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
+.cl-tab td { padding: 11px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.68); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cl-tab tr:last-child td { border-bottom: 0; }
 .cl-tab-lotes { max-height: 480px; overflow-y: auto; }
-.cl-tab-lotes th { position: sticky; top: 0; z-index: 1; background: #101217; }
-.cl-tab td b { color: #f4f5f7; font-weight: 700; }
+.cl-tab-lotes th { position: sticky; top: 0; z-index: 1; background: #0d0f14; }
+.cl-tab td b { color: #f0f0f0; font-weight: 700; }
 .cl-tab a { color: inherit; text-decoration: none; }
 .cl-tab a:hover b { text-decoration: underline; }
 .cl-tab .cl-num { text-align: right; }
@@ -309,7 +307,7 @@ const CSS = `
 .cl-motor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .cl-motor > div { padding: 12px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(255,255,255,0.03); min-width: 0; }
 .cl-motor b { display: block; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.cl-motor span { display: block; font-size: 12.5px; color: rgba(255,255,255,0.68); }
+.cl-motor span { display: block; font-size: 13px; color: rgba(255,255,255,0.68); }
 .cl-motor .cl-motor-m { border-color: rgba(239,68,68,0.5); }
 .cl-motor .cl-motor-m b { color: #ef4444; }
 @media (max-width: 1400px) { .cl-duas { grid-template-columns: minmax(0, 1fr); } }
