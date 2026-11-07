@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget, IconShield, IconTag, IconLink, IconStar, IconLeilao } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconShield, IconTag, IconLink, IconStar, IconLeilao, IconRestauro, IconBox, IconCalendar, IconMenu, IconClose } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
@@ -122,40 +122,48 @@ function IconCentralizacaoAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }:
   )
 }
 
-type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
+type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean; group: string; topo?: boolean }
+
+// Menu em 4 grupos (07/11/2026, decisao do Du depois de 23 itens planos):
+// FILAS = o que precisa de acao hoje (badge vermelho so aqui), NEGOCIO,
+// MARKETING, COMUNIDADE. `topo` marca o que entra na barra do celular; o
+// resto abre no botao "Menu". Badge que nao e pendencia (total de usuarios,
+// novos em 7 dias) saiu do menu: esses numeros ja estao no Dashboard.
+const GRUPOS = ['', 'Filas', 'Negócio', 'Marketing', 'Comunidade'] as const
 
 const adminMenu: MenuItem[] = [
-  { label: 'Dashboard', href: '/admin', Icon: IconDashboard },
-  { label: 'Tickets', href: '/admin/tickets', Icon: IconChat, countKey: 'tickets' },
-  { label: 'Cartas', href: '/admin/card-requests', Icon: IconCardAlert, countKey: 'cartas', attention: true },
-  { label: 'Serviços', href: '/admin/servicos', Icon: IconTarget, countKey: 'servicos', attention: true },
-  { label: 'Centralização', href: '/admin/centralizacao', Icon: IconCentralizacaoAdmin },
+  { label: 'Dashboard', href: '/admin', Icon: IconDashboard, group: '', topo: true },
+  { label: 'Tickets', href: '/admin/tickets', Icon: IconChat, countKey: 'tickets', attention: true, group: 'Filas', topo: true },
+  { label: 'Cartas faltando', href: '/admin/card-requests', Icon: IconCardAlert, countKey: 'cartas', attention: true, group: 'Filas', topo: true },
+  { label: 'Bancada', href: '/admin/servicos', Icon: IconRestauro, countKey: 'servicos', attention: true, group: 'Filas', topo: true },
   // Central do leilao e Protecao Bynx (reclamacoes de pedido de leilao): so com o leilao ligado.
   ...(LEILAO_ATIVO ? [
-    { label: 'Leilões', href: '/admin/leiloes', Icon: IconLeilao, countKey: 'leiloes', attention: true },
-    { label: 'Reclamações', href: '/admin/reclamacoes', Icon: IconShield },
+    { label: 'Leilões', href: '/admin/leiloes', Icon: IconLeilao, countKey: 'leiloes', attention: true, group: 'Filas', topo: true },
+    { label: 'Proteção Bynx', href: '/admin/reclamacoes', Icon: IconShield, countKey: 'reclamacoes', attention: true, group: 'Filas' },
   ] : []),
-  { label: 'Lojas', href: '/admin/lojas', Icon: IconStore, countKey: 'lojas' },
-  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace' },
-  { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
-  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
-  { label: 'Parceiros', href: '/admin/parceiros', Icon: IconParceirosAdmin },
-  { label: 'Convites', href: '/admin/convites', Icon: IconStar },
-  { label: 'Amigo Secreto', href: '/admin/amigo-secreto', Icon: IconStar },
-  { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconStar },
-  { label: 'Promoções', href: '/admin/promocoes', Icon: IconTag },
-  { label: 'Links', href: '/admin/links', Icon: IconLink },
-  { label: 'Régua', href: '/admin/regua', Icon: IconReguaAdmin },
-  { label: 'Avisos', href: '/admin/notificacoes', Icon: IconBell },
-  { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, countKey: 'conversas' },
-  { label: 'Conteúdo', href: '/admin/conteudo', Icon: IconConteudoAdmin },
-  { label: 'Blog', href: '/admin/blog', Icon: IconArticle },
+  { label: 'Centralização', href: '/admin/centralizacao', Icon: IconCentralizacaoAdmin, group: 'Filas' },
+  { label: 'Usuários', href: '/admin/users', Icon: IconAccount, group: 'Negócio' },
+  { label: 'Lojas', href: '/admin/lojas', Icon: IconStore, countKey: 'lojas', group: 'Negócio' },
+  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, group: 'Negócio' },
+  { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, group: 'Negócio' },
+  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, group: 'Negócio' },
+  { label: 'Parceiros', href: '/admin/parceiros', Icon: IconParceirosAdmin, group: 'Negócio' },
+  { label: 'Régua', href: '/admin/regua', Icon: IconReguaAdmin, group: 'Marketing' },
+  { label: 'Sino', href: '/admin/notificacoes', Icon: IconBell, group: 'Marketing' },
+  { label: 'Criadores', href: '/admin/convites', Icon: IconStar, group: 'Marketing' },
+  { label: 'Promoções', href: '/admin/promocoes', Icon: IconTag, group: 'Marketing' },
+  { label: 'Links', href: '/admin/links', Icon: IconLink, group: 'Marketing' },
+  { label: 'Social', href: '/admin/conteudo', Icon: IconConteudoAdmin, group: 'Marketing' },
+  { label: 'Blog', href: '/admin/blog', Icon: IconArticle, group: 'Marketing' },
+  { label: 'Amigo Secreto', href: '/admin/amigo-secreto', Icon: IconBox, group: 'Comunidade' },
+  { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconCalendar, group: 'Comunidade' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [collapsed, setCollapsed] = useState(false)
+  const [menuAberto, setMenuAberto] = useState(false)
   const [temLoja, setTemLoja] = useState(lojaCache.getHasLoja() ?? false)
 
   useEffect(() => {
@@ -306,13 +314,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {!collapsed && <WorldSwitcher current="admin" temLoja={temLoja} mb={18} />}
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, marginTop: collapsed ? 4 : 0 }}>
-            {adminMenu.map(item => {
+            {adminMenu.map((item, i) => {
               const active = item.href === '/admin'
                 ? pathname === '/admin'
                 : pathname.startsWith(item.href)
               const badge = item.countKey ? (counts[item.countKey] || 0) : 0
-              return (
-                <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined} style={{
+              const novoGrupo = item.group && (i === 0 || adminMenu[i - 1].group !== item.group)
+              return (<div key={item.href} style={{ display: 'contents' }}>
+                {novoGrupo && (collapsed
+                  ? <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '8px 10px' }} />
+                  : <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', padding: '14px 12px 4px' }}>{item.group}</div>)}
+                <Link href={item.href} title={collapsed ? item.label : undefined} style={{
                   display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
                   justifyContent: collapsed ? 'center' : 'flex-start',
                   padding: collapsed ? '11px 0' : '10px 12px', borderRadius: 10, textDecoration: 'none',
@@ -330,7 +342,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <span style={{ marginLeft: 'auto', background: item.attention ? '#ef4444' : 'rgba(255,255,255,0.1)', color: item.attention ? '#fff' : 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center' }}>{badge}</span>
                   ))}
                 </Link>
-              )
+              </div>)
             })}
           </nav>
 
@@ -420,14 +432,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           overflowX: 'auto',
           WebkitOverflowScrolling: 'touch',
         }}>
-          {adminMenu.map(item => {
+          {adminMenu.filter(i => i.topo).map(item => {
             const active = item.href === '/admin'
               ? pathname === '/admin'
               : pathname.startsWith(item.href)
             const badge = item.countKey ? (counts[item.countKey] || 0) : 0
             return (
-              <Link key={item.href} href={item.href} style={{
-                minWidth: 68, flexShrink: 0, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center',
+              <Link key={item.href} href={item.href} onClick={() => setMenuAberto(false)} style={{
+                flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
                 textDecoration: 'none',
                 color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
@@ -437,23 +449,81 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <span style={{ position: 'absolute', top: 4, left: '50%', marginLeft: 4, background: item.attention ? '#ef4444' : 'rgba(255,255,255,0.28)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '0 5px', borderRadius: 999, lineHeight: '14px', minWidth: 14, textAlign: 'center' }}>{badge}</span>
                 )}
                 <item.Icon size={19} color={active ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
-                <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
                   {item.label}
                 </span>
               </Link>
             )
           })}
-          <button onClick={handleLogout} style={{
-            minWidth: 68, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
-            background: 'none', border: 'none',
-            color: 'rgba(239,68,68,0.6)',
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            <IconLogout size={19} color="rgba(239,68,68,0.6)" />
-            <span style={{ fontSize: 9, fontWeight: 400 }}>Sair</span>
-          </button>
+          {(() => {
+            // "Menu" abre a folha com o resto; o badge soma o que nao esta na barra.
+            const resto = adminMenu.filter(i => !i.topo)
+            const soma = resto.reduce((n, i) => n + (i.countKey ? (counts[i.countKey] || 0) : 0), 0)
+            const vermelho = resto.some(i => i.attention && i.countKey && (counts[i.countKey] || 0) > 0)
+            const ativo = resto.some(i => pathname.startsWith(i.href))
+            return (
+              <button type="button" onClick={() => setMenuAberto(v => !v)} aria-expanded={menuAberto} style={{
+                flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
+                background: 'none', border: 'none', borderTop: ativo && !menuAberto ? '2px solid #f59e0b' : '2px solid transparent',
+                color: menuAberto || ativo ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                {soma > 0 && !menuAberto && (
+                  <span style={{ position: 'absolute', top: 4, left: '50%', marginLeft: 4, background: vermelho ? '#ef4444' : 'rgba(255,255,255,0.28)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '0 5px', borderRadius: 999, lineHeight: '14px', minWidth: 14, textAlign: 'center' }}>{soma}</span>
+                )}
+                {menuAberto ? <IconClose size={19} color="#f59e0b" /> : <IconMenu size={19} color={ativo ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />}
+                <span style={{ fontSize: 9, fontWeight: menuAberto || ativo ? 700 : 400 }}>{menuAberto ? 'Fechar' : 'Menu'}</span>
+              </button>
+            )
+          })()}
         </nav>
+
+        {/* Folha do celular: os grupos inteiros, acima da barra. */}
+        {menuAberto && (
+          <div className="adm-sheet" onClick={() => setMenuAberto(false)} style={{
+            position: 'fixed', inset: 0, zIndex: 190, background: 'rgba(8,10,15,0.7)',
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              position: 'absolute', left: 0, right: 0, bottom: 58, maxHeight: '72vh', overflowY: 'auto',
+              background: '#0d0f14', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px 16px 0 0',
+              padding: '8px 12px 16px',
+            }}>
+              {GRUPOS.filter(g => g).map(g => {
+                const itens = adminMenu.filter(i => i.group === g)
+                if (!itens.length) return null
+                return (
+                  <div key={g}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', padding: '14px 8px 4px' }}>{g}</div>
+                    {itens.map(item => {
+                      const active = pathname.startsWith(item.href)
+                      const badge = item.countKey ? (counts[item.countKey] || 0) : 0
+                      return (
+                        <Link key={item.href} href={item.href} onClick={() => setMenuAberto(false)} style={{
+                          display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 8px', borderRadius: 10, textDecoration: 'none',
+                          fontSize: 14, fontWeight: active ? 700 : 400,
+                          color: active ? '#fff' : 'rgba(255,255,255,0.6)',
+                          background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
+                        }}>
+                          <item.Icon size={16} color={active ? '#f59e0b' : 'rgba(255,255,255,0.45)'} />
+                          {item.label}
+                          {badge > 0 && <span style={{ marginLeft: 'auto', background: item.attention ? '#ef4444' : 'rgba(255,255,255,0.1)', color: item.attention ? '#fff' : 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center' }}>{badge}</span>}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+              <button onClick={handleLogout} style={{
+                display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, width: '100%', padding: '0 8px', marginTop: 12,
+                background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10,
+                color: 'rgba(239,68,68,0.8)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <IconLogout size={16} color="rgba(239,68,68,0.8)" />Sair
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
     </>

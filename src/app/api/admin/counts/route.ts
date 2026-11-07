@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 import { ticketsPrecisandoResposta } from '@/lib/adminTickets'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { lerCentralLeilao } from '@/lib/leilaoAdmin'
+import { STATUS_ABERTOS, podeDecidir, arrependimentoAguardando, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
 
 function supabaseAdmin() {
   return createClient(
@@ -64,7 +65,26 @@ export async function GET(req: NextRequest) {
         return 0
       }
     }
-    const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos, leiloes] = await Promise.all([
+    // Protecao Bynx: reclamacoes abertas em que a Bynx PODE decidir agora (mesma
+    // regra do segmento "Decidir agora" de /admin/reclamacoes). Fila com dinheiro
+    // parado; ate 07/11 nao tinha badge nenhum.
+    const reclamacoesParaDecidir = async (): Promise<number> => {
+      if (!LEILAO_ATIVO) return 0
+      try {
+        const { data } = await sb.from('pedido_reclamacoes')
+          .select('id, status, created_at, respondida_em, resposta_tipo, prazo_loja_ate, devolucao_postada_em, devolucao_entregue_em, motivo')
+          .in('status', STATUS_ABERTOS).limit(500)
+        const agora = Date.now()
+        return (data || []).filter(r => {
+          const l = r as unknown as ReclamacaoEstado & { devolucao_postada_em?: string | null; devolucao_entregue_em?: string | null }
+          const arrep = arrependimentoAguardando(l)
+          return (podeDecidir(l, agora) && !arrep) || (arrep && !!l.devolucao_postada_em && !l.devolucao_entregue_em)
+        }).length
+      } catch {
+        return 0
+      }
+    }
+    const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos, leiloes, reclamacoes] = await Promise.all([
       ticketsPrecisandoResposta(sb),
       lojasPendentes(),
       novosAnuncios(),
@@ -76,11 +96,12 @@ export async function GET(req: NextRequest) {
       cartasPendentes(),
       servicosComABynx(),
       filaLeilao(),
+      reclamacoesParaDecidir(),
     ])
 
-    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro, servicos, leiloes })
+    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro, servicos, leiloes, reclamacoes })
   } catch (err: any) {
     console.error('[admin/counts]', err?.message)
-    return NextResponse.json({ cartas: 0, tickets: 0, lojas: 0, marketplace: 0, usuarios: 0, financeiro: 0, servicos: 0 })
+    return NextResponse.json({ cartas: 0, tickets: 0, lojas: 0, marketplace: 0, usuarios: 0, financeiro: 0, servicos: 0, leiloes: 0, reclamacoes: 0 })
   }
 }
