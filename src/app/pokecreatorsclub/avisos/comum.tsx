@@ -130,9 +130,22 @@ export function Enquete({ avisoId, enquete, onAtualizar }: { avisoId: string; en
 export function TelaCheia({ imagens, inicio, onFechar }: { imagens: string[]; inicio: number; onFechar: () => void }) {
   const [i, setI] = useState(inicio)
   const ref = useRef<HTMLDivElement | null>(null)
+  // Ao fechar, o foco volta para a imagem que abriu a tela cheia.
+  useEffect(() => {
+    const origem = document.activeElement as HTMLElement | null
+    return () => origem?.focus()
+  }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onFechar()
+      if (e.key === 'Tab' && ref.current) {
+        // Foco preso dentro da tela cheia.
+        const fs = [...ref.current.querySelectorAll<HTMLElement>('button:not([disabled])')]
+        if (!fs.length) return
+        const atual = fs.indexOf(document.activeElement as HTMLElement)
+        e.preventDefault()
+        fs[(atual + (e.shiftKey ? -1 : 1) + fs.length) % fs.length].focus()
+      }
       if (e.key === 'ArrowRight') setI(x => Math.min(x + 1, imagens.length - 1))
       if (e.key === 'ArrowLeft') setI(x => Math.max(x - 1, 0))
     }
