@@ -8,3 +8,4 @@ export const ANIVERSARIANTES = `${CLUB}/aniversariantes`
 export const AGENDA = `${CLUB}/agenda`
 export const AGENDA_ORGANIZAR = `${AGENDA}/organizar`
 export const agendaEvento = (slug: string) => `${AGENDA}/${slug}`
+export const ANIVERSARIANTES_ORGANIZAR = `${ANIVERSARIANTES}/organizar`

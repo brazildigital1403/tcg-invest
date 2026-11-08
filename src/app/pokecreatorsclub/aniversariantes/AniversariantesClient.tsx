@@ -14,7 +14,7 @@ import { comprimirImagem } from '@/lib/comprimirImagem'
 import { INSTAGRAM_RE, limparInstagram, spritePokemon } from '@/lib/amigoSecreto'
 import { diaNoAno, erroAniversario, instagramUrl, ordenarProximos, type Aniversariante, type ListaAniversarios, type Proximo } from '@/lib/pcc/aniversarios'
 import { MESES, MESES_CURTOS, diasDoMes, hojeBrasilia, quandoTexto, trocarMes } from '@/lib/pcc/datas'
-import { ANIVERSARIANTES, CLUB } from '@/lib/pcc/rotas'
+import { ANIVERSARIANTES, ANIVERSARIANTES_ORGANIZAR, CLUB } from '@/lib/pcc/rotas'
 import { AS_CSS, Ico, VoltarClub } from '../amigo-secreto/estilo'
 import { Abas, BlocoData, CAL_CSS, CalendarioMes, Folha, NavMes } from '../_comum/calendario'
 
@@ -41,6 +41,7 @@ export default function AniversariantesClient() {
   const [folha, setFolha] = useState<'form' | 'sair' | null>(null)
   const [diaAberto, setDiaAberto] = useState<number | null>(null)
   const [pronto, setPronto] = useState(false)
+  const [organiza, setOrganiza] = useState(false)
   const hoje = useMemo(() => hojeBrasilia(), [])
   const [mesVisto, setMesVisto] = useState({ ano: hoje.ano, mes: hoje.mes })
 
@@ -52,9 +53,11 @@ export default function AniversariantesClient() {
 
   const carregar = useCallback(async () => {
     setFalhou(false)
-    const { data, error } = await supabase.rpc('club_aniversarios_lista')
+    const [{ data, error }, papeis] = await Promise.all([supabase.rpc('club_aniversarios_lista'), supabase.rpc('club_meus_papeis')])
     if (error) { setFalhou(true); return }
     setDados(data as ListaAniversarios)
+    // Organizador do Club (08/11/2026): botao para remover foto impropria.
+    setOrganiza(Array.isArray(papeis.data) && papeis.data.includes('aniversariantes'))
   }, [])
 
   useEffect(() => { if (uid) carregar() }, [uid, carregar])
@@ -135,7 +138,10 @@ export default function AniversariantesClient() {
 
   return (
     <Casca logado onEntrar={() => {}}>
-      <h1 className="as-h2">Aniversariantes do Club</h1>
+      <div className="an-topo">
+        <h1 className="as-h2">Aniversariantes do Club</h1>
+        {organiza && <Link href={ANIVERSARIANTES_ORGANIZAR} className="as-btn sm">Organizar</Link>}
+      </div>
       {pronto && <div className="as-note strong" role="status">Pronto, você está na lista.</div>}
 
       {!eu && dados.lista.length > 0 && (
@@ -378,5 +384,7 @@ const AN_CSS = `
 .an-foto .as-btn{width:auto}
 .an-previa{width:128px;height:128px;border-radius:50%;object-fit:cover;display:block}
 .an .as-center .as-btn{width:100%}
+.an-topo{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.an-topo .as-btn{width:auto;flex:none}
 .an select.as-in{appearance:auto}
 `
