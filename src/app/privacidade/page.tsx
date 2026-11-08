@@ -23,7 +23,7 @@ export const metadata = {
   },
 }
 
-const UPDATED = '5 de novembro de 2026'
+const UPDATED = '8 de novembro de 2026'
 
 export default function PrivacidadePage() {
   return (
@@ -117,6 +117,8 @@ export default function PrivacidadePage() {
           </ul>
           <P>O @, o WhatsApp e o endereço também ficam salvos na sua conta Bynx.</P>
           <P><strong>Aniversariantes.</strong> Se você entrar na lista, informa seu @, o dia e o mês do aniversário, sem o ano, e uma foto, se quiser. Esses dados ficam visíveis para qualquer pessoa com conta na Bynx. A foto fica em um endereço público: quem tiver o link direto consegue abri-la. Você pode editar ou sair da lista a qualquer momento. Ao sair, a foto, o @ e a data são apagados.</P>
+          <P><strong>Agenda.</strong> Os eventos da Agenda do Club são cadastrados pela organização. Um evento pode citar o @ do Instagram de quem participa, e esses @ ficam visíveis para qualquer pessoa com conta na Bynx. Quem abre o link de um evento sem estar logado vê só o título, a data e se ele foi cancelado ou adiado. Se você não quer aparecer em um evento, peça à organização para tirar o seu @.</P>
+          <P><strong>Organizadores.</strong> A Bynx pode dar a alguns membros o papel de organizador do Club, ligado à conta Bynx de cada um. Quem organiza cadastra eventos da Agenda e pode tirar da lista de Aniversariantes uma foto imprópria. O organizador não vê e-mail, endereço nem os dados do Amigo Secreto. Cada ação de organizador fica registrada com a conta de quem fez.</P>
         </Section>
 
         <Section title="3. Por Que Coletamos Esses Dados (Base Legal — LGPD Art. 7º)">
@@ -135,6 +137,8 @@ export default function PrivacidadePage() {
                 ['Exibir perfil público de loja (B2B)', 'Execução de contrato (Art. 7º, V)'],
                 ['Amigo Secreto do Poké Creators Club', 'Execução de contrato (Art. 7º, V)'],
                 ['Lista de Aniversariantes do Poké Creators Club', 'Consentimento (Art. 7º, I)'],
+                ['Agenda do Poké Creators Club (eventos e @ de quem participa)', 'Legítimo interesse (Art. 7º, IX)'],
+                ['Registro das ações dos organizadores do Club', 'Legítimo interesse (Art. 7º, IX)'],
                 ['Enviar e-mails transacionais', 'Execução de contrato (Art. 7º, V)'],
                 ['Escaneamento de cartas por IA', 'Consentimento (Art. 7º, I)'],
                 ['Verificação de idade mínima', 'Cumprimento de obrigação legal (Art. 7º, II)'],
@@ -186,7 +190,7 @@ export default function PrivacidadePage() {
             <li>Anúncios moderados (removidos pela Bynx): mantidos como histórico interno por até 12 (doze) meses para fins de auditoria;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Pedidos de compra e venda</strong> (valores, endereço de entrega, rastreio): 5 (cinco) anos, pelo mesmo motivo fiscal — e porque é o prazo em que uma das partes ainda pode reclamar da transação;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Avaliações públicas do Marketplace</strong>: permanecem após a exclusão da conta de quem avaliou, de forma desvinculada do perfil. Elas fazem parte da reputação de <em>outra</em> pessoa, que não pode perder o histórico dela porque alguém saiu;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Poké Creators Club</strong>: os dados do Amigo Secreto ficam guardados enquanto a conta existir, e o endereço só aparece para quem tirou você durante a edição. Os dados de Aniversariantes ficam até você sair da lista ou excluir a conta;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Poké Creators Club</strong>: os dados do Amigo Secreto ficam guardados enquanto a conta existir, e o endereço só aparece para quem tirou você durante a edição. Os dados de Aniversariantes ficam até você sair da lista ou excluir a conta. Os eventos da Agenda ficam como histórico do Club, e um @ citado em evento sai a pedido. O registro das ações de organizador fica guardado para auditoria interna;</li>
             <li>Após exclusão da conta: dados são anonimizados ou excluídos em até 30 (trinta) dias, exceto os itens acima e onde houver obrigação legal de retenção.</li>
           </ul>
         </Section>
