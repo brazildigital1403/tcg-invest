@@ -105,11 +105,17 @@ returns text
 language sql immutable
 set search_path = public, pg_temp
 as $$
-  select nullif(btrim(regexp_replace(
-    regexp_replace(coalesce(t, ''),
-      '[' || chr(126976) || '-' || chr(129791) || chr(9728) || '-' || chr(10175) || chr(65039) || chr(8205) || chr(8419) || chr(11088) || chr(11093) || chr(12336) || chr(12349) || chr(127462) || '-' || chr(127487) || ']',
-      '', 'g'),
-    '[\x01-\x09\x0b-\x1f\x7f]', '', 'g'), E' \t'), '')
+  -- Sem o emoji, sobram espacos: junta os repetidos e tira os de comeco e fim de linha.
+  select nullif(btrim(
+    regexp_replace(regexp_replace(regexp_replace(regexp_replace(
+      regexp_replace(coalesce(t, ''),
+        '[' || chr(126976) || '-' || chr(129791) || chr(9728) || '-' || chr(10175) || chr(65039) || chr(8205) || chr(8419) || chr(11088) || chr(11093) || chr(12336) || chr(12349) || chr(127462) || '-' || chr(127487) || ']',
+        '', 'g'),
+      '[\x01-\x09\x0b-\x1f\x7f]', '', 'g'),
+      '[ ]{2,}', ' ', 'g'),
+      '\n[ ]+', E'\n', 'g'),
+      '[ ]+\n', E'\n', 'g'),
+    E' \n'), '')
 $$;
 revoke all on function public.club_sem_emoji(text) from public, anon, authenticated;
 
