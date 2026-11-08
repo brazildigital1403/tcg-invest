@@ -47,7 +47,8 @@ export function LinhaAviso({ a, visto, href }: { a: Aviso; visto: number | null;
 export function FixadoCompacto({ a }: { a: Aviso }) {
   return (
     <Link href={avisoUrl(a.slug)} className="av-fixado">
-      <span className="as-chip"><Ico n="tachinha" s={13} />Fixado</span>
+      {/* Fixado tambem mostra prazo e "Responder": senao a enquete some da lista. */}
+      <ChipsAviso a={a} visto={null} comFixado />
       <b>{a.titulo}</b>
       <small className="av-res">{a.resumo}</small>
       <span className="av-ler">Ler tudo</span>

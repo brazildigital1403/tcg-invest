@@ -1,32 +1,45 @@
-// Texto dos Avisos na sintaxe do WhatsApp (08/11/2026): *negrito*, "- item" de
+// Texto dos Avisos na sintaxe do WhatsApp (08/11/2026): *negrito*, _italico_, ~riscado~, "- item" de
 // lista, linha toda em *negrito* vira subtitulo, link com https:// vira link.
 // Monta nos do React, nunca HTML: o React escapa o resto, entao nao ha como
 // injetar marcacao. As admins colam o texto do WhatsApp do jeito que esta.
 
 import { Fragment, type ReactNode } from 'react'
 
-const URL_RE = /(https:\/\/[^\s<>"']+)/g
-const NEGRITO_RE = /\*([^*\n]+)\*/g
+// Um token por vez, o que comeca primeiro ganha: link, *negrito*, _italico_ ou
+// ~riscado~ (como no WhatsApp, o marcador nao pode estar colado em letra). O
+// miolo do negrito/italico/riscado passa de novo, entao *https://...* vira link
+// em negrito, e o "_" de dentro de um link nao vira italico.
+const TOKEN_RE = /(https:\/\/[^\s<>"'*~]+)|(?<![\p{L}\p{N}])([*_~])([^\n]+?)\2(?![\p{L}\p{N}])/gu
 
-function inline(texto: string, chave: string): ReactNode[] {
+function link(url: string, chave: string): ReactNode[] {
+  // Pontuacao colada no fim fica fora do link; ")" so sai se nao tiver "(" aberto.
+  let fim = url.length
+  while (fim > 0 && '.,;:!?)'.includes(url[fim - 1])) {
+    if (url[fim - 1] === ')' && url.slice(0, fim).split('(').length > url.slice(0, fim).split(')').length - 1) break
+    fim--
+  }
+  const href = url.slice(0, fim)
+  const out: ReactNode[] = [<a key={chave} href={href} target="_blank" rel="noopener noreferrer nofollow ugc">{href}</a>]
+  if (fim < url.length) out.push(url.slice(fim))
+  return out
+}
+
+function inline(texto: string, chave: string, fundo = 0): ReactNode[] {
   const out: ReactNode[] = []
-  texto.split(URL_RE).forEach((pedaco, i) => {
-    if (i % 2 === 1) {
-      // Pontuacao colada no fim do link fica fora dele.
-      const m = pedaco.match(/^(.*?)([.,;:!?)]*)$/) as RegExpMatchArray
-      out.push(<a key={`${chave}-u${i}`} href={m[1]} target="_blank" rel="noopener noreferrer nofollow ugc">{m[1]}</a>)
-      if (m[2]) out.push(m[2])
-      return
+  let ultimo = 0
+  let n = 0
+  for (const m of texto.matchAll(TOKEN_RE)) {
+    const i = m.index ?? 0
+    if (i > ultimo) out.push(texto.slice(ultimo, i))
+    const k = `${chave}-${n++}`
+    if (m[1]) out.push(...link(m[1], k))
+    else {
+      const miolo = fundo < 3 ? inline(m[3], k, fundo + 1) : [m[3]]
+      out.push(m[2] === '*' ? <strong key={k}>{miolo}</strong> : m[2] === '_' ? <em key={k}>{miolo}</em> : <s key={k}>{miolo}</s>)
     }
-    let ultimo = 0
-    let n = 0
-    for (const m of pedaco.matchAll(NEGRITO_RE)) {
-      if ((m.index ?? 0) > ultimo) out.push(pedaco.slice(ultimo, m.index))
-      out.push(<strong key={`${chave}-b${i}-${n++}`}>{m[1]}</strong>)
-      ultimo = (m.index ?? 0) + m[0].length
-    }
-    if (ultimo < pedaco.length) out.push(pedaco.slice(ultimo))
-  })
+    ultimo = i + m[0].length
+  }
+  if (ultimo < texto.length) out.push(texto.slice(ultimo))
   return out
 }
 

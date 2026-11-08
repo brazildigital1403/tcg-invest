@@ -214,14 +214,15 @@ declare
   v_ops smallint[];
 begin
   if v_uid is null then raise exception 'nao_logado'; end if;
-  select * into v_a from public.club_avisos a where a.id = p_aviso;
+  -- for share: o organizador nao troca as opcoes no meio do voto.
+  select * into v_a from public.club_avisos a where a.id = p_aviso for share;
   if not found or v_a.status <> 'publicado' then raise exception 'aviso_nao_encontrado'; end if;
   if v_a.enquete_pergunta is null then raise exception 'sem_enquete'; end if;
+  if exists (select 1 from unnest(coalesce(p_opcoes, '{}')) o where o is null or o < 1 or o > cardinality(v_a.enquete_opcoes)) then raise exception 'opcao_invalida'; end if;
   if v_a.prazo_em is not null and v_a.prazo_em <= now() then raise exception 'enquete_encerrada'; end if;
   select array_agg(distinct o::smallint order by o::smallint) into v_ops from unnest(coalesce(p_opcoes, '{}')) o;
   if v_ops is null or cardinality(v_ops) = 0 then raise exception 'voto_vazio'; end if;
   if not v_a.enquete_multipla and cardinality(v_ops) > 1 then raise exception 'so_uma_opcao'; end if;
-  if exists (select 1 from unnest(v_ops) o where o < 1 or o > cardinality(v_a.enquete_opcoes)) then raise exception 'opcao_invalida'; end if;
   insert into public.club_avisos_votos (aviso_id, user_id, opcoes) values (v_a.id, v_uid, v_ops)
   on conflict (aviso_id, user_id) do update set opcoes = excluded.opcoes, updated_at = now();
   return public.club_aviso_json(v_a, v_uid, true);
@@ -286,11 +287,11 @@ declare
   v_imgs    text[] := '{}';
   v_links   jsonb := '[]';
   v_prazo   timestamptz;
-  v_fixado  boolean := coalesce((p->>'fixado')::boolean, false);
+  v_fixado  boolean := lower(coalesce(p->>'fixado', '')) = 'true';
   v_evento  uuid;
   v_perg    text := public.club_sem_emoji(p->'enquete'->>'pergunta');
   v_regra   text := public.club_sem_emoji(p->'enquete'->>'regra');
-  v_mult    boolean := coalesce((p->'enquete'->>'multipla')::boolean, false);
+  v_mult    boolean := lower(coalesce(p->'enquete'->>'multipla', '')) = 'true';
   v_ops     text[] := '{}';
   v_status  text;
   v_slug    text;
@@ -334,9 +335,13 @@ begin
 
   begin
     v_prazo := nullif(p->>'prazo_em', '')::timestamptz;
-    v_evento := nullif(p->>'evento_id', '')::uuid;
   exception when others then
     raise exception 'prazo_invalido';
+  end;
+  begin
+    v_evento := nullif(p->>'evento_id', '')::uuid;
+  exception when others then
+    raise exception 'evento_nao_encontrado';
   end;
   if v_prazo is not null and v_prazo <= now() and (v_novo or v_prazo is distinct from v_old.prazo_em) then raise exception 'prazo_passado'; end if;
   if v_evento is not null and not exists (select 1 from public.club_eventos e where e.id = v_evento) then raise exception 'evento_nao_encontrado'; end if;
@@ -361,7 +366,10 @@ begin
 
   v_status := case when p_acao = 'publicar' then 'publicado' when p_acao = 'rascunho' then 'rascunho' else coalesce(v_old.status, 'rascunho') end;
   if p_acao = 'rascunho' and not v_novo and v_old.status <> 'rascunho' then raise exception 'ja_publicado'; end if;
-  if v_fixado and v_status = 'publicado' and (v_novo or not v_old.fixado)
+  -- Trava global: duas acoes de fixar ao mesmo tempo nao passam as duas.
+  -- Rascunho fixado que vira publicado tambem conta (antes furava o limite).
+  if v_fixado and v_status = 'publicado' then perform pg_advisory_xact_lock(hashtext('club_avisos_fixados')); end if;
+  if v_fixado and v_status = 'publicado' and (v_novo or not v_old.fixado or v_old.status <> 'publicado')
      and (select count(*) from public.club_avisos a where a.fixado and a.status = 'publicado' and a.id is distinct from p_id) >= 3 then
     raise exception 'fixados_demais';
   end if;
@@ -439,6 +447,7 @@ begin
     return jsonb_build_object('excluido', true, 'imagens', to_jsonb(v_a.imagens));
   elsif p_acao = 'fixar' then
     if v_a.status <> 'publicado' then raise exception 'estado_invalido'; end if;
+    perform pg_advisory_xact_lock(hashtext('club_avisos_fixados'));
     if not v_a.fixado and (select count(*) from public.club_avisos a where a.fixado and a.status = 'publicado') >= 3 then raise exception 'fixados_demais'; end if;
     update public.club_avisos set fixado = true, editado_por = p_autor, updated_at = now() where id = p_id returning * into v_a;
   elsif p_acao = 'desafixar' then

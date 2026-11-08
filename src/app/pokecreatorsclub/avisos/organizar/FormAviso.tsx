@@ -163,10 +163,12 @@ export function FormAviso({ titulo, inicial, estado, votos, eventos, urlImagem, 
           </div>
           <span className="as-hint" style={{ marginTop: -4 }}>Horário de Brasília. Sem hora, vale até 23h59. Depois do prazo, o aviso vai para Encerrados e a enquete fecha.</span>
 
-          {eventos.length > 0 && (
+          {(eventos.length > 0 || d.evento_id) && (
             <label className="as-f"><span className="as-lb">Evento da Agenda (opcional)</span>
               <select className="as-in" value={d.evento_id} onChange={e => set('evento_id', e.target.value)}>
                 <option value="">Nenhum</option>
+                {/* Evento ja ligado que passou ou foi cancelado sai da lista, mas o vinculo continua. */}
+                {d.evento_id && !eventos.some(ev => ev.id === d.evento_id) && <option value={d.evento_id}>Evento atual (já passou ou foi cancelado)</option>}
                 {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.inicio_data.slice(8, 10)}/{ev.inicio_data.slice(5, 7)} · {ev.titulo}</option>)}
               </select>
               <span className="as-hint">O aviso ganha o botão “Ver na Agenda”.</span></label>
