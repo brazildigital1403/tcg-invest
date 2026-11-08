@@ -103,11 +103,18 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
 
   async function handleSubmit() {
     if (!userId) { await showAlert('Faça login para reportar.', 'warning'); return }
-    if (tipo === 'faltando' && !nome.trim() && !numero.trim()) {
-      await showAlert('Informe ao menos o nome ou o número da carta.', 'warning'); return
+    // ★ 08/11: um pedido de erro chegou com nome "R" e mais nada -- sem carta,
+    //   sem número, sem descrição. Não dá para saber qual carta nem qual valor.
+    //   Nome vale a partir de 3 letras; no erro, a descrição é obrigatória.
+    const nomeOk = nome.trim().length >= 3
+    if (tipo === 'faltando' && !nomeOk && !numero.trim()) {
+      await showAlert('Informe o nome da carta (3 letras ou mais) ou o número.', 'warning'); return
     }
-    if (tipo === 'erro' && !cartaSelecionada && !nome.trim()) {
-      await showAlert('Clique na carta com erro acima, ou informe o nome.', 'warning'); return
+    if (tipo === 'erro' && !cartaSelecionada && !nomeOk) {
+      await showAlert('Clique na carta com erro acima, ou informe o nome com 3 letras ou mais.', 'warning'); return
+    }
+    if (tipo === 'erro' && descricao.trim().length < 10) {
+      await showAlert('Descreva o erro em poucas palavras (o que está errado e qual seria o certo).', 'warning'); return
     }
 
     setEnviando(true)
