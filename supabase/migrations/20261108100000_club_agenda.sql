@@ -117,9 +117,11 @@ create table public.club_eventos (
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
   constraint club_eventos_periodo check (fim_data >= inicio_data and fim_data - inicio_data <= 30),
+  -- Fim menor que o inicio = termina no dia seguinte (live das 22h a 1h); vale
+  -- para cada dia do periodo. Fim igual ao inicio nao existe.
   constraint club_eventos_horas check (
     (hora_fim is null or hora_inicio is not null)
-    and (fim_data > inicio_data or hora_fim is null or hora_fim > hora_inicio)
+    and (hora_fim is null or hora_fim <> hora_inicio)
   ),
   constraint club_eventos_local check (formato = 'online' or cidade is not null),
   constraint club_eventos_cancelado check (status <> 'cancelado' or nota_status is not null)
@@ -286,7 +288,8 @@ begin
   if v_fim < v_ini then raise exception 'fim_antes_do_inicio'; end if;
   if v_fim - v_ini > 30 then raise exception 'evento_longo'; end if;
   if v_hf is not null and v_hi is null then raise exception 'hora_invalida'; end if;
-  if v_fim = v_ini and v_hf is not null and v_hf <= v_hi then raise exception 'fim_antes_do_inicio'; end if;
+  -- Fim antes do inicio = vira o dia (decisao do Du, 08/11). So fim igual ao inicio e erro.
+  if v_hf is not null and v_hf = v_hi then raise exception 'hora_invalida'; end if;
   -- Data no passado so trava quando a data muda (editar evento antigo continua possivel).
   if v_ini < v_hoje and (v_novo or v_ini is distinct from v_old.inicio_data) then raise exception 'data_passada'; end if;
   -- Publicar (rascunho antigo, adiado sem data nova) exige evento que ainda nao acabou.

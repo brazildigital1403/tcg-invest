@@ -79,7 +79,9 @@ export async function GET(req: NextRequest) {
   if (e.hora_inicio) {
     // O horario vale para cada dia: varios dias viram um bloco diario (RRULE).
     const fimHora = e.hora_fim ? e.hora_fim.slice(0, 5) : somaHora(e.hora_inicio.slice(0, 5), 1)
-    linhas.push(`DTSTART;TZID=America/Sao_Paulo:${d(e.inicio_data)}T${h(e.hora_inicio)}`, `DTEND;TZID=America/Sao_Paulo:${d(e.inicio_data)}T${h(fimHora)}`)
+    // Fim antes do inicio: o bloco termina no dia seguinte (live das 22h a 1h).
+    const fimDia = fimHora < e.hora_inicio.slice(0, 5) ? diaSeguinte(e.inicio_data) : e.inicio_data
+    linhas.push(`DTSTART;TZID=America/Sao_Paulo:${d(e.inicio_data)}T${h(e.hora_inicio)}`, `DTEND;TZID=America/Sao_Paulo:${d(fimDia)}T${h(fimHora)}`)
     const n = diasDoEvento(e)
     if (n > 1) linhas.push(`RRULE:FREQ=DAILY;COUNT=${n}`)
   } else {

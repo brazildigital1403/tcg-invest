@@ -75,7 +75,8 @@ export function LinhaEvento({ e, hoje, comChip }: { e: Evento; hoje: Dia; comChi
 /** Eventos que ainda nao terminaram, do mais proximo para o mais distante. */
 export function proximos(eventos: Evento[], hoje: Dia): Evento[] {
   return eventos
-    .filter(e => diasAte(e.fim_data, hoje) >= 0 && momento(e, hoje) !== 'passado')
+    // Live que vira o dia continua "agora" depois da meia-noite, com o fim ja em ontem.
+    .filter(e => diasAte(e.fim_data, hoje) >= -1 && momento(e, hoje) !== 'passado')
     .sort((a, b) => a.inicio_data.localeCompare(b.inicio_data) || (a.hora_inicio || '').localeCompare(b.hora_inicio || ''))
 }
 

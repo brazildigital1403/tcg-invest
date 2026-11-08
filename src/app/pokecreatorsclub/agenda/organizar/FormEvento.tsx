@@ -142,7 +142,9 @@ export function FormEvento({ titulo, inicial, estado, urlImagem, onSalvar, subir
                 <input type="time" className="as-in" value={d.hora_fim} onChange={e => set('hora_fim', e.target.value)} /></label>}
             </div>
           )}
-          <span className="as-hint" style={{ marginTop: -4 }}>Horário de Brasília.</span>
+          <span className="as-hint" style={{ marginTop: -4 }}>
+            Horário de Brasília.{!diaInteiro && d.hora_inicio && d.hora_fim && d.hora_fim < d.hora_inicio ? ' Termina no dia seguinte.' : !diaInteiro ? ' Se passar da meia-noite, coloque o horário do dia seguinte.' : ''}
+          </span>
           <label className="as-chk"><input type="checkbox" checked={diaInteiro} onChange={e => setDiaInteiro(e.target.checked)} /><span>Dia inteiro, sem horário</span></label>
           <label className="as-chk"><input type="checkbox" checked={variosDias} onChange={e => setVariosDias(e.target.checked)} /><span>Mais de um dia</span></label>
 

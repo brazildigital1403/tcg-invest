@@ -55,12 +55,23 @@ export function agoraBrasilia(agora = new Date()): string {
 
 export type Momento = 'futuro' | 'hoje' | 'agora' | 'passado'
 
+/** Fim menor que o inicio: cada bloco termina no dia seguinte (live das 22h a 1h). */
+export const viraDia = (e: Pick<Evento, 'hora_inicio' | 'hora_fim'>) => !!e.hora_inicio && !!e.hora_fim && e.hora_fim < e.hora_inicio
+
 export function momento(e: Evento, hoje: Dia, hora = agoraBrasilia()): Momento {
   // Adiado espera nova data: nunca vira passado (nem "Ver a gravacao"), mesmo
   // depois da data original. Revisao de 08/11.
   if (e.status === 'adiado') return 'futuro'
   const ini = diasAte(e.inicio_data, hoje)
   const fim = diasAte(e.fim_data, hoje)
+  if (viraDia(e)) {
+    // Bloco de cada dia vai de hora_inicio ate hora_fim do dia seguinte.
+    const noBlocoDeOntem = ini <= -1 && fim >= -1 && hora < (e.hora_fim as string)
+    if (noBlocoDeOntem) return 'agora'
+    if (fim < 0) return 'passado'
+    if (ini > 0) return 'futuro'
+    return hora >= (e.hora_inicio as string) ? 'agora' : 'hoje'
+  }
   if (fim < 0) return 'passado'
   if (ini > 0) return 'futuro'
   // Hoje esta dentro do periodo. Sem horario: o dia inteiro conta.
@@ -92,7 +103,7 @@ export function dataPorExtenso(e: Evento): string {
   const ini = parseDia(e.inicio_data)
   const fim = parseDia(e.fim_data)
   const horas = e.hora_inicio
-    ? (e.hora_fim ? `, das ${horaCurta(e.hora_inicio)} às ${horaCurta(e.hora_fim)}` : `, às ${horaCurta(e.hora_inicio)}`)
+    ? (e.hora_fim ? `, das ${horaCurta(e.hora_inicio)} às ${horaCurta(e.hora_fim)}${viraDia(e) ? ' do dia seguinte' : ''}` : `, às ${horaCurta(e.hora_inicio)}`)
     : ''
   if (e.fim_data === e.inicio_data) {
     return `${maiuscula(DIAS_SEMANA[semana(ini)])}, ${ini.dia} de ${MESES[ini.mes - 1].toLowerCase()}${horas}`
@@ -143,7 +154,7 @@ export function googleAgendaUrl(e: Evento, urlEvento: string): string {
   const n = diasDoEvento(e)
   if (e.hora_inicio) {
     const fimHora = e.hora_fim || somaHora(e.hora_inicio, 1)
-    datas = `${d(e.inicio_data)}${t(e.hora_inicio)}/${d(e.inicio_data)}${t(fimHora)}`
+    datas = `${d(e.inicio_data)}${t(e.hora_inicio)}/${d(viraDia(e) ? diaSeguinte(e.inicio_data) : e.inicio_data)}${t(fimHora)}`
   } else {
     datas = `${d(e.inicio_data)}/${d(diaSeguinte(e.fim_data))}`
   }

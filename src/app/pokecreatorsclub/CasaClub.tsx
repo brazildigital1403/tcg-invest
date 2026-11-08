@@ -16,7 +16,7 @@ import {
 } from '@/lib/amigoSecreto'
 import { instagramUrl, ordenarProximos, quandoTexto, type ListaAniversarios } from '@/lib/pcc/aniversarios'
 import { AGENDA, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, CLUB, agendaEvento } from '@/lib/pcc/rotas'
-import { TIPOS, horaCurta, isoDia, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
+import { TIPOS, horaCurta, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
 import { hojeBrasilia } from '@/lib/pcc/datas'
 import { proximos as proximosEventos } from './agenda/comum'
 import { AS_CSS, Ico, LOGO_PCC } from './amigo-secreto/estilo'
@@ -63,12 +63,13 @@ export default function CasaClub() {
     // Agenda: de hoje ate 400 dias (o teto do banco). Se falhar, o cartao fica
     // sem a linha "Proximo" e a casa nao acusa falha: nao e tarefa da pessoa.
     const hoje = hojeBrasilia()
-    const ate = new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia + 399)).toISOString().slice(0, 10)
+    const ate = new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia + 398)).toISOString().slice(0, 10)
     const [e, m, a, g] = await Promise.all([
       supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG }),
       logado ? supabase.rpc('amigo_secreto_meu', { p_slug: AMIGO_SECRETO_SLUG }) : Promise.resolve({ data: null, error: null }),
       logado ? supabase.rpc('club_aniversarios_lista') : Promise.resolve({ data: null, error: null }),
-      logado ? supabase.rpc('club_agenda_lista', { p_de: isoDia(hoje), p_ate: ate }) : Promise.resolve({ data: null, error: null }),
+      // Comeca ontem: a live que vira o dia ainda esta "agora" depois da meia-noite.
+      logado ? supabase.rpc('club_agenda_lista', { p_de: new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia - 1)).toISOString().slice(0, 10), p_ate: ate }) : Promise.resolve({ data: null, error: null }),
     ])
     setAgenda(g.error ? null : (g.data as ListaAgenda | null) ?? null)
     if (e.error) { setFalhou(true); setEdicao(null) } else setEdicao((e.data as EdicaoPublica | null) ?? null)
