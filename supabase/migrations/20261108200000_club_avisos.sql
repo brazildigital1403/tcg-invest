@@ -30,6 +30,7 @@
 --   drop function public.club_aviso_estado_interno(uuid, text, uuid);
 --   drop function public.club_aviso_salvar(uuid, jsonb, text);
 --   drop function public.club_aviso_salvar_interno(uuid, jsonb, text, uuid);
+--   drop function public.club_avisos_admin_lista();
 --   drop function public.club_avisos_organizar_lista();
 --   drop function public.club_aviso_votar(uuid, integer[]);
 --   drop function public.club_aviso(text);
@@ -250,6 +251,23 @@ end;
 $$;
 revoke all on function public.club_avisos_organizar_lista() from public, anon, authenticated;
 grant execute on function public.club_avisos_organizar_lista() to authenticated;
+
+-- Mesma lista para o /admin (chave de servico, sem auth.uid()).
+create or replace function public.club_avisos_admin_lista()
+returns jsonb
+language sql security definer stable
+set search_path = public, pg_temp
+as $$
+  select coalesce((
+    select jsonb_agg(public.club_aviso_json(a, null, true) || jsonb_build_object(
+      'editado_por', (select coalesce(u.instagram, u.username) from public.users u where u.id = a.editado_por),
+      'updated_at', a.updated_at, 'evento_id', a.evento_id
+    ) order by a.status = 'arquivado', a.fixado desc, coalesce(a.publicado_em, a.created_at) desc)
+    from public.club_avisos a
+  ), '[]'::jsonb)
+$$;
+revoke all on function public.club_avisos_admin_lista() from public, anon, authenticated;
+grant execute on function public.club_avisos_admin_lista() to service_role;
 
 -- Cria ou edita. p_acao: 'rascunho' (novo ou ainda rascunho), 'publicar' ou
 -- 'salvar' (mantem o estado). p_autor nulo = /admin. Slug fixo depois de criado.
