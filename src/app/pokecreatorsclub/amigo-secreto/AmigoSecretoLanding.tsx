@@ -171,7 +171,7 @@ export default function AmigoSecretoLanding() {
           )}
 
           <footer className="as-foot">
-            <span>Bynx</span>
+            <span>Poké Creators Club</span>
             <span><Link href="/termos">Termos</Link> · <Link href="/privacidade">Privacidade</Link></span>
           </footer>
         </div>

@@ -272,14 +272,14 @@ export default function SalaClient() {
             ) : (
               <>
                 <h4 className="as-h3" style={{ fontSize: 16 }}>Quer revelar esta troca?</h4>
-                <p className="as-meta">A dupla só aparece se os dois lados aceitarem. Se alguém preferir manter o segredo, a identidade continua protegida.</p>
+                <p className="as-meta">Quem recebeu só descobre quem mandou se os dois lados aceitarem. Se alguém preferir manter o segredo, a identidade continua protegida.</p>
                 <div className="as-two as-rev">
                   <div className={`as-rev-box${eu!.quer_revelar ? ' ok' : ''}`}><b>Você</b><span>{eu!.quer_revelar ? 'Aceitou revelar esta troca.' : 'Ainda não escolheu.'}</span></div>
                   <div className={`as-rev-box${sala.recebo?.outro_aceitou ? ' ok' : ''}`}><b>Quem tirou você</b><span>{sala.recebo?.outro_aceitou ? 'Aceitou revelar.' : 'Ainda não escolheu.'}</span></div>
                 </div>
                 <label className="as-chk">
                   <input type="checkbox" checked={eu!.quer_revelar} disabled={ocupado} onChange={e => chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: { quer_revelar: e.target.checked } })} />
-                  <span><strong style={{ color: 'var(--bx-text)' }}>Aceito revelar esta troca.</strong> Na data final, os @ aparecem para os dois se ambos aceitarem. Dá para mudar de ideia até lá.</span>
+                  <span><strong style={{ color: 'var(--bx-text)' }}>Aceito revelar esta troca.</strong> Na data final, quem recebeu o presente descobre quem mandou, se os dois aceitarem. Dá para mudar de ideia até lá.</span>
                 </label>
                 {tirou && <div className="as-meta">Quem você tirou {tirou.aceitou ? 'já aceitou' : 'ainda não escolheu'} revelar o lado dela.</div>}
               </>
