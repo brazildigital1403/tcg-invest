@@ -160,6 +160,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Amigo Secreto', href: '/admin/amigo-secreto', Icon: IconBox, countKey: 'amigo', group: 'Comunidade' },
   { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconCalendar, countKey: 'aniversariantes', group: 'Comunidade' },
   { label: 'Agenda do Club', href: '/admin/club-eventos', Icon: IconStar, group: 'Comunidade' },
+  { label: 'Avisos do Club', href: '/admin/club-avisos', Icon: IconBell, group: 'Comunidade' },
   { label: 'Organizadores do Club', href: '/admin/club-organizadores', Icon: IconKey, group: 'Comunidade' },
 ]
 

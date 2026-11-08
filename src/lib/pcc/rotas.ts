@@ -9,3 +9,6 @@ export const AGENDA = `${CLUB}/agenda`
 export const AGENDA_ORGANIZAR = `${AGENDA}/organizar`
 export const agendaEvento = (slug: string) => `${AGENDA}/${slug}`
 export const ANIVERSARIANTES_ORGANIZAR = `${ANIVERSARIANTES}/organizar`
+export const AVISOS = `${CLUB}/avisos`
+export const AVISOS_ORGANIZAR = `${AVISOS}/organizar`
+export const avisoUrl = (slug: string) => `${AVISOS}/${slug}`

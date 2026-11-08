@@ -15,7 +15,8 @@ import {
   AMIGO_SECRETO_SLUG, dataCurta, dataHora, type EdicaoPublica, type MinhaSala,
 } from '@/lib/amigoSecreto'
 import { instagramUrl, ordenarProximos, quandoTexto, type ListaAniversarios } from '@/lib/pcc/aniversarios'
-import { AGENDA, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, CLUB, agendaEvento } from '@/lib/pcc/rotas'
+import { AGENDA, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, AVISOS, CLUB, agendaEvento, avisoUrl } from '@/lib/pcc/rotas'
+import { diaMes, diasAtePrazo, ehNovo, pedeResposta, prazoPassou, ultimaVisita, type Aviso, type ListaAvisos } from '@/lib/pcc/avisos'
 import { TIPOS, horaCurta, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
 import { hojeBrasilia } from '@/lib/pcc/datas'
 import { proximos as proximosEventos } from './agenda/comum'
@@ -49,6 +50,9 @@ export default function CasaClub() {
   const [sala, setSala] = useState<MinhaSala | null>(null)
   const [aniv, setAniv] = useState<ListaAniversarios | null>(null)
   const [agenda, setAgenda] = useState<ListaAgenda | null>(null)
+  const [avisos, setAvisos] = useState<ListaAvisos | null>(null)
+  // Ultima vez que a pessoa abriu a lista de Avisos (no navegador): o que veio depois e novo.
+  const [vistoAvisos, setVistoAvisos] = useState<number | null>(null)
   const [falhou, setFalhou] = useState(false)
 
   useEffect(() => {
@@ -64,14 +68,18 @@ export default function CasaClub() {
     // sem a linha "Proximo" e a casa nao acusa falha: nao e tarefa da pessoa.
     const hoje = hojeBrasilia()
     const ate = new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia + 398)).toISOString().slice(0, 10)
-    const [e, m, a, g] = await Promise.all([
+    const [e, m, a, g, av] = await Promise.all([
       supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG }),
       logado ? supabase.rpc('amigo_secreto_meu', { p_slug: AMIGO_SECRETO_SLUG }) : Promise.resolve({ data: null, error: null }),
       logado ? supabase.rpc('club_aniversarios_lista') : Promise.resolve({ data: null, error: null }),
       // Comeca ontem: a live que vira o dia ainda esta "agora" depois da meia-noite.
       logado ? supabase.rpc('club_agenda_lista', { p_de: new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia - 1)).toISOString().slice(0, 10), p_ate: ate }) : Promise.resolve({ data: null, error: null }),
+      logado ? supabase.rpc('club_avisos_lista') : Promise.resolve({ data: null, error: null }),
     ])
     setAgenda(g.error ? null : (g.data as ListaAgenda | null) ?? null)
+    // Avisos: como a Agenda, falha nao acusa erro na casa; o cartao fica sem a linha.
+    setAvisos(av.error ? null : (av.data as ListaAvisos | null) ?? null)
+    setVistoAvisos(ultimaVisita())
     if (e.error) { setFalhou(true); setEdicao(null) } else setEdicao((e.data as EdicaoPublica | null) ?? null)
     if (m.error) { setFalhou(true); setSala(null) } else setSala((m.data as MinhaSala | null) ?? null)
     if (a.error) { setFalhou(true); setAniv(null) } else setAniv((a.data as ListaAniversarios | null) ?? null)
@@ -83,6 +91,12 @@ export default function CasaClub() {
   const proximos = ordenarProximos(aniv?.lista || [])
   const naLista = !!aniv?.lista.some(p => p.eu)
   const tarefas = tarefasDe(sala)
+  // Enquete de aviso sem o voto da pessoa, com 3 dias ou menos de prazo, vira tarefa (wireframe C15).
+  for (const a of avisos?.avisos || []) {
+    if (pedeResposta(a) && a.prazo_em && !prazoPassou(a) && diasAtePrazo(a.prazo_em) <= 3) {
+      tarefas.push({ titulo: a.enquete!.pergunta, texto: `Avisos · ${a.titulo} · até ${diaMes(a.prazo_em)}.`, botao: 'Responder', href: avisoUrl(a.slug) })
+    }
+  }
   if (aniv && !naLista) tarefas.push({ titulo: 'Coloque sua data', texto: 'Aniversariantes: só dia e mês.', botao: 'Entrar na lista', href: ANIVERSARIANTES })
   const tarefa = tarefas[0]
   const aniversarioHoje = proximos.filter(p => p.emDias === 0 && !p.eu)
@@ -167,10 +181,11 @@ export default function CasaClub() {
 
           {/* Frentes: uma embaixo da outra no celular, 3 colunas no computador largo. */}
           {edicao !== undefined && !encerrada && (
-            <div className="cl-frentes tres">
+            <div className="cl-frentes">
               <CartaoAmigoSecreto edicao={edicao} inscrito={inscrito} aberta={aberta} destaque={!tarefa} destino={destino} sala={sala} logado={!!logado} />
               <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
               <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
+              <CartaoAvisos logado={!!logado} lista={avisos?.avisos || null} visto={vistoAvisos} />
             </div>
           )}
 
@@ -179,6 +194,7 @@ export default function CasaClub() {
               <div className="cl-frentes">
                 <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
                 <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
+                <CartaoAvisos logado={!!logado} lista={avisos?.avisos || null} visto={vistoAvisos} />
               </div>
               <div className="as-k">Edições passadas</div>
               <div className="as-card cl-passadas">
@@ -240,6 +256,31 @@ function CartaoAgenda({ logado, carregou, hoje, proximo }: { logado: boolean; ca
         </div>
       </div>
       <Link href={AGENDA} className="as-btn">Ver agenda</Link>
+    </section>
+  )
+}
+
+// Avisos do Club (08/11/2026, wireframe C14). O selo ilustrado vem do Du; ate
+// la, o megafone no tamanho do selo. Fixado nunca ocupa a casa: a linha fala do
+// mais recente que nao e fixado, ou de quantos chegaram desde a ultima visita.
+function CartaoAvisos({ logado, lista, visto }: { logado: boolean; lista: Aviso[] | null; visto: number | null }) {
+  const soltos = (lista || []).filter(a => !a.fixado)
+  const novos = (lista || []).filter(a => ehNovo(a, visto)).length
+  const linha = !logado || !lista
+    ? 'Recados da organização do Club.'
+    : novos > 0 ? (novos === 1 ? '1 aviso novo.' : `${novos} avisos novos.`)
+    : soltos[0] ? `Último: ${soltos[0].titulo}.`
+    : lista.length ? `Fixado: ${lista[0].titulo}.` : 'Nenhum aviso por enquanto.'
+  return (
+    <section className="as-card cl-frente">
+      <div className="cl-frente-g">
+        <span className="cl-selo cl-selo-ico" aria-hidden="true"><Ico n="megafone" s={36} /></span>
+        <div className="cl-frente-tx">
+          <h2 className="as-h3">Avisos</h2>
+          <p className="as-meta">{linha}</p>
+        </div>
+      </div>
+      <Link href={AVISOS} className="as-btn">Ver avisos</Link>
     </section>
   )
 }
@@ -322,6 +363,7 @@ const CL_CSS = `
 .cl-frente .as-verso.sm{width:56px}
 .cl-hoje{gap:8px;padding:18px 16px}
 .cl-frentes{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cl-selo-ico{display:inline-flex;align-items:center;justify-content:center;border-radius:18px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--ac-1)}
 .cl-hoje-ev{font-size:20px;word-break:normal}
 .cl-acoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .cl-hoje .at{margin-top:0}
@@ -345,14 +387,11 @@ const CL_CSS = `
   .cl-frente{padding:24px}
   .cl-frente-g{gap:20px;align-items:center}
   .cl-frentes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
-  .cl-frentes.tres>:last-child{grid-column:1/-1}
+  /* Numero impar de frentes: a ultima ocupa a linha inteira. Com 4, grade 2x2. */
+  .cl-frentes>:last-child:nth-child(odd){grid-column:1/-1}
   .cl-frente .as-btn{width:auto;align-self:flex-start;min-width:220px;margin-top:auto}
   .cl-acoes{display:flex;flex-wrap:wrap;margin-top:auto}
   .cl-acoes .as-btn{min-width:180px;margin-top:0}
   .cl-hoje{max-width:520px;width:100%;margin:0 auto}
-}
-@media (min-width:1200px){
-  .cl-frentes.tres{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .cl-frentes.tres>:last-child{grid-column:auto}
 }
 `

@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 
-const PAPEIS = ['agenda', 'aniversariantes'] as const
+const PAPEIS = ['agenda', 'aniversariantes', 'avisos'] as const
 
 const limparPapeis = (p: unknown): string[] =>
   Array.isArray(p) ? Array.from(new Set(p.filter((x): x is string => typeof x === 'string' && (PAPEIS as readonly string[]).includes(x)))) : []

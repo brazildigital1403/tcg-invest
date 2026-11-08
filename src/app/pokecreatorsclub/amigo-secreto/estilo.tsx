@@ -40,6 +40,11 @@ const PATHS: Record<string, React.ReactNode> = {
   share: <><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />,
+  // Avisos do Club (08/11/2026): megafone da frente, tachinha do fixado, enquete e link.
+  megafone: <path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" />,
+  tachinha: <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7" />,
+  enquete: <path d="M5 20V10M12 20V4M19 20v-7" />,
+  link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
 }
 
 export function Ico({ n, s = 18, className = '' }: { n: keyof typeof PATHS | string; s?: number; className?: string }) {
