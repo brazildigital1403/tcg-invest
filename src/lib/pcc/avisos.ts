@@ -12,10 +12,36 @@ export type Aviso = {
   prazo_em: string | null; fixado: boolean; status: 'rascunho' | 'publicado' | 'arquivado'
   publicado_em: string | null; editado_em: string | null; autor: string | null
   tem_atualizacoes: boolean; enquete: EnqueteAviso | null
+  categoria: CategoriaAviso; agenda_mes: string | null
   // So no aviso completo:
   corpo?: string; importante?: string | null; atualizacoes?: { em: string; texto: string }[]
   evento?: { slug: string; titulo: string; inicio_data: string; hora_inicio: string | null; status: string } | null
 }
+export type CategoriaAviso = 'aviso' | 'comunidade' | 'negocios' | 'pedido' | 'evento' | 'conteudo'
+
+// Categoria vira o selo da lista e a capa automatica de aviso sem foto.
+export const CATEGORIAS: Record<CategoriaAviso, { rotulo: string; ico: string }> = {
+  aviso: { rotulo: 'Aviso', ico: 'megafone' },
+  comunidade: { rotulo: 'Comunidade', ico: 'users' },
+  negocios: { rotulo: 'Negócios', ico: 'loja' },
+  pedido: { rotulo: 'Pedido', ico: 'sacola' },
+  evento: { rotulo: 'Evento', ico: 'cal' },
+  conteudo: { rotulo: 'Conteúdo', ico: 'video' },
+}
+export const ORDEM_CATEGORIAS = Object.keys(CATEGORIAS) as CategoriaAviso[]
+export const categoriaDe = (a: Pick<Aviso, 'categoria'>) => CATEGORIAS[a.categoria] || CATEGORIAS.aviso
+
+/** Palavra grande da capa automatica: o que vem antes dos dois-pontos ("MARKET"), se for curto. */
+export function palavraCapa(a: Pick<Aviso, 'titulo' | 'categoria'>): string {
+  const antes = a.titulo.split(':')[0].trim()
+  if (antes !== a.titulo && antes.length <= 12) return antes
+  const primeira = a.titulo.split(/\s+/)[0].replace(/[^\p{L}\p{N}-]/gu, '')
+  return primeira.length >= 3 && primeira.length <= 12 ? primeira : categoriaDe(a).rotulo
+}
+
+/** Aviso que pede algo da pessoa agora: enquete aberta sem voto, ou prazo que ainda nao passou. */
+export const pedeAcao = (a: Aviso) => pedeResposta(a) || (!!a.prazo_em && !prazoPassou(a) && a.links.length > 0)
+
 export type AvisoOrg = Aviso & { editado_por: string | null; updated_at: string; evento_id: string | null }
 export type ListaAvisos = { avisos: Aviso[]; papeis: string[] }
 

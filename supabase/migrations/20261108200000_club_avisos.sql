@@ -65,6 +65,10 @@ create table public.club_avisos (
   prazo_em          timestamptz,
   fixado            boolean not null default false,
   evento_id         uuid references public.club_eventos(id) on delete set null,
+  -- Categoria da capa automatica (aviso sem foto) e do selo na lista.
+  categoria         text not null default 'aviso' check (categoria in ('aviso', 'comunidade', 'negocios', 'pedido', 'evento', 'conteudo')),
+  -- Mes da Agenda que o aviso resume (sempre dia 1): a pagina lista os eventos do mes.
+  agenda_mes        date check (agenda_mes is null or extract(day from agenda_mes) = 1),
   enquete_pergunta  text check (char_length(enquete_pergunta) <= 120),
   enquete_regra     text check (char_length(enquete_regra) <= 160),
   enquete_multipla  boolean not null default false,
@@ -132,6 +136,7 @@ as $$
     'resumo', left(regexp_replace(replace(a.corpo, '*', ''), '\s+', ' ', 'g'), 180),
     'imagens', to_jsonb(a.imagens), 'links', a.links, 'prazo_em', a.prazo_em, 'fixado', a.fixado,
     'status', a.status, 'publicado_em', a.publicado_em, 'editado_em', a.editado_em,
+    'categoria', a.categoria, 'agenda_mes', a.agenda_mes,
     'autor', (select coalesce(u.instagram, u.username) from public.users u where u.id = a.criado_por),
     'tem_atualizacoes', jsonb_array_length(a.atualizacoes) > 0,
     'enquete', case when a.enquete_pergunta is null then null else jsonb_build_object(
@@ -289,6 +294,8 @@ declare
   v_prazo   timestamptz;
   v_fixado  boolean := lower(coalesce(p->>'fixado', '')) = 'true';
   v_evento  uuid;
+  v_cat     text := coalesce(nullif(p->>'categoria', ''), 'aviso');
+  v_mes     date;
   v_perg    text := public.club_sem_emoji(p->'enquete'->>'pergunta');
   v_regra   text := public.club_sem_emoji(p->'enquete'->>'regra');
   v_mult    boolean := lower(coalesce(p->'enquete'->>'multipla', '')) = 'true';
@@ -345,6 +352,12 @@ begin
   end;
   if v_prazo is not null and v_prazo <= now() and (v_novo or v_prazo is distinct from v_old.prazo_em) then raise exception 'prazo_passado'; end if;
   if v_evento is not null and not exists (select 1 from public.club_eventos e where e.id = v_evento) then raise exception 'evento_nao_encontrado'; end if;
+  if v_cat not in ('aviso', 'comunidade', 'negocios', 'pedido', 'evento', 'conteudo') then raise exception 'categoria_invalida'; end if;
+  begin
+    v_mes := date_trunc('month', nullif(p->>'agenda_mes', '')::date)::date;
+  exception when others then
+    raise exception 'mes_invalido';
+  end;
 
   if v_perg is not null then
     if jsonb_typeof(p->'enquete'->'opcoes') = 'array' then
@@ -383,15 +396,15 @@ begin
       v_n := v_n + 1;
       v_slug := v_base || '-' || v_n;
     end loop;
-    insert into public.club_avisos (slug, titulo, corpo, importante, imagens, links, prazo_em, fixado, evento_id,
+    insert into public.club_avisos (slug, titulo, corpo, importante, imagens, links, prazo_em, fixado, evento_id, categoria, agenda_mes,
       enquete_pergunta, enquete_regra, enquete_multipla, enquete_opcoes, status, publicado_em, criado_por, editado_por)
-    values (v_slug, v_titulo, v_corpo, v_imp, v_imgs, v_links, v_prazo, v_fixado, v_evento,
+    values (v_slug, v_titulo, v_corpo, v_imp, v_imgs, v_links, v_prazo, v_fixado, v_evento, v_cat, v_mes,
       v_perg, v_regra, v_mult, v_ops, v_status, case when v_status = 'publicado' then now() end, p_autor, p_autor)
     returning * into v_a;
   else
     update public.club_avisos a set
       titulo = v_titulo, corpo = v_corpo, importante = v_imp, imagens = v_imgs, links = v_links,
-      prazo_em = v_prazo, fixado = v_fixado, evento_id = v_evento,
+      prazo_em = v_prazo, fixado = v_fixado, evento_id = v_evento, categoria = v_cat, agenda_mes = v_mes,
       enquete_pergunta = v_perg, enquete_regra = v_regra, enquete_multipla = v_mult, enquete_opcoes = v_ops,
       status = v_status,
       publicado_em = coalesce(a.publicado_em, case when v_status = 'publicado' then now() end),

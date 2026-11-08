@@ -206,5 +206,54 @@ export const AV_CSS = `
 .av-cheia-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
 .av-cheia-bar .as-btn{width:auto}
 .av-cheia-bar .as-meta{color:var(--bx-text-2)}
-@media (prefers-reduced-motion:reduce){.av-linha,.av-fixado,.av-opc,.av-barra .b i{transition:none}}
+/* Capa (foto ou automatica). O pai define o tamanho. */
+.av-capa{position:absolute;inset:0;display:block;overflow:hidden}
+.av-capa img{object-fit:cover}
+.av-poster .bg{object-fit:cover;filter:blur(28px) saturate(1.2) brightness(.55);transform:scale(1.2)}
+.av-poster .fg{object-fit:contain !important;padding:16px}
+.av-auto{background:radial-gradient(circle at 85% 20%,rgba(var(--ac-1-rgb),.40),transparent 50%),radial-gradient(circle at 10% 100%,rgba(var(--ac-2-rgb),.30),transparent 55%),var(--bx-bg-elev)}
+.av-auto-negocios,.av-auto-pedido{background:repeating-linear-gradient(135deg,var(--bx-surface) 0 14px,transparent 14px 28px),radial-gradient(circle at 85% 20%,rgba(var(--ac-1-rgb),.40),transparent 50%),radial-gradient(circle at 10% 100%,rgba(var(--ac-2-rgb),.30),transparent 55%),var(--bx-bg-elev)}
+.av-auto-com{background:radial-gradient(circle at 80% 15%,rgba(var(--ac-2-rgb),.35),transparent 55%),radial-gradient(circle at 15% 90%,rgba(var(--ac-1-rgb),.30),transparent 55%),var(--bx-bg-elev)}
+.av-auto .word{position:absolute;left:16px;bottom:12px;max-width:calc(100% - 32px);font-size:clamp(28px,12cqw,56px);font-weight:800;letter-spacing:-.04em;line-height:.95;color:var(--bx-text);overflow-wrap:anywhere}
+.av-auto .word small{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac-1);margin-bottom:8px;font-weight:800}
+.av-auto .big{position:absolute;right:-10px;top:12px;color:var(--ac-1);opacity:.9}
+.av-auto .big .as-ico{width:min(150px,45cqw);height:min(150px,45cqw);stroke-width:1.2}
+.av-auto .selo{position:absolute;right:4%;top:6%;width:min(150px,42%);height:auto}
+.av-auto .pcc{position:absolute;right:12px;bottom:12px;width:min(64px,18%);opacity:.9}
+.av-auto-com .logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(74%,320px)}
+.av-auto-com .sl{position:absolute;width:min(38%,170px)}
+.av-auto-com .sl.a{left:-6%;bottom:-8%}
+.av-auto-com .sl.b{right:-6%;top:-8%}
+.av-capa{container-type:inline-size}
+
+/* Secao e fileira "Vem ai" (lista e detalhe). */
+.av-sec{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:28px 0 12px}
+.av-sec h2{margin:0;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--bx-text-2)}
+.av-sec .sub{margin:4px 0 0;font-size:12px;color:var(--bx-text-3)}
+.av-sec a{font-size:13px;font-weight:600;color:var(--ac-1);min-height:44px;display:inline-flex;align-items:center;margin:-14px 0;text-decoration:none}
+.av-rail{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-left:16px;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.av-rail::-webkit-scrollbar{display:none}
+.av-ev{scroll-snap-align:start;flex:0 0 142px;min-height:172px;border-radius:18px;background:var(--bx-surface);border:1px solid var(--bx-border);padding:12px;position:relative;overflow:hidden;display:flex;flex-direction:column;text-decoration:none;color:var(--bx-text);transition:transform .2s ease,border-color .2s ease}
+.av-ev:hover{transform:translateY(-2px);border-color:var(--bx-border-2)}
+.av-ev .d{font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:.9;font-variant-numeric:tabular-nums}
+.av-ev .dm{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ac-1);margin-top:6px}
+.av-ev .soon{align-self:flex-start;margin-top:8px;height:24px}
+.av-ev .t4{font-size:14px;font-weight:700;line-height:1.25;margin-top:auto;padding-top:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.av-ev .t{font-size:12px;color:var(--bx-text-3);margin-top:4px;display:flex;align-items:center;gap:4px}
+.av-ev .ico{position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(var(--ac-1-rgb),.10);color:var(--ac-1);border:1px solid rgba(var(--ac-1-rgb),.25)}
+.av-ev.next{border-color:rgba(var(--ac-1-rgb),.45);background:linear-gradient(160deg,rgba(var(--ac-1-rgb),.12),var(--bx-surface) 60%)}
+.av-ev.big{border-color:rgba(var(--ac-2-rgb),.35);background:linear-gradient(160deg,rgba(var(--ac-2-rgb),.14),var(--bx-surface) 65%)}
+.av-ev.big .dm{color:var(--ac-2)}
+.av-ev.all{justify-content:space-between;background:var(--bx-bg-elev);border-style:dashed;border-color:var(--bx-border-2)}
+.av-ev.all .ico{position:static}
+.av-ev.all .t4{margin-top:0;font-size:15px}
+.av-ev.all .t{color:var(--ac-1);font-weight:700;font-size:13px}
+@media (min-width:1024px){
+  .av-sec{padding:40px 0 14px}
+  .av-rail{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px;overflow:visible;margin:0;padding:0}
+  .av-ev{min-height:200px;padding:16px}
+  .av-ev .d{font-size:52px}
+  .av-ev .t4{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){.av-linha,.av-fixado,.av-opc,.av-barra .b i,.av-ev{transition:none}}
 `

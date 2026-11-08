@@ -65,11 +65,15 @@ export function blocos(texto: string): Bloco[] {
   return out.filter(b => b.tipo !== 'p' || b.linhas.length > 0)
 }
 
-export function TextoAviso({ texto }: { texto: string }) {
+/** Subtitulos do texto, na ordem: viram o indice "Neste aviso" (ancora av-sub-N). */
+export const subtitulos = (texto: string) => blocos(texto).filter((b): b is { tipo: 'h'; texto: string } => b.tipo === 'h').map(b => b.texto)
+
+export function TextoAviso({ texto, ancoras }: { texto: string; ancoras?: boolean }) {
+  let h = 0
   return (
     <div className="av-texto">
       {blocos(texto).map((b, i) => {
-        if (b.tipo === 'h') return <h3 key={i} className="av-sub">{inline(b.texto, `h${i}`)}</h3>
+        if (b.tipo === 'h') return <h3 key={i} id={ancoras ? `av-sub-${h++}` : undefined} className="av-sub">{inline(b.texto, `h${i}`)}</h3>
         if (b.tipo === 'ul') return <ul key={i}>{b.itens.map((it, j) => <li key={j}>{inline(it, `l${i}-${j}`)}</li>)}</ul>
         return <p key={i}>{b.linhas.map((l, j) => <Fragment key={j}>{j > 0 && <br />}{inline(l, `p${i}-${j}`)}</Fragment>)}</p>
       })}
@@ -84,5 +88,5 @@ export const TEXTO_CSS = `
 .av-texto ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;list-style:disc}
 .av-texto li::marker{color:var(--ac-1)}
 .av-texto a{color:var(--ac-1);text-decoration:underline;text-underline-offset:2px}
-.av-texto .av-sub{font-size:15px;font-weight:800;margin:6px 0 -4px}
+.av-texto .av-sub{font-size:15px;font-weight:800;margin:6px 0 -4px;scroll-margin-top:80px}
 `

@@ -7,21 +7,24 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { comprimirImagem } from '@/lib/comprimirImagem'
-import { semEmoji, type Aviso, type AvisoOrg } from '@/lib/pcc/avisos'
+import { CATEGORIAS, ORDEM_CATEGORIAS, palavraCapa, semEmoji, type Aviso, type AvisoOrg, type CategoriaAviso } from '@/lib/pcc/avisos'
+import { MESES } from '@/lib/pcc/datas'
 import { Ico } from '../../amigo-secreto/estilo'
-import { AV_CSS, LinhaAviso } from '../comum'
+import { AV_CSS } from '../comum'
+import { CapaAviso } from '../capa'
 
 export type EventoOpcao = { id: string; titulo: string; inicio_data: string }
 export type DadosAviso = {
   titulo: string; corpo: string; importante: string; imagens: string[]
   links: { rotulo: string; url: string }[]; prazoData: string; prazoHora: string; fixado: boolean; evento_id: string
+  categoria: CategoriaAviso; agenda_mes: string
   temEnquete: boolean; pergunta: string; regra: string; multipla: boolean; opcoes: string[]
 }
 export type AcaoAviso = 'rascunho' | 'publicar' | 'salvar'
 
 export const avisoVazio = (): DadosAviso => ({
   titulo: '', corpo: '', importante: '', imagens: [], links: [{ rotulo: '', url: '' }], prazoData: '', prazoHora: '',
-  fixado: false, evento_id: '', temEnquete: false, pergunta: '', regra: '', multipla: false, opcoes: ['', ''],
+  fixado: false, evento_id: '', categoria: 'aviso', agenda_mes: '', temEnquete: false, pergunta: '', regra: '', multipla: false, opcoes: ['', ''],
 })
 
 const partesPrazo = (iso: string | null) => {
@@ -35,6 +38,7 @@ export const deAviso = (a: AvisoOrg): DadosAviso => ({
   titulo: a.titulo, corpo: a.corpo || '', importante: a.importante || '', imagens: a.imagens,
   links: a.links.length ? a.links.map(l => ({ rotulo: l.rotulo || '', url: l.url })) : [{ rotulo: '', url: '' }],
   ...partesPrazo(a.prazo_em), fixado: a.fixado, evento_id: a.evento_id || '',
+  categoria: a.categoria || 'aviso', agenda_mes: a.agenda_mes ? a.agenda_mes.slice(0, 7) : '',
   temEnquete: !!a.enquete, pergunta: a.enquete?.pergunta || '', regra: a.enquete?.regra || '',
   multipla: !!a.enquete?.multipla, opcoes: a.enquete?.opcoes?.length ? a.enquete.opcoes : ['', ''],
 })
@@ -42,13 +46,25 @@ export const deAviso = (a: AvisoOrg): DadosAviso => ({
 /** Duplicar: tudo menos imagens, prazo e fixado (cada aviso tem as suas imagens). */
 export const duplicarAviso = (a: AvisoOrg): DadosAviso => ({ ...deAviso(a), imagens: [], prazoData: '', prazoHora: '', fixado: false })
 
+/** Meses para ligar o aviso a Agenda: o atual e os 5 seguintes (mais o ja escolhido, se for antigo). */
+function mesesAgenda(atual: string): string[] {
+  const hoje = new Date()
+  const out: string[] = []
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + i, 1))
+    out.push(d.toISOString().slice(0, 7))
+  }
+  if (atual && !out.includes(atual)) out.unshift(atual)
+  return out
+}
+
 /** O que vai para o banco: prazo no fuso de Brasilia (sem horario de verao: -03:00). */
 export function payload(d: DadosAviso) {
   return {
     titulo: d.titulo, corpo: d.corpo, importante: d.importante, imagens: d.imagens,
     links: d.links.filter(l => l.url.trim()).map(l => ({ rotulo: l.rotulo.trim(), url: l.url.trim() })),
     prazo_em: d.prazoData ? `${d.prazoData}T${d.prazoHora || '23:59'}:00-03:00` : '',
-    fixado: d.fixado, evento_id: d.evento_id,
+    fixado: d.fixado, evento_id: d.evento_id, categoria: d.categoria, agenda_mes: d.agenda_mes ? `${d.agenda_mes}-01` : '',
     enquete: d.temEnquete ? { pergunta: d.pergunta, regra: d.regra, multipla: d.multipla, opcoes: d.opcoes.map(o => o.trim()).filter(Boolean) } : null,
   }
 }
@@ -101,6 +117,7 @@ export function FormAviso({ titulo, inicial, estado, votos, eventos, urlImagem, 
     resumo: semEmoji(d.corpo).replace(/\*/g, '').replace(/\s+/g, ' ').slice(0, 180), imagens: d.imagens, links: [],
     prazo_em: d.prazoData ? `${d.prazoData}T${d.prazoHora || '23:59'}:00-03:00` : null, fixado: d.fixado,
     status: 'publicado', publicado_em: new Date().toISOString(), editado_em: null, autor: null, tem_atualizacoes: false,
+    categoria: d.categoria, agenda_mes: null,
     enquete: d.temEnquete ? { pergunta: d.pergunta, regra: d.regra || null, multipla: d.multipla, opcoes: d.opcoes, aberta: true, meu_voto: null, total: 0 } : null,
   }
 
@@ -117,6 +134,16 @@ export function FormAviso({ titulo, inicial, estado, votos, eventos, urlImagem, 
           <label className="as-f"><span className="as-lb">Título</span>
             <input className="as-in" value={d.titulo} maxLength={80} onChange={e => set('titulo', e.target.value)} />
             <span className="as-hint">Curto e direto. {d.titulo.length}/80.</span></label>
+
+          <div className="as-f"><span className="as-lb">Categoria</span>
+            <div className="fa-cats" role="radiogroup" aria-label="Categoria">
+              {ORDEM_CATEGORIAS.map(c => (
+                <button key={c} type="button" role="radio" aria-checked={d.categoria === c} className={`as-chip fa-cat${d.categoria === c ? ' fill' : ''}`} onClick={() => set('categoria', c)}>
+                  <Ico n={CATEGORIAS[c].ico} s={14} />{CATEGORIAS[c].rotulo}
+                </button>
+              ))}
+            </div>
+            <span className="as-hint">Aviso sem foto ganha a capa da categoria, com “{palavraCapa({ titulo: d.titulo || 'Aviso', categoria: d.categoria })}” em destaque.</span></div>
 
           <label className="as-f"><span className="as-lb">Texto</span>
             <textarea className="as-in fa-ta" value={d.corpo} maxLength={3000} onChange={e => set('corpo', e.target.value)} />
@@ -174,6 +201,13 @@ export function FormAviso({ titulo, inicial, estado, votos, eventos, urlImagem, 
               <span className="as-hint">O aviso ganha o botão “Ver na Agenda”.</span></label>
           )}
 
+          <label className="as-f"><span className="as-lb">Mês da Agenda (opcional)</span>
+            <select className="as-in" value={d.agenda_mes} onChange={e => set('agenda_mes', e.target.value)}>
+              <option value="">Nenhum</option>
+              {mesesAgenda(d.agenda_mes).map(m => <option key={m} value={m}>{MESES[Number(m.slice(5, 7)) - 1]} de {m.slice(0, 4)}</option>)}
+            </select>
+            <span className="as-hint">Para o aviso do calendário do mês: a página lista os eventos da Agenda daquele mês.</span></label>
+
           <label className="as-chk"><input type="checkbox" checked={d.fixado} onChange={e => set('fixado', e.target.checked)} /><span>Fixar no topo. Para regras e boas-vindas; no máximo 3 fixados.</span></label>
 
           <label className="as-chk"><input type="checkbox" checked={d.temEnquete} disabled={travaEnquete} onChange={e => set('temEnquete', e.target.checked)} /><span>Tem enquete</span></label>
@@ -205,7 +239,10 @@ export function FormAviso({ titulo, inicial, estado, votos, eventos, urlImagem, 
         <div className="fa-lado">
           <div className="fa-previa">
             <div className="as-k">Prévia para o membro</div>
-            <LinhaAviso a={previa} visto={null} href="#" />
+            <div className="fa-prev-card" aria-hidden="true">
+              <span className="m"><CapaAviso a={previa} sizes="360px" /></span>
+              <span className="b"><span className="c">{CATEGORIAS[d.categoria].rotulo}</span><b>{previa.titulo}</b><span className="r">{previa.resumo || 'O começo do texto aparece aqui.'}</span></span>
+            </div>
           </div>
           {erro && <div className="as-erro" role="alert">{erro}</div>}
           {(novo || estado === 'rascunho') ? (
@@ -239,7 +276,14 @@ const FA_CSS = `
 .pc-abas.fa-tipo{display:grid}
 .fa-lado{display:flex;flex-direction:column;gap:8px}
 .fa-previa{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px dashed var(--bx-border-2);border-radius:12px}
-.fa-previa .av-linha{border-bottom:0;pointer-events:none}
+.fa-prev-card{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--bx-border);background:var(--bx-surface)}
+.fa-prev-card .m{position:relative;display:block;aspect-ratio:16/9;background:var(--bx-bg-elev)}
+.fa-prev-card .b{display:flex;flex-direction:column;gap:4px;padding:10px 12px 12px}
+.fa-prev-card .c{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ac-1)}
+.fa-prev-card b{font-size:16px;line-height:1.25}
+.fa-prev-card .r{font-size:13px;color:var(--bx-text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fa-cats{display:flex;flex-wrap:wrap;gap:8px}
+.fa-cat{height:auto;min-height:44px;padding:0 14px;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .fa select.as-in{appearance:auto}
 @media (min-width:1024px){
   .fa-grade{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:32px;align-items:start}
