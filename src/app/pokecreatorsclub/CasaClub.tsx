@@ -207,6 +207,7 @@ export default function CasaClub() {
 // Decorativos: o titulo do cartao ja diz o que e, por isso alt vazio.
 const SELO_AMIGO_SECRETO = '/pokecreatorsclub/selo-amigo-secreto.webp'
 const SELO_ANIVERSARIANTES = '/pokecreatorsclub/selo-aniversariantes.webp'
+const SELO_AGENDA = '/pokecreatorsclub/selo-agenda.webp'
 // Cartas ilustradas do leque do hero (06/11), proporcao 2:3.
 const CARTA_AMIGO_SECRETO = '/pokecreatorsclub/carta-amigo-secreto.webp'
 const CARTA_ANIVERSARIANTES = '/pokecreatorsclub/carta-aniversariantes.webp'
@@ -216,8 +217,8 @@ function Selo({ src, grande = false }: { src: string; grande?: boolean }) {
   return <img src={src} alt="" width={256} height={256} className={`cl-selo${grande ? ' g' : ''}`} />
 }
 
-// Agenda do Club (08/11/2026, wireframe C11 a C13). O selo ilustrado ainda nao
-// existe: ate a arte chegar, o icone do calendario no mesmo tamanho do selo.
+// Agenda do Club (08/11/2026, wireframe C11 a C13). Selos das tres frentes
+// trocados pelo Du em 08/11 (so os de baixo; as cartas do topo ficaram).
 function CartaoAgenda({ logado, carregou, hoje, proximo }: { logado: boolean; carregou: boolean; hoje: Evento | null; proximo: Evento | null }) {
   const quando = (e: Evento) => {
     const [, mm, dd] = e.inicio_data.split('-')
@@ -232,7 +233,7 @@ function CartaoAgenda({ logado, carregou, hoje, proximo }: { logado: boolean; ca
   return (
     <section className="as-card cl-frente">
       <div className="cl-frente-g">
-        <span className="cl-selo cl-selo-ico" aria-hidden="true"><Ico n="cal" s={36} /></span>
+        <Selo src={SELO_AGENDA} />
         <div className="cl-frente-tx">
           <h2 className="as-h3">Agenda</h2>
           <p className="as-meta">{linha}</p>
@@ -321,7 +322,6 @@ const CL_CSS = `
 .cl-frente .as-verso.sm{width:56px}
 .cl-hoje{gap:8px;padding:18px 16px}
 .cl-frentes{display:flex;flex-direction:column;gap:12px;min-width:0}
-.cl-selo-ico{display:inline-flex;align-items:center;justify-content:center;border-radius:18px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--ac-1)}
 .cl-hoje-ev{font-size:20px;word-break:normal}
 .cl-acoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .cl-hoje .at{margin-top:0}
