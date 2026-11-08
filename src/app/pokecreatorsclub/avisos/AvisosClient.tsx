@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { marcarVisita, pedeResposta, prazoPassou, ultimaVisita, type ListaAvisos } from '@/lib/pcc/avisos'
 import { AVISOS, AVISOS_ORGANIZAR, CLUB } from '@/lib/pcc/rotas'
-import { Ico } from '../amigo-secreto/estilo'
+import { SeloFrente } from '../amigo-secreto/estilo'
 import { Casca } from '../agenda/comum'
 import { AV_CSS, FixadoCompacto, LinhaAviso } from './comum'
 
@@ -56,7 +56,7 @@ export default function AvisosClient() {
     const entrar = () => openLogin({ next: ROTA, cta: 'Entrar no Club' })
     return casca(
       <div className="as-center">
-        <div className="as-verso tilt" aria-hidden="true"><Ico n="megafone" s={28} /></div>
+        <SeloFrente frente="avisos" />
         <h1 className="as-h2">Avisos do Club</h1>
         <p className="as-p">Entre para ver os avisos.</p>
         <button type="button" className="as-btn pri cta" style={{ maxWidth: 320, width: '100%' }} onClick={entrar}>Entrar</button>

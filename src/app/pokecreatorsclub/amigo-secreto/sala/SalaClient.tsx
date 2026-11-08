@@ -17,7 +17,7 @@ import {
   nomePokemon, spritePokemon, type EdicaoPublica, type Eu, type MensagemMural, type MinhaSala, type Tirou,
 } from '@/lib/amigoSecreto'
 import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
-import { AS_CSS, Avatar, Ico, VoltarClub } from '../estilo'
+import { AS_CSS, Avatar, Ico, SeloFrente, VoltarClub } from '../estilo'
 
 const SALA = AMIGO_SECRETO_SALA
 const SLUG = AMIGO_SECRETO_SLUG
@@ -127,7 +127,7 @@ export default function SalaClient() {
     return (
       <Casca>
         <div className="as-center">
-          <div className="as-verso tilt" aria-hidden="true"><Ico n="gift" s={28} /></div>
+          <SeloFrente frente="amigo-secreto" />
           <h2 className="as-h2">Entre para abrir a sala</h2>
           <p className="as-p">A sala do Amigo Secreto é só de quem está dentro.</p>
           <button type="button" className="as-btn pri cta" style={{ maxWidth: 320 }} onClick={() => openLogin({ next: SALA, cta: 'Entrar para abrir a sala' })}>Entrar na minha conta</button>

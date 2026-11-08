@@ -15,7 +15,7 @@ import { INSTAGRAM_RE, limparInstagram, spritePokemon } from '@/lib/amigoSecreto
 import { diaNoAno, erroAniversario, instagramUrl, ordenarProximos, type Aniversariante, type ListaAniversarios, type Proximo } from '@/lib/pcc/aniversarios'
 import { MESES, MESES_CURTOS, diasDoMes, hojeBrasilia, quandoTexto, trocarMes } from '@/lib/pcc/datas'
 import { ANIVERSARIANTES, ANIVERSARIANTES_ORGANIZAR, CLUB } from '@/lib/pcc/rotas'
-import { AS_CSS, Ico, VoltarClub } from '../amigo-secreto/estilo'
+import { AS_CSS, Ico, SeloFrente, VoltarClub } from '../amigo-secreto/estilo'
 import { Abas, BlocoData, CAL_CSS, CalendarioMes, Folha, NavMes } from '../_comum/calendario'
 
 const BUCKET = 'club-fotos'
@@ -73,7 +73,7 @@ export default function AniversariantesClient() {
     return (
       <Casca logado={false} onEntrar={() => openLogin({ next: ROTA, cta: 'Entrar no Club' })}>
         <div className="as-center">
-          <div className="as-verso tilt" aria-hidden="true"><Ico n="star" s={28} /></div>
+          <SeloFrente frente="aniversariantes" />
           <h1 className="as-h2">Aniversariantes do Club</h1>
           <p className="as-p">Entre para ver quem faz aniversário.</p>
           <button type="button" className="as-btn pri cta" style={{ maxWidth: 320 }} onClick={() => openLogin({ next: ROTA, cta: 'Entrar no Club' })}>Entrar</button>

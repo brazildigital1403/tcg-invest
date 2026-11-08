@@ -13,7 +13,7 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { dataCurta, dominio, ehPagamento, prazoPassou, prazoPorExtenso, type Aviso } from '@/lib/pcc/avisos'
 import { horaCurta } from '@/lib/pcc/agenda'
 import { AVISOS, AVISOS_ORGANIZAR, agendaEvento, avisoUrl } from '@/lib/pcc/rotas'
-import { Ico } from '../../amigo-secreto/estilo'
+import { Ico, SeloFrente } from '../../amigo-secreto/estilo'
 import { Casca } from '../../agenda/comum'
 import { AV_CSS, ChipsAviso, Enquete, TelaCheia, urlImagem } from '../comum'
 import { TEXTO_CSS, TextoAviso } from '../Texto'
@@ -60,7 +60,7 @@ export default function AvisoClient({ slug }: { slug: string }) {
     const entrar = () => openLogin({ next: rota, cta: 'Entrar no Club' })
     return casca(
       <div className="as-center">
-        <div className="as-verso tilt" aria-hidden="true"><Ico n="megafone" s={28} /></div>
+        <SeloFrente frente="avisos" />
         <h1 className="as-h2">Avisos do Club</h1>
         <p className="as-p">Entre para ver os avisos.</p>
         <button type="button" className="as-btn pri cta" style={{ maxWidth: 320, width: '100%' }} onClick={entrar}>Entrar</button>
@@ -107,7 +107,7 @@ export default function AvisoClient({ slug }: { slug: string }) {
       })}
       {evento && (
         <Link href={agendaEvento(evento.slug)} className="as-btn">
-          <Ico n="cal" s={16} />Ver na Agenda: {evento.titulo}, {evento.inicio_data.slice(8, 10)}/{evento.inicio_data.slice(5, 7)}{evento.hora_inicio ? `, às ${horaCurta(evento.hora_inicio)}` : ''}
+          <Ico n="cal" s={16} />Ver na Agenda: {evento.titulo}, {evento.inicio_data.slice(8, 10)}/{evento.inicio_data.slice(5, 7)}{evento.hora_inicio ? `, às ${horaCurta(evento.hora_inicio)}` : ''}{evento.status === 'cancelado' ? ' (cancelado)' : evento.status === 'adiado' ? ' (adiado)' : ''}
         </Link>
       )}
       {organiza && aviso.status !== 'arquivado' && <Link href={`${AVISOS_ORGANIZAR}?editar=${aviso.id}`} className="as-btn lnk">Editar aviso</Link>}

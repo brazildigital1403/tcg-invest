@@ -11,7 +11,7 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { MESES, hojeBrasilia, trocarMes, type MesAno } from '@/lib/pcc/datas'
 import { TIPOS, diasAte, isoDia, linhaMeta, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
 import { AGENDA, AGENDA_ORGANIZAR, CLUB, agendaEvento } from '@/lib/pcc/rotas'
-import { Ico } from '../amigo-secreto/estilo'
+import { SeloFrente } from '../amigo-secreto/estilo'
 import { Abas, CalendarioMes, Folha, NavMes } from '../_comum/calendario'
 import { Casca, ChipEstado, LinhaEvento, TipoQuad, proximos } from './comum'
 
@@ -77,7 +77,7 @@ export default function AgendaClient() {
     return (
       <Casca logado={false} onEntrar={entrar} voltar={CLUB} titulo="Agenda">
         <div className="as-center">
-          <div className="as-verso tilt" aria-hidden="true"><Ico n="cal" s={28} /></div>
+          <SeloFrente frente="agenda" />
           <h1 className="as-h2">Agenda do Club</h1>
           <p className="as-p">Entre para ver a agenda.</p>
           <button type="button" className="as-btn pri cta" style={{ maxWidth: 320, width: '100%' }} onClick={entrar}>Entrar</button>

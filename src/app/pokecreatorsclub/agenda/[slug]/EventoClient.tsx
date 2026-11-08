@@ -16,7 +16,7 @@ import {
   type Evento,
 } from '@/lib/pcc/agenda'
 import { AGENDA, AGENDA_ORGANIZAR, agendaEvento } from '@/lib/pcc/rotas'
-import { Ico } from '../../amigo-secreto/estilo'
+import { Ico, SeloFrente } from '../../amigo-secreto/estilo'
 import { Folha } from '../../_comum/calendario'
 import { Casca, ChipEstado } from '../comum'
 
@@ -63,7 +63,7 @@ export default function EventoClient({ slug }: { slug: string }) {
     const entrar = () => openLogin({ next: rota, cta: 'Entrar no Club' })
     return casca(
       <div className="as-center">
-        <div className="as-verso tilt" aria-hidden="true"><Ico n="cal" s={28} /></div>
+        <SeloFrente frente="agenda" />
         <h1 className="as-h2">Agenda do Club</h1>
         <p className="as-p">Entre para ver a agenda.</p>
         <button type="button" className="as-btn pri cta" style={{ maxWidth: 320, width: '100%' }} onClick={entrar}>Entrar</button>

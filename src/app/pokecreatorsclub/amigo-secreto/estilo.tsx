@@ -71,6 +71,22 @@ export function Avatar({ instagram, pokemon, tam = 32 }: { instagram: string; po
 
 export const LOGO_PCC = '/amigo-secreto/poke-creators-club.png'
 
+// Selos ilustrados de cada frente (256 px, 08/11/2026). A casa e a tela de
+// entrada de cada frente usam o mesmo desenho. Avisos ainda sem arte: icone.
+export const SELOS = {
+  'amigo-secreto': '/pokecreatorsclub/selo-amigo-secreto.webp',
+  aniversariantes: '/pokecreatorsclub/selo-aniversariantes.webp',
+  agenda: '/pokecreatorsclub/selo-agenda.webp',
+  avisos: null,
+} as const satisfies Record<string, string | null>
+
+export function SeloFrente({ frente, className = '' }: { frente: keyof typeof SELOS; className?: string }) {
+  const src = SELOS[frente]
+  if (!src) return <span className={`as-selo as-selo-ico ${className}`} aria-hidden="true"><Ico n="megafone" s={40} /></span>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" width={256} height={256} className={`as-selo ${className}`} />
+}
+
 /** Volta sempre para a casa do Club: quem chega pelo WhatsApp nao tem historico. */
 export function VoltarClub({ href, rotulo = 'Club' }: { href: string; rotulo?: string }) {
   return (
@@ -133,6 +149,9 @@ export const AS_CSS = `
 .as-verso.tilt{transform:rotate(-6deg)}
 .as-verso.tilt:hover{transform:rotate(-6deg) translateY(-2px)}
 .as-verso.sm{width:84px}
+.as-selo{width:144px;height:144px;flex:none;object-fit:contain;display:block}
+.as-selo.sm{width:96px;height:96px}
+.as-selo-ico{display:inline-flex;align-items:center;justify-content:center;border-radius:28px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--ac-1)}
 .as-frente{position:relative;border-radius:16px;padding:12px 16px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;border:1px solid transparent;background:linear-gradient(var(--bx-bg-elev),var(--bx-bg-elev)) padding-box,var(--ac-grad) border-box;box-shadow:var(--bx-shadow);animation:as-virar .2s ease}
 .as-frente:before{content:"";position:absolute;inset:7px;border-radius:11px;border:1px solid var(--bx-border);pointer-events:none}
 .as-frente .at{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-top:6px;word-break:break-all}
@@ -294,12 +313,14 @@ export const AS_CSS = `
   .as-hero .as-eyebrow{grid-column:1;justify-self:start}
   .as-hero-g{grid-column:1;flex-direction:column;align-items:flex-start;gap:14px}
   .as-hero-g .as-verso{display:none}
+  .as-hero-g .as-selo{display:none}
   .as-h1{font-size:56px;max-width:12ch}
   .as-p{font-size:17px;max-width:48ch}
   .as-hero-cta{display:flex;gap:12px;align-items:center;margin-top:6px}
   .as-hero-cta .as-btn{width:auto;padding:0 28px}
   .as-hero-side{grid-column:2;grid-row:1/3;align-self:center;display:flex;flex-direction:column;align-items:center;gap:18px}
   .as-hero-side .as-verso{width:220px}
+  .as-hero-side .as-selo{width:220px;height:220px}
   .as-hero-side .as-verso:before{inset:12px;border-radius:10px}
   .as-hero-side .as-verso:after{inset:24px;border-radius:7px}
   .as-hero-side .as-card{width:100%}

@@ -20,7 +20,7 @@ import { diaMes, diasAtePrazo, ehNovo, pedeResposta, prazoPassou, ultimaVisita, 
 import { TIPOS, horaCurta, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
 import { hojeBrasilia } from '@/lib/pcc/datas'
 import { proximos as proximosEventos } from './agenda/comum'
-import { AS_CSS, Ico, LOGO_PCC } from './amigo-secreto/estilo'
+import { AS_CSS, Ico, LOGO_PCC, SELOS } from './amigo-secreto/estilo'
 import { Rosto } from './aniversariantes/AniversariantesClient'
 
 type Tarefa = { titulo: string; texto: string; botao: string; href: string }
@@ -221,9 +221,9 @@ export default function CasaClub() {
 
 // Selos ilustrados das frentes (06/11, pedido do Du: "cara de Pokemon").
 // Decorativos: o titulo do cartao ja diz o que e, por isso alt vazio.
-const SELO_AMIGO_SECRETO = '/pokecreatorsclub/selo-amigo-secreto.webp'
-const SELO_ANIVERSARIANTES = '/pokecreatorsclub/selo-aniversariantes.webp'
-const SELO_AGENDA = '/pokecreatorsclub/selo-agenda.webp'
+const SELO_AMIGO_SECRETO = SELOS['amigo-secreto']
+const SELO_ANIVERSARIANTES = SELOS.aniversariantes
+const SELO_AGENDA = SELOS.agenda
 // Cartas ilustradas do leque do hero (06/11), proporcao 2:3.
 const CARTA_AMIGO_SECRETO = '/pokecreatorsclub/carta-amigo-secreto.webp'
 const CARTA_ANIVERSARIANTES = '/pokecreatorsclub/carta-aniversariantes.webp'

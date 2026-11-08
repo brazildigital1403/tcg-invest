@@ -16,7 +16,7 @@ import {
   AMIGO_SECRETO_SLUG, brl, dataCurta, dataHora, horaCurta, type EdicaoPublica,
 } from '@/lib/amigoSecreto'
 import { AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
-import { AS_CSS, Avatar, Ico, VoltarClub } from './estilo'
+import { AS_CSS, Avatar, Ico, SeloFrente, VoltarClub } from './estilo'
 
 const SALA = AMIGO_SECRETO_SALA
 
@@ -99,11 +99,11 @@ export default function AmigoSecretoLanding() {
                 <p className="as-p">Uma troca de presentes entre criadores de Pokémon TCG. No sorteio, você descobre quem vai presentear. Quem tirou você só aparece na revelação, se os dois quiserem.</p>
                 {edicao && <><div className="as-hero-cta">{cta}</div><div className="as-hero-cta" style={{ marginTop: 0 }}>{avisoGrupo}</div></>}
               </div>
-              <div className="as-verso tilt sm" aria-hidden="true"><Ico n="gift" s={28} /></div>
+              <SeloFrente frente="amigo-secreto" className="sm" />
             </div>
             {edicao && (
               <div className="as-hero-side">
-                <div className="as-verso tilt" aria-hidden="true"><Ico n="gift" s={40} /></div>
+                <SeloFrente frente="amigo-secreto" />
                 <QuemEntrou edicao={edicao} convite={inscricoesAbertas && logado !== true} />
               </div>
             )}
