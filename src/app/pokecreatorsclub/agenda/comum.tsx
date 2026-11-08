@@ -43,6 +43,7 @@ export function TipoQuad({ e, tam = 40 }: { e: Pick<Evento, 'tipo' | 'status'>; 
 
 /** Chip de estado do evento: Hoje, Agora, Adiado, Cancelado, Encerrado ou Nova data. */
 export function ChipEstado({ e, hoje }: { e: Evento; hoje: Dia }) {
+  if (e.status === 'rascunho') return <span className="as-chip">Rascunho</span>
   if (e.status === 'cancelado') return <span className="as-chip ag-chip-canc">Cancelado</span>
   if (e.status === 'adiado') return <span className="as-chip">Adiado</span>
   const m = momento(e, hoje)
@@ -87,7 +88,7 @@ export const AG_CSS = `
 .ag-linha:hover{background:var(--bx-surface)}
 .ag-linha.apagado .pc-nm b{color:var(--bx-text-2)}
 .ag-linha .as-chip{flex:none}
-.ag-chip-canc{color:var(--bx-red);border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.08)}
+.ag-chip-canc{color:var(--bx-red);border-color:color-mix(in srgb,var(--bx-red) 30%,transparent);background:color-mix(in srgb,var(--bx-red) 8%,transparent)}
 .ag-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .ag-topo .as-btn{width:auto;flex:none}
 .ag-sub{margin:4px 0 0}

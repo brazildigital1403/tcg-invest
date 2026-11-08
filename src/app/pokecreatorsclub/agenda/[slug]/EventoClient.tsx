@@ -90,7 +90,9 @@ export default function EventoClient({ slug }: { slug: string }) {
   const passou = m === 'passado'
   const cancelado = ev.status === 'cancelado'
   const adiado = ev.status === 'adiado'
-  const podeAgendar = !cancelado && !adiado && !passou
+  const rascunho = ev.status === 'rascunho'
+  // Rascunho (so o organizador abre): sem agenda e sem compartilhar, o membro nao abriria o link.
+  const podeAgendar = ev.status === 'publicado' && !passou
   const urlAbsoluta = typeof window !== 'undefined' ? `${window.location.origin}${rota}` : rota
 
   const acoes = (
@@ -105,7 +107,8 @@ export default function EventoClient({ slug }: { slug: string }) {
         </>
       )}
       {podeAgendar && <button type="button" className="as-btn" onClick={() => setFolha('agenda')}><Ico n="cal" s={16} />Adicionar à agenda</button>}
-      <button type="button" className="as-btn" onClick={() => setFolha('compartilhar')}><Ico n="share" s={16} />{cancelado ? 'Compartilhar o aviso' : 'Compartilhar'}</button>
+      {!rascunho && <button type="button" className="as-btn" onClick={() => setFolha('compartilhar')}><Ico n="share" s={16} />{cancelado ? 'Compartilhar o aviso' : 'Compartilhar'}</button>}
+      {rascunho && <div className="as-note">Rascunho: só a organização vê. Publique para o grupo ver e compartilhar.</div>}
       {papeis.includes('agenda') && !cancelado && <Link href={`${AGENDA_ORGANIZAR}?editar=${ev.id}`} className="as-btn lnk">Editar evento</Link>}
     </div>
   )
@@ -163,7 +166,7 @@ function FolhaAgenda({ ev, urlEvento, onFechar }: { ev: Evento; urlEvento: strin
       <a className="as-btn" href={googleAgendaUrl(ev, urlEvento)} target="_blank" rel="noopener noreferrer">Google Agenda</a>
       <button type="button" className="as-btn" disabled={ocupado} onClick={apple}>{ocupado ? 'Gerando...' : 'iPhone e outras agendas'}</button>
       {erro && <div className="as-erro" role="alert">{erro}</div>}
-      <span className="as-hint">Com lembrete 1 hora antes.</span>
+      <span className="as-hint">{ev.hora_inicio ? 'No iPhone e nas outras agendas, o evento já vem com lembrete 1 hora antes.' : 'No iPhone e nas outras agendas, o evento já vem com lembrete às 9h do dia.'}</span>
     </Folha>
   )
 }
@@ -195,7 +198,7 @@ const EV_CSS = `
 .ev-dl>div>span:last-child{font-size:14.5px;color:var(--bx-text)}
 .ev-dl small{color:var(--bx-text-3);font-size:12px}
 .ev-ats{display:flex;flex-wrap:wrap;gap:4px 10px}
-.ev-ats a{color:var(--ac-1);text-decoration:none;font-weight:600;min-height:32px;display:inline-flex;align-items:center}
+.ev-ats a{color:var(--ac-1);text-decoration:none;font-weight:600;min-height:44px;display:inline-flex;align-items:center}
 .ev-desc{white-space:pre-line;margin:0}
 .ev-acoes{display:flex;flex-direction:column;gap:8px}
 .ev-acoes .as-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}

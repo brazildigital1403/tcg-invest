@@ -101,13 +101,13 @@ create table public.club_eventos (
   local_nome     text check (char_length(local_nome) <= 80),
   cidade         text check (char_length(cidade) <= 60),
   uf             text check (uf ~ '^[A-Z]{2}$'),
-  link_url       text check (link_url ~ '^https://' and char_length(link_url) <= 500),
+  link_url       text check (link_url ~ '^https://[^[:space:][:cntrl:]]+$' and char_length(link_url) <= 500),
   participantes  text[] not null default '{}' check (cardinality(participantes) <= 20),
-  imagem_path    text check (imagem_path like 'eventos/%'),
+  imagem_path    text check (imagem_path ~ '^eventos/[A-Za-z0-9-]+\.(webp|jpg|png)$'),
   inicio_data    date not null,
   fim_data       date not null,
-  hora_inicio    time,
-  hora_fim       time,
+  hora_inicio    time check (hora_inicio < '24:00'),
+  hora_fim       time check (hora_fim < '24:00'),
   status         text not null default 'rascunho' check (status in ('rascunho', 'publicado', 'adiado', 'cancelado')),
   nota_status    text check (char_length(nota_status) <= 200),
   remarcado_em   timestamptz,
@@ -125,6 +125,9 @@ create table public.club_eventos (
   constraint club_eventos_cancelado check (status <> 'cancelado' or nota_status is not null)
 );
 create index club_eventos_inicio_idx on public.club_eventos (inicio_data) where status <> 'rascunho';
+-- Uma imagem por evento: trocar a imagem de um evento apaga o arquivo antigo, e
+-- ele nao pode ser de outro evento (revisao de 08/11).
+create unique index club_eventos_imagem_uidx on public.club_eventos (imagem_path) where imagem_path is not null;
 alter table public.club_eventos enable row level security;
 revoke all on public.club_eventos from public, anon, authenticated;
 
@@ -257,11 +260,17 @@ begin
   end if;
 
   if v_tipo is null or v_tipo not in ('live', 'collab', 'abertura', 'torneio', 'presencial', 'lancamento', 'club') then raise exception 'tipo_invalido'; end if;
-  if v_titulo is null or char_length(v_titulo) < 3 or char_length(v_titulo) > 60 then raise exception 'titulo_invalido'; end if;
+  if v_titulo is null or char_length(v_titulo) < 3 or char_length(v_titulo) > 60 or v_titulo ~ '[[:cntrl:]]' then raise exception 'titulo_invalido'; end if;
+  -- Caractere de controle quebraria o .ics; na descricao so a quebra de linha fica.
+  if v_local ~ '[[:cntrl:]]' or v_cidade ~ '[[:cntrl:]]' then raise exception 'local_invalido'; end if;
+  v_desc := nullif(regexp_replace(coalesce(v_desc, ''), '[\x01-\x09\x0b-\x1f\x7f]', '', 'g'), '');
   if v_desc is not null and char_length(v_desc) > 600 then raise exception 'descricao_longa'; end if;
   if v_formato not in ('online', 'presencial') then raise exception 'formato_invalido'; end if;
-  if v_link is not null and (v_link !~ '^https://[^ ]+$' or char_length(v_link) > 500) then raise exception 'link_invalido'; end if;
-  if v_img is not null and v_img not like 'eventos/%' then raise exception 'imagem_invalida'; end if;
+  if v_link is not null and (v_link !~ '^https://[^[:space:][:cntrl:]]+$' or char_length(v_link) > 500) then raise exception 'link_invalido'; end if;
+  if v_img is not null and v_img !~ '^eventos/[A-Za-z0-9-]+\.(webp|jpg|png)$' then raise exception 'imagem_invalida'; end if;
+  if v_img is not null and exists (select 1 from public.club_eventos e where e.imagem_path = v_img and e.id is distinct from p_id) then
+    raise exception 'imagem_invalida';
+  end if;
   if v_uf is not null and v_uf !~ '^[A-Z]{2}$' then raise exception 'uf_invalida'; end if;
 
   begin
@@ -273,12 +282,15 @@ begin
     raise exception 'data_invalida';
   end;
   if v_ini is null then raise exception 'data_obrigatoria'; end if;
+  if v_hi >= '24:00' or v_hf >= '24:00' then raise exception 'hora_invalida'; end if;
   if v_fim < v_ini then raise exception 'fim_antes_do_inicio'; end if;
   if v_fim - v_ini > 30 then raise exception 'evento_longo'; end if;
   if v_hf is not null and v_hi is null then raise exception 'hora_invalida'; end if;
   if v_fim = v_ini and v_hf is not null and v_hf <= v_hi then raise exception 'fim_antes_do_inicio'; end if;
   -- Data no passado so trava quando a data muda (editar evento antigo continua possivel).
   if v_ini < v_hoje and (v_novo or v_ini is distinct from v_old.inicio_data) then raise exception 'data_passada'; end if;
+  -- Publicar (rascunho antigo, adiado sem data nova) exige evento que ainda nao acabou.
+  if p_acao = 'publicar' and v_fim < v_hoje then raise exception 'data_passada'; end if;
 
   if v_formato = 'presencial' then
     if v_cidade is null then raise exception 'cidade_obrigatoria'; end if;
@@ -433,6 +445,11 @@ begin
   update public.club_aniversarios set foto_path = null, updated_at = now() where instagram = v_ig;
   insert into public.club_organizacao_log (user_id, papel, acao, alvo, detalhe)
   values (p_autor, 'aniversariantes', 'remover_foto', v_ig, jsonb_build_object('foto_path', v_path));
+  -- O arquivo sai com a chave de servico: so devolve caminho no formato {uuid}/{arquivo},
+  -- sem "..". Outro formato sai da lista, mas o arquivo fica (revisao de 08/11).
+  if v_path !~ '^[0-9a-f-]{36}/[A-Za-z0-9._-]+$' or v_path like '%..%' then
+    return jsonb_build_object('foto_path', null);
+  end if;
   return jsonb_build_object('foto_path', v_path);
 end;
 $$;
@@ -459,12 +476,12 @@ grant execute on function public.club_aniversario_remover_foto(text) to authenti
 
 create policy club_fotos_eventos_ler on storage.objects
   for select to authenticated
-  using (bucket_id = 'club-fotos' and (storage.foldername(name))[1] = 'eventos' and public.club_tem_papel('agenda'));
+  using (bucket_id = 'club-fotos' and (storage.foldername(name))[1] = 'eventos' and (select public.club_tem_papel('agenda')));
 
 create policy club_fotos_eventos_subir on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'club-fotos' and (storage.foldername(name))[1] = 'eventos' and public.club_tem_papel('agenda'));
+  with check (bucket_id = 'club-fotos' and (storage.foldername(name))[1] = 'eventos' and (select public.club_tem_papel('agenda')));
 
 create policy club_fotos_eventos_apagar on storage.objects
   for delete to authenticated
-  using (bucket_id = 'club-fotos' and (storage.foldername(name))[1] = 'eventos' and public.club_tem_papel('agenda'));
+  using (bucket_id = 'club-fotos' and (storage.foldername(name))[1] = 'eventos' and (select public.club_tem_papel('agenda')));

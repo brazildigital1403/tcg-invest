@@ -29,7 +29,9 @@ export async function POST(req: NextRequest) {
     const st = /pessoa_nao_encontrada|sem_foto/.test(error.message) ? 404 : 500
     return NextResponse.json({ error: error.message }, { status: st })
   }
-  const path = (data as { foto_path: string }).foto_path
+  // Caminho fora do formato esperado volta nulo: a foto sai da lista e o arquivo fica.
+  const path = (data as { foto_path: string | null }).foto_path
+  if (!path) return NextResponse.json({ ok: true, arquivo_apagado: false })
   const { error: e2 } = await sb.storage.from(BUCKET).remove([path])
   if (e2) console.error('[pcc/remover-foto] foto ficou no bucket:', path, e2.message)
   return NextResponse.json({ ok: true, arquivo_apagado: !e2 })

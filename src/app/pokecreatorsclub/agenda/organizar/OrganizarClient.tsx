@@ -80,7 +80,9 @@ export default function OrganizarClient() {
   }, [carregar, voltarLista])
 
   const subirImagem = useCallback(async (arquivo: File): Promise<string | null> => {
-    const ext = arquivo.type === 'image/png' ? 'png' : arquivo.type === 'image/jpeg' ? 'jpg' : 'webp'
+    // So os tipos que o bucket aceita; outro (HEIC que nao converteu) cai no aviso de erro.
+    const ext = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' } as Record<string, string>)[arquivo.type]
+    if (!ext) return null
     const path = `eventos/${crypto.randomUUID()}.${ext}`
     const { error } = await supabase.storage.from(BUCKET).upload(path, arquivo, { contentType: arquivo.type, cacheControl: '31536000' })
     return error ? null : path

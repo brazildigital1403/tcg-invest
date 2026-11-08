@@ -40,6 +40,9 @@ export default function AgendaClient() {
   const hoje = useMemo(() => hojeBrasilia(), [])
   const [mesVisto, setMesVisto] = useState<MesAno>({ ano: hoje.ano, mes: hoje.mes })
   const [lida, setLida] = useState<{ ini: MesAno; fim: MesAno } | null>(null)
+  // "Proximos" usa sempre a janela que comeca hoje; so o calendario troca de
+  // janela ao navegar para longe (revisao de 08/11: a lista perdia eventos).
+  const [doCal, setDoCal] = useState<Evento[] | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUid(data.session?.user.id ?? null))
@@ -47,12 +50,14 @@ export default function AgendaClient() {
     return () => sub.subscription.unsubscribe()
   }, [])
 
-  const carregar = useCallback(async (centro: MesAno) => {
+  const carregar = useCallback(async (centro: MesAno, soCalendario = false) => {
     setFalhou(false)
     const j = janela(centro)
     const { data, error } = await supabase.rpc('club_agenda_lista', { p_de: j.de, p_ate: j.ate })
     if (error) { setFalhou(true); return }
-    setDados(data as ListaAgenda)
+    const d = data as ListaAgenda
+    if (!soCalendario) setDados(d)
+    setDoCal(d.eventos)
     setLida({ ini: j.ini, fim: j.fim })
   }, [])
 
@@ -61,7 +66,7 @@ export default function AgendaClient() {
   const irMes = (delta: number) => {
     const novo = trocarMes(mesVisto, delta)
     setMesVisto(novo)
-    if (lida && !dentro(novo, lida.ini, lida.fim)) carregar(novo)
+    if (lida && !dentro(novo, lida.ini, lida.fim)) carregar(novo, true)
   }
   const fecharDia = useCallback(() => setDiaAberto(null), [])
 
@@ -104,7 +109,7 @@ export default function AgendaClient() {
 
   const iniMes = isoDia({ ...mesVisto, dia: 1 })
   const fimMes = isoDia({ ...mesVisto, dia: new Date(Date.UTC(mesVisto.ano, mesVisto.mes, 0)).getUTCDate() })
-  const doMes = dados.eventos.filter(e => e.inicio_data <= fimMes && e.fim_data >= iniMes)
+  const doMes = (doCal || dados.eventos).filter(e => e.inicio_data <= fimMes && e.fim_data >= iniMes)
   const noDia = (d: number) => {
     const iso = isoDia({ ...mesVisto, dia: d })
     return doMes.filter(e => e.inicio_data <= iso && e.fim_data >= iso)

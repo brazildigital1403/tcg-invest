@@ -12,7 +12,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
-import { diaSeguinte, somaHora } from '@/lib/pcc/agenda'
+import { diaSeguinte, diasDoEvento, somaHora } from '@/lib/pcc/agenda'
 
 export const runtime = 'nodejs'
 
@@ -53,7 +53,9 @@ export async function GET(req: NextRequest) {
   const exp = Number(q.get('exp'))
   const sig = q.get('sig') || ''
   const certa = SLUG_RE.test(slug) && Number.isFinite(exp) ? assinar(slug, exp) : null
-  const ok = !!certa && sig.length === certa.length && timingSafeEqual(Buffer.from(sig), Buffer.from(certa)) && exp > Date.now()
+  // Assinatura sempre hex de 64: fora disso nem chega ao timingSafeEqual (que
+  // lancaria com Buffers de tamanhos diferentes).
+  const ok = !!certa && /^[0-9a-f]{64}$/.test(sig) && timingSafeEqual(Buffer.from(sig), Buffer.from(certa)) && exp > Date.now()
   if (!ok) return new NextResponse('Link expirado. Volte ao evento e toque de novo em Adicionar à agenda.', { status: 410, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
 
   const sb = getServiceSupabase()
@@ -75,8 +77,11 @@ export async function GET(req: NextRequest) {
     'BEGIN:VEVENT', `UID:${e.id}@bynx.gg`, `DTSTAMP:${carimbo}`,
   ]
   if (e.hora_inicio) {
+    // O horario vale para cada dia: varios dias viram um bloco diario (RRULE).
     const fimHora = e.hora_fim ? e.hora_fim.slice(0, 5) : somaHora(e.hora_inicio.slice(0, 5), 1)
-    linhas.push(`DTSTART;TZID=America/Sao_Paulo:${d(e.inicio_data)}T${h(e.hora_inicio)}`, `DTEND;TZID=America/Sao_Paulo:${d(e.fim_data)}T${h(fimHora)}`)
+    linhas.push(`DTSTART;TZID=America/Sao_Paulo:${d(e.inicio_data)}T${h(e.hora_inicio)}`, `DTEND;TZID=America/Sao_Paulo:${d(e.inicio_data)}T${h(fimHora)}`)
+    const n = diasDoEvento(e)
+    if (n > 1) linhas.push(`RRULE:FREQ=DAILY;COUNT=${n}`)
   } else {
     linhas.push(`DTSTART;VALUE=DATE:${d(e.inicio_data)}`, `DTEND;VALUE=DATE:${d(diaSeguinte(e.fim_data))}`)
   }
@@ -87,7 +92,8 @@ export async function GET(req: NextRequest) {
     `URL:${url}`,
   )
   if (e.formato === 'presencial') linhas.push(`LOCATION:${esc([e.local_nome, e.cidade, e.uf].filter(Boolean).join(', '))}`)
-  linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(e.titulo)}`, 'TRIGGER:-PT1H', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR')
+  // Com horario: 1 hora antes. Dia inteiro: as 9h do dia (um -PT1H cairia as 23h da vespera).
+  linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(e.titulo)}`, e.hora_inicio ? 'TRIGGER:-PT1H' : 'TRIGGER:PT9H', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR')
 
   return new NextResponse(linhas.map(dobrar).join('\r\n') + '\r\n', {
     headers: {
@@ -99,7 +105,7 @@ export async function GET(req: NextRequest) {
 }
 
 // Texto do iCalendar: escapa \ ; , e quebra de linha.
-const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n')
 
 // Linhas com mais de 75 bytes continuam na seguinte com um espaco (RFC 5545).
 function dobrar(linha: string): string {

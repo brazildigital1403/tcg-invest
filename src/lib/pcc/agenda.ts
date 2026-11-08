@@ -56,14 +56,18 @@ export function agoraBrasilia(agora = new Date()): string {
 export type Momento = 'futuro' | 'hoje' | 'agora' | 'passado'
 
 export function momento(e: Evento, hoje: Dia, hora = agoraBrasilia()): Momento {
+  // Adiado espera nova data: nunca vira passado (nem "Ver a gravacao"), mesmo
+  // depois da data original. Revisao de 08/11.
+  if (e.status === 'adiado') return 'futuro'
   const ini = diasAte(e.inicio_data, hoje)
   const fim = diasAte(e.fim_data, hoje)
   if (fim < 0) return 'passado'
   if (ini > 0) return 'futuro'
-  // Hoje esta dentro do periodo.
-  if (fim === 0 && e.hora_fim && hora >= e.hora_fim) return 'passado'
+  // Hoje esta dentro do periodo. Sem horario: o dia inteiro conta.
   if (!e.hora_inicio) return ini < 0 ? 'agora' : 'hoje'
-  if (ini < 0) return 'agora'
+  // Com horario, ele vale para cada dia do periodo (feira das 10h as 18h nos
+  // dois dias): fora da faixa a feira esta fechada.
+  if (e.hora_fim && hora >= e.hora_fim) return fim === 0 ? 'passado' : 'futuro'
   return hora >= e.hora_inicio ? 'agora' : 'hoje'
 }
 
@@ -96,8 +100,8 @@ export function dataPorExtenso(e: Evento): string {
   const dias = diasAte(e.fim_data, ini)
   const mesmoMes = ini.mes === fim.mes && ini.ano === fim.ano
   const comeco = mesmoMes ? `${ini.dia}` : `${ini.dia} de ${MESES[ini.mes - 1].toLowerCase()}`
-  const liga = dias === 1 ? ' e ' : ' a '
-  return `${comeco}${liga}${fim.dia} de ${MESES[fim.mes - 1].toLowerCase()}${horas}`
+  const conector = dias === 1 ? ' e ' : ' a '
+  return `${comeco}${conector}${fim.dia} de ${MESES[fim.mes - 1].toLowerCase()}${horas}`
 }
 
 export const ondeTexto = (e: Evento) =>
@@ -118,28 +122,36 @@ export const mapaUrl = (e: Evento) =>
 
 /** Rotulo do botao principal do link, pelo tipo. */
 export function rotuloLink(e: Evento, passou: boolean): string {
-  if (passou) return 'Ver a gravação'
+  // Gravacao so faz sentido para o que foi transmitido (revisao de 08/11).
+  if (passou && e.formato === 'online' && ['live', 'collab', 'abertura'].includes(e.tipo)) return 'Ver a gravação'
   if (e.formato === 'presencial') return 'Abrir o site do evento'
   if (e.tipo === 'live') return 'Abrir a live'
   if (e.tipo === 'torneio') return 'Abrir a inscrição'
   return 'Abrir o link'
 }
 
+/** Dias de calendario do evento (1 para evento de um dia). */
+export const diasDoEvento = (e: Pick<Evento, 'inicio_data' | 'fim_data'>) => diasAte(e.fim_data, parseDia(e.inicio_data)) + 1
+
 // Google Agenda: datas sem fuso + ctz, que o Google interpreta em Brasilia.
+// Evento de varios dias com horario vira um bloco por dia (RRULE diaria), igual
+// ao arquivo .ics: o horario vale para cada dia, nao um bloco unico.
 export function googleAgendaUrl(e: Evento, urlEvento: string): string {
   const d = (iso: string) => iso.replace(/-/g, '')
   const t = (h: string) => `T${h.replace(':', '')}00`
   let datas: string
+  const n = diasDoEvento(e)
   if (e.hora_inicio) {
     const fimHora = e.hora_fim || somaHora(e.hora_inicio, 1)
-    datas = `${d(e.inicio_data)}${t(e.hora_inicio)}/${d(e.fim_data)}${t(fimHora)}`
+    datas = `${d(e.inicio_data)}${t(e.hora_inicio)}/${d(e.inicio_data)}${t(fimHora)}`
   } else {
     datas = `${d(e.inicio_data)}/${d(diaSeguinte(e.fim_data))}`
   }
   const q = new URLSearchParams({
     action: 'TEMPLATE', text: e.titulo, dates: datas, ctz: 'America/Sao_Paulo',
-    details: [e.descricao, `Agenda do Club: ${urlEvento}`].filter(Boolean).join('\n\n'),
+    details: [e.descricao, e.link_url, `Agenda do Club: ${urlEvento}`].filter(Boolean).join('\n\n'),
   })
+  if (e.hora_inicio && n > 1) q.set('recur', `RRULE:FREQ=DAILY;COUNT=${n}`)
   if (e.formato === 'presencial') q.set('location', [e.local_nome, e.cidade, e.uf].filter(Boolean).join(', '))
   return `https://calendar.google.com/calendar/render?${q.toString()}`
 }
@@ -186,6 +198,8 @@ export function erroAgenda(msg: string | undefined | null): string {
   if (m.includes('data_invalida')) return 'Confira a data e o horário.'
   if (m.includes('link_invalido')) return 'O link precisa começar com https://'
   if (m.includes('cidade_obrigatoria')) return 'Evento presencial precisa de cidade.'
+  if (m.includes('local_invalido')) return 'Confira o local e a cidade.'
+  if (m.includes('imagem_invalida')) return 'Não conseguimos usar esta imagem. Suba outra.'
   if (m.includes('uf_invalida')) return 'A UF tem duas letras, como SP.'
   if (m.includes('participante_invalido')) return 'Confira os @ de quem participa. Use letras, números, ponto ou sublinhado.'
   if (m.includes('participantes_demais')) return 'Coloque no máximo 20 @.'

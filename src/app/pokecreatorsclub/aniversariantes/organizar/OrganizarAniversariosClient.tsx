@@ -127,6 +127,6 @@ function FolhaRemover({ p, onFechar, onFeito }: { p: Aniversariante; onFechar: (
 
 const OA_CSS = `
 .an-rosto img{object-fit:cover}
-.oa-rem{width:auto;flex:none;color:var(--bx-red);border-color:rgba(239,68,68,.3)}
+.oa-rem{width:auto;flex:none;color:var(--bx-red);border-color:color-mix(in srgb,var(--bx-red) 30%,transparent)}
 .oa-quem{display:flex;align-items:center;gap:12px;font-size:16px}
 `

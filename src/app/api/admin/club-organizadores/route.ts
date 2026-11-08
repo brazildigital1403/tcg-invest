@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     if (papeis.length === 0) return NextResponse.json({ error: 'Marque pelo menos um papel.' }, { status: 400 })
     const termo = (body.conta || '').trim().replace(/^@/, '').toLowerCase()
     if (!termo) return NextResponse.json({ error: 'Coloque o @ ou o e-mail da conta.' }, { status: 400 })
+    // O PostgREST trata * como curinga no ilike: um termo com * poderia pegar outra conta.
+    if (termo.includes('*')) return NextResponse.json({ error: 'Use o @ ou o e-mail exato, sem *.' }, { status: 400 })
 
     // ilike sem curinga: _ e % do @ viram literais. Ponto no @ quebraria o .or()
     // do PostgREST, por isso uma busca por campo.
