@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconCheck } from '@/components/ui/Icons'
+import { AdminPage } from '@/components/admin/AdminPage'
 
 const GOLD = '#f59e0b'
 const MUTED = 'rgba(255,255,255,0.45)'
@@ -144,18 +145,21 @@ export default function AdminCardRequestsPage() {
   }
 
   return (
-    <div style={{ padding: '20px 20px 60px', maxWidth: 1280, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f0f0f0', margin: 0 }}>Cartas faltando / erros</h1>
-        <span style={{ fontSize: 13, color: MUTED }}>{loading ? 'carregando...' : `${reqs.length} pedido${reqs.length !== 1 ? 's' : ''}`}</span>
+    <AdminPage
+      titulo="Cartas faltando / erros"
+      largura="media"
+      subtitulo={<>
+        <span style={{ color: '#f0f0f0', fontWeight: 600 }}>{loading ? 'Carregando...' : `${reqs.length} pedido${reqs.length !== 1 ? 's' : ''}`}</span>
+        {' '}&middot; Marque cada carta como <strong style={{ color: '#22c55e' }}>Adicionada</strong> conforme catalogar. Depois clique em <strong style={{ color: GOLD }}>Enviar resumo</strong>: cada usuario recebe UM unico e-mail com todas as cartas dele (nunca um e-mail por carta).
+      </>}
+      acao={
         <button onClick={enviarResumo} disabled={notifying}
-          style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, padding: '9px 16px', borderRadius: 8, cursor: notifying ? 'default' : 'pointer', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', border: 'none', opacity: notifying ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+          style={{ fontSize: 12, fontWeight: 700, padding: '9px 16px', borderRadius: 8, cursor: notifying ? 'default' : 'pointer', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', border: 'none', opacity: notifying ? 0.6 : 1, whiteSpace: 'nowrap' }}>
           {notifying ? 'Enviando...' : 'Enviar resumo (e-mail)'}
         </button>
-      </div>
-      <p style={{ fontSize: 13, color: MUTED, margin: '0 0 18px' }}>Marque cada carta como <strong style={{ color: '#22c55e' }}>Adicionada</strong> conforme catalogar. Depois clique em <strong style={{ color: GOLD }}>Enviar resumo</strong>: cada usuario recebe UM unico e-mail com todas as cartas dele (nunca um e-mail por carta).</p>
+      }>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 2 }}>
         <FilterRow value={fStatus} set={setFStatus} opts={[{ v: '', label: 'Todos' }, ...STATUS_OPTS.map(s => ({ v: s.v, label: s.label }))]} />
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <FilterRow value={fTipo} set={setFTipo} opts={[{ v: '', label: 'Tipo: todos' }, { v: 'faltando', label: 'Faltando' }, { v: 'erro', label: 'Erro' }]} />
@@ -217,8 +221,11 @@ export default function AdminCardRequestsPage() {
                     <div style={{ color: '#f0f0f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{r.user_name || '—'}</div>
                     <div style={{ fontSize: 11, color: MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{r.user_email || ''}</div>
                   </td>
-                  <td style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.6)', maxWidth: 220 }}>
-                    <span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={r.descricao || ''}>{r.descricao || '—'}</span>
+                  {/* A descricao e o que o usuario escreveu: tem que aparecer inteira.
+                      Antes era nowrap + ellipsis com o texto completo so no title (hover),
+                      que nao existe no celular -- o Du nao conseguia ler o pedido (07/11/2026). */}
+                  <td style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.75)', minWidth: 240, maxWidth: 360, lineHeight: 1.45, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                    {r.descricao || '—'}
                   </td>
                   <td style={{ padding: '10px 12px', color: MUTED, whiteSpace: 'nowrap', fontSize: 12 }}>{fmtData(r.created_at)}</td>
                   <td style={{ padding: '10px 12px' }}>
@@ -234,6 +241,6 @@ export default function AdminCardRequestsPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </AdminPage>
   )
 }
