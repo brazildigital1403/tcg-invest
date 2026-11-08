@@ -15,7 +15,10 @@ import {
   AMIGO_SECRETO_SLUG, dataCurta, dataHora, type EdicaoPublica, type MinhaSala,
 } from '@/lib/amigoSecreto'
 import { instagramUrl, ordenarProximos, quandoTexto, type ListaAniversarios } from '@/lib/pcc/aniversarios'
-import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, CLUB } from '@/lib/pcc/rotas'
+import { AGENDA, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, CLUB, agendaEvento } from '@/lib/pcc/rotas'
+import { TIPOS, horaCurta, isoDia, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
+import { hojeBrasilia } from '@/lib/pcc/datas'
+import { proximos as proximosEventos } from './agenda/comum'
 import { AS_CSS, Ico, LOGO_PCC } from './amigo-secreto/estilo'
 import { Rosto } from './aniversariantes/AniversariantesClient'
 
@@ -45,6 +48,7 @@ export default function CasaClub() {
   const [edicao, setEdicao] = useState<EdicaoPublica | null | undefined>(undefined)
   const [sala, setSala] = useState<MinhaSala | null>(null)
   const [aniv, setAniv] = useState<ListaAniversarios | null>(null)
+  const [agenda, setAgenda] = useState<ListaAgenda | null>(null)
   const [falhou, setFalhou] = useState(false)
 
   useEffect(() => {
@@ -56,11 +60,17 @@ export default function CasaClub() {
   const carregar = useCallback(async () => {
     if (logado === undefined) return
     setFalhou(false)
-    const [e, m, a] = await Promise.all([
+    // Agenda: de hoje ate 400 dias (o teto do banco). Se falhar, o cartao fica
+    // sem a linha "Proximo" e a casa nao acusa falha: nao e tarefa da pessoa.
+    const hoje = hojeBrasilia()
+    const ate = new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia + 399)).toISOString().slice(0, 10)
+    const [e, m, a, g] = await Promise.all([
       supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG }),
       logado ? supabase.rpc('amigo_secreto_meu', { p_slug: AMIGO_SECRETO_SLUG }) : Promise.resolve({ data: null, error: null }),
       logado ? supabase.rpc('club_aniversarios_lista') : Promise.resolve({ data: null, error: null }),
+      logado ? supabase.rpc('club_agenda_lista', { p_de: isoDia(hoje), p_ate: ate }) : Promise.resolve({ data: null, error: null }),
     ])
+    setAgenda(g.error ? null : (g.data as ListaAgenda | null) ?? null)
     if (e.error) { setFalhou(true); setEdicao(null) } else setEdicao((e.data as EdicaoPublica | null) ?? null)
     if (m.error) { setFalhou(true); setSala(null) } else setSala((m.data as MinhaSala | null) ?? null)
     if (a.error) { setFalhou(true); setAniv(null) } else setAniv((a.data as ListaAniversarios | null) ?? null)
@@ -80,6 +90,12 @@ export default function CasaClub() {
   const aberta = !!edicao && edicao.estado === 'inscricoes' && Date.parse(edicao.inscricoes_ate) > Date.now()
   const destino = inscrito ? AMIGO_SECRETO_SALA : AMIGO_SECRETO
   const membro = inscrito || naLista
+  const hojeBr = hojeBrasilia()
+  const eventos = proximosEventos(agenda?.eventos || [], hojeBr).filter(e => e.status === 'publicado')
+  // Cartas "Hoje": evento antes do aniversario, no maximo duas no total (wireframe C12).
+  const eventosHoje = eventos.filter(e => ['hoje', 'agora'].includes(momento(e, hojeBr))).slice(0, 2)
+  const anivHojeVisiveis = aniversarioHoje.slice(0, Math.max(0, 2 - eventosHoje.length))
+  const proximoEvento = eventos.find(e => !eventosHoje.includes(e)) || null
 
   return (
     <div className="as cl">
@@ -111,7 +127,16 @@ export default function CasaClub() {
             </section>
           )}
 
-          {aniversarioHoje.map(p => (
+          {eventosHoje.map(e => (
+            <section key={e.id} className="as-frente cl-hoje">
+              <span className="as-chip fill">{momento(e, hojeBr) === 'agora' ? 'Acontecendo agora' : 'Hoje'}</span>
+              <div className="as-meta">{TIPOS[e.tipo].rotulo}{e.hora_inicio ? ` · ${horaCurta(e.hora_inicio)}` : ''}{e.formato === 'online' ? ' · Online' : e.cidade ? ` · ${e.cidade}` : ''}</div>
+              <div className="at cl-hoje-ev">{e.titulo}</div>
+              <Link href={agendaEvento(e.slug)} className="as-btn pri">Ver evento</Link>
+            </section>
+          ))}
+
+          {anivHojeVisiveis.map(p => (
             <section key={p.instagram} className="as-frente cl-hoje">
               <Rosto p={p} tam={64} />
               <div className="as-meta">Hoje é dia de</div>
@@ -139,17 +164,21 @@ export default function CasaClub() {
 
           {edicao === undefined && <div className="as-card" aria-busy="true"><div className="as-k">Carregando o Club...</div></div>}
 
-          {/* Frentes: uma embaixo da outra no celular, em 2 colunas no computador. */}
+          {/* Frentes: uma embaixo da outra no celular, 3 colunas no computador largo. */}
           {edicao !== undefined && !encerrada && (
-            <div className="cl-frentes">
+            <div className="cl-frentes tres">
               <CartaoAmigoSecreto edicao={edicao} inscrito={inscrito} aberta={aberta} destaque={!tarefa} destino={destino} sala={sala} logado={!!logado} />
               <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
+              <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
             </div>
           )}
 
           {encerrada && edicao && (
             <>
-              <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
+              <div className="cl-frentes">
+                <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
+                <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
+              </div>
               <div className="as-k">Edições passadas</div>
               <div className="as-card cl-passadas">
                 <Link href={destino} className="as-row">
@@ -184,6 +213,33 @@ const CARTA_ANIVERSARIANTES = '/pokecreatorsclub/carta-aniversariantes.webp'
 function Selo({ src, grande = false }: { src: string; grande?: boolean }) {
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt="" width={256} height={256} className={`cl-selo${grande ? ' g' : ''}`} />
+}
+
+// Agenda do Club (08/11/2026, wireframe C11 a C13). O selo ilustrado ainda nao
+// existe: ate a arte chegar, o icone do calendario no mesmo tamanho do selo.
+function CartaoAgenda({ logado, carregou, hoje, proximo }: { logado: boolean; carregou: boolean; hoje: Evento | null; proximo: Evento | null }) {
+  const quando = (e: Evento) => {
+    const [, mm, dd] = e.inicio_data.split('-')
+    const fim = e.fim_data !== e.inicio_data ? ` a ${e.fim_data.slice(8, 10)}/${e.fim_data.slice(5, 7)}` : ''
+    return `${dd}/${mm}${fim}${e.hora_inicio ? `, às ${horaCurta(e.hora_inicio)}` : ''}`
+  }
+  const linha = !logado || !carregou
+    ? 'Lives, collabs, feiras e as datas do grupo.'
+    : hoje ? `Hoje: ${hoje.titulo}${hoje.hora_inicio ? `, às ${horaCurta(hoje.hora_inicio)}` : ''}.`
+    : proximo ? `Próximo: ${proximo.titulo}, ${quando(proximo)}.`
+    : 'Nenhum evento marcado.'
+  return (
+    <section className="as-card cl-frente">
+      <div className="cl-frente-g">
+        <span className="cl-selo cl-selo-ico" aria-hidden="true"><Ico n="cal" s={36} /></span>
+        <div className="cl-frente-tx">
+          <h2 className="as-h3">Agenda</h2>
+          <p className="as-meta">{linha}</p>
+        </div>
+      </div>
+      <Link href={AGENDA} className="as-btn">Ver agenda</Link>
+    </section>
+  )
 }
 
 function CartaoAniversariantes({ logado, proximo }: { logado: boolean; proximo: string | null }) {
@@ -264,6 +320,8 @@ const CL_CSS = `
 .cl-frente .as-verso.sm{width:56px}
 .cl-hoje{gap:8px;padding:18px 16px}
 .cl-frentes{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cl-selo-ico{display:inline-flex;align-items:center;justify-content:center;border-radius:18px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--ac-1)}
+.cl-hoje-ev{font-size:20px;word-break:normal}
 .cl-acoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .cl-hoje .at{margin-top:0}
 .cl-hoje .as-btn{width:100%}
@@ -286,9 +344,14 @@ const CL_CSS = `
   .cl-frente{padding:24px}
   .cl-frente-g{gap:20px;align-items:center}
   .cl-frentes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
+  .cl-frentes.tres>:last-child{grid-column:1/-1}
   .cl-frente .as-btn{width:auto;align-self:flex-start;min-width:220px;margin-top:auto}
   .cl-acoes{display:flex;flex-wrap:wrap;margin-top:auto}
   .cl-acoes .as-btn{min-width:180px;margin-top:0}
   .cl-hoje{max-width:520px;width:100%;margin:0 auto}
+}
+@media (min-width:1200px){
+  .cl-frentes.tres{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cl-frentes.tres>:last-child{grid-column:auto}
 }
 `
