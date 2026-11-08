@@ -12,12 +12,11 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { INSTAGRAM_RE, limparInstagram, spritePokemon } from '@/lib/amigoSecreto'
-import {
-  MESES, MESES_CURTOS, diaNoAno, diasDoMes, erroAniversario, hojeBrasilia, instagramUrl, ordenarProximos, quandoTexto,
-  type Aniversariante, type ListaAniversarios, type Proximo,
-} from '@/lib/pcc/aniversarios'
+import { diaNoAno, erroAniversario, instagramUrl, ordenarProximos, type Aniversariante, type ListaAniversarios, type Proximo } from '@/lib/pcc/aniversarios'
+import { MESES, MESES_CURTOS, diasDoMes, hojeBrasilia, quandoTexto, trocarMes } from '@/lib/pcc/datas'
 import { ANIVERSARIANTES, CLUB } from '@/lib/pcc/rotas'
 import { AS_CSS, Ico, VoltarClub } from '../amigo-secreto/estilo'
+import { Abas, BlocoData, CAL_CSS, CalendarioMes, Folha, NavMes } from '../_comum/calendario'
 
 const BUCKET = 'club-fotos'
 const ROTA = ANIVERSARIANTES
@@ -101,14 +100,10 @@ export default function AniversariantesClient() {
   const noMes = (d: number) => dados.lista.filter(p => p.mes === mesVisto.mes && diaNoAno(p.dia, p.mes, mesVisto.ano) === d)
   const doMes = dados.lista.filter(p => p.mes === mesVisto.mes)
     .sort((a, b) => diaNoAno(a.dia, a.mes, mesVisto.ano) - diaNoAno(b.dia, b.mes, mesVisto.ano))
-  const trocarMes = (delta: number) => setMesVisto(m => {
-    const t = m.mes - 1 + delta
-    return { ano: m.ano + Math.floor(t / 12), mes: ((t % 12) + 12) % 12 + 1 }
-  })
   const abrirMinha = () => { setPronto(false); setFolha('form') }
 
   const colProximos = (
-    <div className={`an-col${aba === 'proximos' ? ' on' : ''}`}>
+    <div className={`pc-col${aba === 'proximos' ? ' on' : ''}`}>
       {hojeLista.map(p => <CartaHoje key={p.instagram} p={p} />)}
       {destaque.map(p => (
         <section key={p.instagram} className="as-frente an-carta">
@@ -126,15 +121,14 @@ export default function AniversariantesClient() {
   )
 
   const colCalendario = (
-    <div className={`an-col an-col-cal${aba === 'calendario' ? ' on' : ''}`}>
-      <div className="an-mes">
-        <button type="button" className="as-ib" aria-label="Mês anterior" onClick={() => trocarMes(-1)}><svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg></button>
-        <strong>{MESES[mesVisto.mes - 1]} de {mesVisto.ano}</strong>
-        <button type="button" className="as-ib" aria-label="Próximo mês" onClick={() => trocarMes(1)}><Ico n="chev" /></button>
-      </div>
-      <Calendario ano={mesVisto.ano} mes={mesVisto.mes} hoje={hoje} noMes={noMes} onDia={setDiaAberto} />
+    <div className={`pc-col${aba === 'calendario' ? ' on' : ''}`}>
+      <NavMes ano={mesVisto.ano} mes={mesVisto.mes} onTrocar={delta => setMesVisto(m => trocarMes(m, delta))} />
+      <CalendarioMes ano={mesVisto.ano} mes={mesVisto.mes} hoje={hoje} itensDoDia={noMes} onDia={setDiaAberto}
+        marca={quem => <Rosto p={quem[0]} tam={26} />}
+        nome={quem => `@${quem[0].instagram}`}
+        rotulo={(d, quem) => `Dia ${d}: ${quem.map(q => `@${q.instagram}`).join(', ')}`} />
       {doMes.length === 0
-        ? <div className="as-center an-vazio"><span className="as-meta">Ninguém neste mês.</span></div>
+        ? <div className="as-center pc-vazio"><span className="as-meta">Ninguém neste mês.</span></div>
         : <div className="as-mob-cal"><div className="as-k">Neste mês</div>{ordenarProximos(doMes, hoje).map(p => <Linha key={p.instagram} p={p} onMinha={abrirMinha} />)}</div>}
     </div>
   )
@@ -155,16 +149,13 @@ export default function AniversariantesClient() {
 
       {dados.lista.length === 0 ? (
         <>
-          <div className="as-center an-vazio"><span className="as-meta">Ninguém na lista ainda.</span></div>
+          <div className="as-center pc-vazio"><span className="as-meta">Ninguém na lista ainda.</span></div>
           <button type="button" className="as-btn pri" onClick={abrirMinha}>Entrar na lista</button>
         </>
       ) : (
         <>
-          <div className="an-abas" role="tablist">
-            <button type="button" role="tab" aria-selected={aba === 'proximos'} className={aba === 'proximos' ? 'on' : ''} onClick={() => setAba('proximos')}>Próximos</button>
-            <button type="button" role="tab" aria-selected={aba === 'calendario'} className={aba === 'calendario' ? 'on' : ''} onClick={() => setAba('calendario')}>Calendário</button>
-          </div>
-          <div className="an-grade">{colCalendario}{colProximos}</div>
+          <Abas valor={aba} onTrocar={setAba} opcoes={[{ id: 'proximos', rotulo: 'Próximos' }, { id: 'calendario', rotulo: 'Calendário' }]} />
+          <div className="pc-grade">{colCalendario}{colProximos}</div>
         </>
       )}
 
@@ -196,7 +187,7 @@ function Casca({ children, logado, onEntrar }: { children: React.ReactNode; loga
         </div>
       </header>
       <main className="bx-gutter"><div className="as-wrap as-bd">{children}</div></main>
-      <style>{AS_CSS + AN_CSS}</style>
+      <style>{AS_CSS + CAL_CSS + AN_CSS}</style>
     </div>
   )
 }
@@ -220,65 +211,16 @@ function CartaHoje({ p }: { p: Proximo }) {
 function Linha({ p, onMinha, comBotao }: { p: Proximo; onMinha: () => void; comBotao?: boolean }) {
   const corpo = (
     <>
-      <span className="an-dt"><b>{String(p.diaExibido).padStart(2, '0')}</b><i>{MESES_CURTOS[p.mes - 1]}</i></span>
+      <BlocoData dia={String(p.diaExibido).padStart(2, '0')} mes={MESES_CURTOS[p.mes - 1]} />
       <Rosto p={p} />
-      <span className="an-nm"><b>@{p.instagram}</b><small>{p.eu ? 'Você' : quandoTexto(p.emDias)}</small></span>
+      <span className="pc-nm"><b>@{p.instagram}</b><small>{p.eu ? 'Você' : quandoTexto(p.emDias)}</small></span>
     </>
   )
-  if (p.eu) return <button type="button" className="an-linha me" onClick={onMinha}>{corpo}<Ico n="chev" className="arr" /></button>
+  if (p.eu) return <button type="button" className="pc-linha me" onClick={onMinha}>{corpo}<Ico n="chev" className="arr" /></button>
   return (
-    <div className="an-linha">
+    <div className="pc-linha">
       {corpo}
       {comBotao && p.emDias === 0 && <a className="as-btn pri sm" href={instagramUrl(p.instagram)} target="_blank" rel="noopener noreferrer">Dar parabéns</a>}
-    </div>
-  )
-}
-
-function Calendario({ ano, mes, hoje, noMes, onDia }: {
-  ano: number; mes: number; hoje: { ano: number; mes: number; dia: number }
-  noMes: (d: number) => Aniversariante[]; onDia: (d: number) => void
-}) {
-  const inicio = new Date(Date.UTC(ano, mes - 1, 1)).getUTCDay()
-  const total = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
-  const ehHoje = (d: number) => hoje.ano === ano && hoje.mes === mes && hoje.dia === d
-  return (
-    <div className="an-cal">
-      {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <div key={i} className="wd" aria-hidden="true">{d}</div>)}
-      {Array.from({ length: inicio }, (_, i) => <div key={`v${i}`} />)}
-      {Array.from({ length: total }, (_, i) => {
-        const d = i + 1
-        const quem = noMes(d)
-        if (quem.length === 0) return <div key={d} className={`an-d${ehHoje(d) ? ' hoje' : ''}`}>{d}</div>
-        return (
-          <button key={d} type="button" className={`an-d tem${ehHoje(d) ? ' hoje' : ''}`} aria-label={`Dia ${d}: ${quem.map(q => `@${q.instagram}`).join(', ')}`} onClick={() => onDia(d)}>
-            {d}
-            <span className="rs"><Rosto p={quem[0]} tam={26} />{quem.length > 1 && <em>+{quem.length - 1}</em>}</span>
-            <small className="nm">@{quem[0].instagram}</small>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const antes = document.activeElement as HTMLElement | null
-    ref.current?.focus()
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; antes?.focus() }
-  }, [onFechar])
-  return (
-    <div className="as-sheet-bg" onClick={onFechar}>
-      <div ref={ref} tabIndex={-1} className="as-sheet" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
-        <div className="as-handle" />
-        <div className="as-sh"><h3 className="as-h3">{titulo}</h3><button type="button" className="as-ib" aria-label="Fechar" onClick={onFechar}><Ico n="x" s={20} /></button></div>
-        {children}
-      </div>
     </div>
   )
 }
@@ -427,51 +369,14 @@ function FolhaSair({ eu, onFechar, onSaiu }: { eu: Aniversariante; onFechar: () 
 }
 
 const AN_CSS = `
-.an-abas{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--bx-border-2);border-radius:10px;overflow:hidden}
-.an-abas button{min-height:44px;background:transparent;border:0;color:var(--bx-text-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s ease,color .15s ease}
-.an-abas button.on{background:var(--bx-surface-3);color:var(--bx-text);box-shadow:inset 0 -2px 0 var(--ac-1)}
-.an-col{display:none;flex-direction:column;gap:8px;min-width:0}
-.an-col.on{display:flex}
-.an-grade{display:flex;flex-direction:column;gap:12px;min-width:0}
 .an-carta{gap:8px;padding:18px 16px}
 .an-carta .at{margin-top:0}
 .an-em{font-size:22px}
 .an-rosto img{object-fit:cover}
-.an-linha{display:flex;align-items:center;gap:10px;min-height:64px;width:100%;padding:6px 0;background:transparent;border:0;border-bottom:1px solid var(--bx-border);color:var(--bx-text);font:inherit;text-align:left}
-.an-linha.me{padding:6px 10px;border:1px solid rgba(var(--ac-1-rgb),.4);border-radius:12px;background:rgba(var(--ac-1-rgb),.06);cursor:pointer;margin-top:4px}
-.an-linha .as-btn{width:auto;flex:none}
-.an-linha .arr{color:var(--bx-text-3)}
-.an-dt{width:44px;flex:none;text-align:center;line-height:1.05;display:flex;flex-direction:column}
-.an-dt b{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
-.an-dt i{font-style:normal;font-size:11px;font-weight:800;color:var(--bx-text-2);text-transform:uppercase}
-.an-nm{flex:1;min-width:0;display:flex;flex-direction:column}
-.an-nm b{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.an-nm small{font-size:12.5px;color:var(--bx-text-2)}
-.an-mes{display:flex;align-items:center;justify-content:space-between}
-.an-mes strong{font-size:15px;font-weight:700}
-.an-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
-.an-cal .wd{font-size:11px;font-weight:800;color:var(--bx-text-3);text-align:center;padding:2px 0}
-.an-d{min-height:54px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0 2px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--bx-text-3);font:inherit;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;min-width:0}
-.an-d.tem{background:var(--bx-surface);border-color:var(--bx-border);color:var(--bx-text);cursor:pointer;transition:background .15s ease,transform .15s ease}
-.an-d.tem:hover{background:var(--bx-surface-2);transform:translateY(-2px)}
-.an-d.hoje{border:2px solid var(--ac-1);background:rgba(var(--ac-1-rgb),.10);color:var(--ac-1);font-weight:800}
-.an-d .rs{display:inline-flex;align-items:center;gap:1px}
-.an-d .rs em{font-style:normal;font-size:10px;color:var(--bx-text-2)}
-.an-d .nm{display:none}
-.an-vazio{padding:24px 0;border:1px dashed var(--bx-border-2);border-radius:12px}
+.pc-linha.me{padding:6px 10px;border:1px solid rgba(var(--ac-1-rgb),.4);border-radius:12px;background:rgba(var(--ac-1-rgb),.06);cursor:pointer;margin-top:4px}
 .an-foto{display:flex;align-items:center;gap:10px}
 .an-foto .as-btn{width:auto}
 .an-previa{width:128px;height:128px;border-radius:50%;object-fit:cover;display:block}
 .an .as-center .as-btn{width:100%}
 .an select.as-in{appearance:auto}
-@media (prefers-reduced-motion:reduce){.an-d.tem:hover{transform:none}}
-@media (min-width:1024px){
-  .an-abas{display:none}
-  .an-grade{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:24px;align-items:start}
-  .an-col{display:flex}
-  .as-mob-cal{display:none}
-  .an-cal{gap:6px}
-  .an-d{min-height:88px;font-size:12px}
-  .an-d .nm{display:block;max-width:100%;padding:0 4px;font-size:11.5px;font-weight:500;color:var(--bx-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-}
 `
