@@ -127,8 +127,10 @@ type MenuItem = { label: string; href: string; Icon: any; countKey?: string; att
 // Menu em 4 grupos (07/11/2026, decisao do Du depois de 23 itens planos):
 // FILAS = o que precisa de acao hoje (badge vermelho so aqui), NEGOCIO,
 // MARKETING, COMUNIDADE. `topo` marca o que entra na barra do celular; o
-// resto abre no botao "Menu". Badge que nao e pendencia (total de usuarios,
-// novos em 7 dias) saiu do menu: esses numeros ja estao no Dashboard.
+// resto abre no botao "Menu". Badge vermelho (`attention`) = pendencia;
+// badge cinza = quantidade (total de usuarios, novos em 7 dias, inscritos,
+// aniversariantes do mes) -- voltou em 08/11/2026 a pedido do Du, que le
+// esses numeros pelo menu sem abrir o Dashboard.
 const GRUPOS = ['', 'Filas', 'Negócio', 'Marketing', 'Comunidade'] as const
 
 const adminMenu: MenuItem[] = [
@@ -142,11 +144,11 @@ const adminMenu: MenuItem[] = [
     { label: 'Proteção Bynx', href: '/admin/reclamacoes', Icon: IconShield, countKey: 'reclamacoes', attention: true, group: 'Filas' },
   ] : []),
   { label: 'Centralização', href: '/admin/centralizacao', Icon: IconCentralizacaoAdmin, group: 'Filas' },
-  { label: 'Usuários', href: '/admin/users', Icon: IconAccount, group: 'Negócio' },
+  { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios', group: 'Negócio' },
   { label: 'Lojas', href: '/admin/lojas', Icon: IconStore, countKey: 'lojas', group: 'Negócio' },
-  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, group: 'Negócio' },
-  { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, group: 'Negócio' },
-  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, group: 'Negócio' },
+  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace', group: 'Negócio' },
+  { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, countKey: 'conversas', group: 'Negócio' },
+  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro', group: 'Negócio' },
   { label: 'Parceiros', href: '/admin/parceiros', Icon: IconParceirosAdmin, group: 'Negócio' },
   { label: 'Régua', href: '/admin/regua', Icon: IconReguaAdmin, group: 'Marketing' },
   { label: 'Sino', href: '/admin/notificacoes', Icon: IconBell, group: 'Marketing' },
@@ -155,8 +157,8 @@ const adminMenu: MenuItem[] = [
   { label: 'Links', href: '/admin/links', Icon: IconLink, group: 'Marketing' },
   { label: 'Social', href: '/admin/conteudo', Icon: IconConteudoAdmin, group: 'Marketing' },
   { label: 'Blog', href: '/admin/blog', Icon: IconArticle, group: 'Marketing' },
-  { label: 'Amigo Secreto', href: '/admin/amigo-secreto', Icon: IconBox, group: 'Comunidade' },
-  { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconCalendar, group: 'Comunidade' },
+  { label: 'Amigo Secreto', href: '/admin/amigo-secreto', Icon: IconBox, countKey: 'amigo', group: 'Comunidade' },
+  { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconCalendar, countKey: 'aniversariantes', group: 'Comunidade' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -456,9 +458,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )
           })}
           {(() => {
-            // "Menu" abre a folha com o resto; o badge soma o que nao esta na barra.
+            // "Menu" abre a folha com o resto; o badge soma so as PENDENCIAS que nao
+            // estao na barra. Quantidade (total de usuarios etc.) nao entra na soma,
+            // senao o botao mostraria 400 sem nada para fazer.
             const resto = adminMenu.filter(i => !i.topo)
-            const soma = resto.reduce((n, i) => n + (i.countKey ? (counts[i.countKey] || 0) : 0), 0)
+            const soma = resto.reduce((n, i) => n + (i.attention && i.countKey ? (counts[i.countKey] || 0) : 0), 0)
             const vermelho = resto.some(i => i.attention && i.countKey && (counts[i.countKey] || 0) > 0)
             const ativo = resto.some(i => pathname.startsWith(i.href))
             return (

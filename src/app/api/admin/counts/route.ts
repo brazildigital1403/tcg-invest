@@ -5,6 +5,7 @@ import { ticketsPrecisandoResposta } from '@/lib/adminTickets'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { lerCentralLeilao } from '@/lib/leilaoAdmin'
 import { STATUS_ABERTOS, podeDecidir, arrependimentoAguardando, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
+import { AMIGO_SECRETO_SLUG } from '@/lib/amigoSecreto'
 
 function supabaseAdmin() {
   return createClient(
@@ -84,7 +85,28 @@ export async function GET(req: NextRequest) {
         return 0
       }
     }
-    const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos, leiloes, reclamacoes] = await Promise.all([
+    // Conversas do marketplace: mensagens novas em 7 dias (as ocultas pela
+    // moderacao ficam fora). Nao existe "lida pelo admin", entao o badge e de
+    // movimento, nao de pendencia -- cinza no menu.
+    const conversasNovas = async (): Promise<number> => {
+      const { count } = await sb.from('marketplace_mensagens').select('*', { count: 'exact', head: true })
+        .gte('created_at', since).eq('oculta', false)
+      return count || 0
+    }
+    // Amigo Secreto: inscritos na edicao corrente (mesma leitura da tela).
+    const amigoSecretoInscritos = async (): Promise<number> => {
+      const { data: ed } = await sb.from('amigo_secreto_edicoes').select('id').eq('slug', AMIGO_SECRETO_SLUG).maybeSingle()
+      if (!ed?.id) return 0
+      const { count } = await sb.from('amigo_secreto_participantes').select('*', { count: 'exact', head: true }).eq('edicao_id', ed.id)
+      return count || 0
+    }
+    // Aniversariantes do mes corrente, em Brasilia (a tela lista dia/mes).
+    const aniversariantesDoMes = async (): Promise<number> => {
+      const mes = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', month: 'numeric' }).format(new Date()))
+      const { count } = await sb.from('club_aniversarios').select('*', { count: 'exact', head: true }).eq('mes', mes)
+      return count || 0
+    }
+    const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos, leiloes, reclamacoes, conversas, amigo, aniversariantes] = await Promise.all([
       ticketsPrecisandoResposta(sb),
       lojasPendentes(),
       novosAnuncios(),
@@ -97,11 +119,14 @@ export async function GET(req: NextRequest) {
       servicosComABynx(),
       filaLeilao(),
       reclamacoesParaDecidir(),
+      conversasNovas(),
+      amigoSecretoInscritos(),
+      aniversariantesDoMes(),
     ])
 
-    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro, servicos, leiloes, reclamacoes })
+    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro, servicos, leiloes, reclamacoes, conversas, amigo, aniversariantes })
   } catch (err: any) {
     console.error('[admin/counts]', err?.message)
-    return NextResponse.json({ cartas: 0, tickets: 0, lojas: 0, marketplace: 0, usuarios: 0, financeiro: 0, servicos: 0, leiloes: 0, reclamacoes: 0 })
+    return NextResponse.json({ cartas: 0, tickets: 0, lojas: 0, marketplace: 0, usuarios: 0, financeiro: 0, servicos: 0, leiloes: 0, reclamacoes: 0, conversas: 0, amigo: 0, aniversariantes: 0 })
   }
 }
