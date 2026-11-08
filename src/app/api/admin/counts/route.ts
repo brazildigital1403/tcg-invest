@@ -33,11 +33,11 @@ export async function GET(req: NextRequest) {
         .gte('created_at', since).is('removido_em', null)
       return count || 0
     }
-    // O badge de Lojas existe pra chamar atencao pro que PRECISA de acao, nao
-    // pro que e recente -- mesma regra que adminTickets.ts ja aplica a tickets.
-    // Havia 1 loja pendente ha 34 dias com o badge zerado.
-    const lojasPendentes = async (): Promise<number> => {
-      const { count } = await sb.from('lojas').select('*', { count: 'exact', head: true }).eq('status', 'pendente')
+    // Lojas: TOTAL cadastrado (Du, 08/11/2026), badge cinza de quantidade,
+    // como Usuarios. Ate 07/11 contava so as pendentes de aprovacao; essa
+    // pendencia continua visivel dentro da tela /admin/lojas.
+    const totalLojas = async (): Promise<number> => {
+      const { count } = await sb.from('lojas').select('*', { count: 'exact', head: true })
       return count || 0
     }
     const cartasPendentes = async (): Promise<number> => {
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
     }
     const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos, leiloes, reclamacoes, conversas, amigo, aniversariantes] = await Promise.all([
       ticketsPrecisandoResposta(sb),
-      lojasPendentes(),
+      totalLojas(),
       novosAnuncios(),
       totalUsuarios(),
       // Era novos('transactions'), e a tabela nunca recebeu uma linha (a escrita
