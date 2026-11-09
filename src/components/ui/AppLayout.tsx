@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import ChatDock from '@/components/marketplace/ChatDock'
 import { lojaCache } from '@/lib/lojaCache'
@@ -790,7 +790,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               const active = pathname === item.href
               const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
               return (
-                <Link key={item.href} href={item.href}
+                <Fragment key={item.href}>
+                <Link href={item.href}
                   prefetch={false}
                   aria-disabled={dimmed || undefined}
                   tabIndex={dimmed ? -1 : undefined}
@@ -812,6 +813,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <item.Icon size={16} color={active ? "#f59e0b" : "rgba(255,255,255,0.45)"} />
                   {!collapsed && item.full}
                 </Link>
+                  {/* Subitem "Por set" sob Minha Colecao (09/11/2026): aceso na tela
+                      /minha-colecao/por-set/[setId]; abre o modal da Colecao na aba Por set. */}
+                  {item.href === ITEM_COLECAO.href && !collapsed && (() => {
+                    const ativo = (pathname || '').startsWith('/minha-colecao/por-set')
+                    const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(ITEM_COLECAO.href)
+                    return (
+                      <Link href="/minha-colecao?adicionar=por-set" prefetch={false}
+                        aria-current={ativo ? 'page' : undefined}
+                        aria-disabled={dimmed || undefined}
+                        tabIndex={dimmed ? -1 : undefined}
+                        onClick={dimmed ? (e) => e.preventDefault() : undefined}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px 8px 38px', borderRadius: 10,
+                          textDecoration: 'none', fontSize: 13, fontWeight: ativo ? 700 : 400,
+                          color: ativo ? '#fff' : 'rgba(255,255,255,0.45)',
+                          background: ativo ? 'rgba(245,158,11,0.12)' : 'transparent',
+                          borderLeft: ativo ? '2px solid #f59e0b' : '2px solid transparent',
+                          opacity: dimmed ? 0.1 : 1, pointerEvents: dimmed ? 'none' : 'auto',
+                          marginTop: -2,
+                        }}>
+                        <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: ativo ? '#f59e0b' : 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+                        Por set
+                      </Link>
+                    )
+                  })()}
+                </Fragment>
               )
                   })}
                 </div>

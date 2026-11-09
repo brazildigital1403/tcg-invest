@@ -33,6 +33,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
 import Breadcrumb from '@/components/ui/Breadcrumb'
+import MarcarAsQueTenho from '@/components/colecao/MarcarAsQueTenho'
 import { IconCollection } from '@/components/ui/Icons'
 import { numeroSobreTotal } from '@/lib/numeroCarta'
 
@@ -417,6 +418,8 @@ export default async function SetPage({
                 </p>
               )}
             </div>
+            {/* Progresso e "Marcar as que tenho": so no cliente, so logado. Nao toca em cache nem SEO. */}
+            <MarcarAsQueTenho setId={set.id} total={set.cardsCount} />
           </div>
 
           {/* Grid de cartas (ML afiliado entra na 2a linha, via Fragment abaixo) */}
