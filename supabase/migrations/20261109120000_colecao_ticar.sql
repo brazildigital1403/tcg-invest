@@ -272,7 +272,11 @@ begin
     raise exception 'itens_invalidos';
   end if;
 
-  v_origem := left(coalesce(nullif(btrim(p_origem), ''), 'lote'), 40);
+  -- Origem e um rotulo fechado (teste adversarial de 09/11 gravou 'scan' por payload adulterado).
+  v_origem := coalesce(nullif(btrim(p_origem), ''), 'lote');
+  if v_origem not in ('busca', 'set', 'lote') then
+    raise exception 'itens_invalidos';
+  end if;
 
   select public.cartas_limite_colecao(u.plano, coalesce(u.is_pro, false), u.pro_expira_em, u.trial_expires_at)
     into v_limite

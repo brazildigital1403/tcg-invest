@@ -648,9 +648,12 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
                   </div>
                 )}
 
-                {!isSearching && (cartasTique.length > 0 || (selecao.size > 0 && searchResults.length > 0)) && (
-                  <>
-                    {!isMobile && (
+                {/* A grade fica MONTADA enquanto houver resultado ou lote, mesmo durante
+                    a busca (so some da tela): desmontar perdia o cache das cartas de
+                    buscas anteriores, o otimismo e o toast com Desfazer (teste de 09/11). */}
+                {(cartasTique.length > 0 || selecao.size > 0) && (
+                  <div style={{ display: isSearching ? 'none' : undefined }}>
+                    {!isMobile && cartasTique.length > 0 && (
                       <p style={{ fontSize: 11.5, color: 'var(--bx-text-3)', margin: '0 0 10px' }}>Clique marca. O ícone na carta abre a folha de ajuste. {PAGE_SIZE} resultados por página, rolagem infinita.</p>
                     )}
                     <GradeTique
@@ -668,7 +671,7 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
                       onSalvo={aoSalvo}
                       rodape={rodapeGrade}
                     />
-                  </>
+                  </div>
                 )}
 
                 {!isSearching && searchResults.length > 0 && cartasTique.length === 0 && (
