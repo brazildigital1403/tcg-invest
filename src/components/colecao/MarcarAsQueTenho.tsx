@@ -39,7 +39,7 @@ export default function MarcarAsQueTenho({ setId, total }: { setId: string; tota
   useEffect(() => {
     if (!userId) return
     let ativo = true
-    supabase.from('user_cards').select('pokemon_api_id').eq('user_id', userId).eq('set_id', setId).limit(2000)
+    supabase.from('user_cards').select('pokemon_api_id').eq('user_id', userId).eq('set_id', setId).eq('graduada', false).limit(2000)
       .then(({ data }) => {
         if (!ativo) return
         const ids = new Set((data || []).map((r: { pokemon_api_id: string | null }) => r.pokemon_api_id).filter(Boolean))
@@ -48,7 +48,7 @@ export default function MarcarAsQueTenho({ setId, total }: { setId: string; tota
     return () => { ativo = false }
   }, [userId, setId])
 
-  const pct = total > 0 && tenho !== null ? Math.min(100, Math.round((tenho / total) * 100)) : 0
+  const pct = total > 0 && tenho !== null ? Math.min(100, Math.max(tenho > 0 ? 1 : 0, Math.round((tenho / total) * 100))) : 0
   const completo = total > 0 && tenho !== null && tenho >= total
 
   const botao: React.CSSProperties = {

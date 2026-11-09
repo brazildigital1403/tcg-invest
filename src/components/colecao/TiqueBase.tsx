@@ -87,7 +87,7 @@ export function Folha({ titulo, subtitulo, onFechar, children, rodape, largura =
 
   return (
     <Portal>
-      <div className="bx-tq-scrim" onClick={onFechar} style={{ position: 'fixed', inset: 0, zIndex: Z_FOLHA, background: 'var(--bx-scrim)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: FONTE, color: 'var(--bx-text)' }}>
+      <div className="bx-tq-scrim" onClick={onFechar} style={{ position: 'fixed', inset: 0, zIndex: Z_FOLHA, background: 'var(--bx-scrim)', display: 'flex', justifyContent: 'center', fontFamily: FONTE, color: 'var(--bx-text)' }}>
         <div
           ref={ref}
           tabIndex={-1}
@@ -117,6 +117,7 @@ export function Folha({ titulo, subtitulo, onFechar, children, rodape, largura =
         </div>
       </div>
       <style>{`
+        .bx-tq-scrim { align-items: flex-end; }
         .bx-tq-folha { border-radius: 18px 18px 0 0; animation: bxTqSobe 0.2s ease; padding-bottom: env(safe-area-inset-bottom, 0px); }
         @keyframes bxTqSobe { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
         @media (min-width: 640px) {

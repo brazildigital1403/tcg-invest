@@ -833,7 +833,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           opacity: dimmed ? 0.1 : 1, pointerEvents: dimmed ? 'none' : 'auto',
                           marginTop: -2,
                         }}>
-                        <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: ativo ? '#f59e0b' : 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+                        <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: ativo ? 'var(--ac-1)' : 'var(--bx-text-3)', flexShrink: 0 }} />
                         Por set
                       </Link>
                     )

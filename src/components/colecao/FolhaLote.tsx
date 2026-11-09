@@ -33,7 +33,7 @@ export function ListaLote({ linhas, padrao, onAjustar, onRemover }: {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--bx-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.carta ? numeroESet(l.carta) : l.card_id}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--bx-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.carta ? numeroESet(l.carta) : 'De uma busca anterior'}</div>
             </div>
             {pilula && <Pilula texto={pilula} />}
             <button type="button" aria-label={`Ajustar ${nome}`} onClick={() => onAjustar(l.card_id)} style={btnIcone}><IconAjuste size={18} /></button>
