@@ -125,7 +125,9 @@ export default function CookieBanner() {
   // tem botao fixo, ele continua em uma linha.
   const dentroDoLeilao = !!pathname && pathname.startsWith('/leiloes/')
   const noLeilao = pathname === '/leiloes'
-  const mostra = mounted && visible && !dentroDoLeilao && !(pathname && ROTAS_SEM_BANNER.has(pathname))
+  // /minha-colecao/por-set: a barra fixa de salvar fica no rodape e o banner
+  // cobria o botao no celular (auditoria de 09/11). Mesmo tratamento do leilao.
+  const mostra = mounted && visible && !dentroDoLeilao && !(pathname && (ROTAS_SEM_BANNER.has(pathname) || pathname.startsWith('/minha-colecao/por-set')))
   // Não renderiza no SSR pra evitar hydration mismatch (localStorage é client-only)
   if (!mostra) return null
 

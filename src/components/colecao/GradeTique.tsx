@@ -13,7 +13,7 @@
  * anteriores que nao estao mais em `cartas`).
  */
 
-import { ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import CardItem from '@/components/ui/CardItem'
 import { IconCheck, IconPlus, IconWarning } from '@/components/ui/Icons'
 import { FONTE, IconAjuste, IconCadeado, Pilula, Portal, Z_TOAST } from './TiqueBase'
@@ -48,6 +48,8 @@ export interface GradeTiqueProps {
   modo: 'busca' | 'set'
   /** Padrao 3 / 7 (set) e 3 / 6 (busca). */
   colunas?: { mobile: number; desktop: number }
+  /** No desktop do modal o lote ja aparece no painel ao lado: esconde o Ver as N da barra. */
+  ocultarVerAsN?: boolean
   /** Quem chama grava (RPC colecao_adicionar_lote). null = falhou. */
   onSalvar: (itens: ItemLote[]) => Promise<ResultadoLote | null>
   onDesfazer: (r: ResultadoLote) => Promise<void>
@@ -78,7 +80,7 @@ function pilhasEfetivas(carta: CartaTique, overlay: Map<string, Overlay>): Pilha
   return mesmasPilhas(o.base, carta.pilhas) ? o.pilhas : carta.pilhas
 }
 
-export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, onPadraoChange, plano, modo, colunas, onSalvar, onDesfazer, onSalvo, rodape }: GradeTiqueProps) {
+export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, onPadraoChange, plano, modo, colunas, ocultarVerAsN, onSalvar, onDesfazer, onSalvo, rodape }: GradeTiqueProps) {
   const cols = colunas || { mobile: 3, desktop: modo === 'set' ? 7 : 6 }
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
   const classeGrade = `bx-tq-grade-${uid}`
@@ -92,6 +94,12 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
   const avisoTravaDado = useRef(false)
   const selecaoRef = useRef(selecao)
   selecaoRef.current = selecao
+  // Toda mudanca parte da ultima selecao emitida, nao da prop: dois toques
+  // antes do re-render (auditoria de 09/11) sobrescreviam um ao outro.
+  function emitirSelecao(novo: Map<string, AjusteCarta>) {
+    selecaoRef.current = novo
+    onSelecaoChange(novo)
+  }
 
   // Cache de toda carta ja vista: o lote da aba Buscar guarda cartas de
   // buscas anteriores que sumiram de `cartas`.
@@ -143,22 +151,22 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
 
   function alternar(carta: CartaTique) {
     if (salvando) return
-    const novo = new Map(selecao)
+    const novo = new Map(selecaoRef.current)
     if (novo.has(carta.card_id)) {
       novo.delete(carta.card_id)
     } else {
       if (travadaPara(carta, {})) { avisarTrava(); return }
       novo.set(carta.card_id, {})
     }
-    onSelecaoChange(novo)
+    emitirSelecao(novo)
   }
 
   function aplicarAjuste(cardId: string, ajuste: AjusteCarta) {
     const carta = cartaDe(cardId)
-    const novo = new Map(selecao)
+    const novo = new Map(selecaoRef.current)
     if (!novo.has(cardId) && carta && travadaPara(carta, ajuste)) { avisarTrava(); return }
     novo.set(cardId, ajuste)
-    onSelecaoChange(novo)
+    emitirSelecao(novo)
   }
 
   function fecharFolha() {
@@ -166,9 +174,9 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
   }
 
   function removerDoLote(cardId: string) {
-    const novo = new Map(selecao)
+    const novo = new Map(selecaoRef.current)
     novo.delete(cardId)
-    onSelecaoChange(novo)
+    emitirSelecao(novo)
     if (novo.size === 0) setFolha(null)
   }
 
@@ -214,7 +222,7 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
     // Devolve a selecao do que foi gravado, para a pessoa corrigir e salvar de novo.
     const volta = new Map(selecaoRef.current)
     ids.forEach(id => { const aj = selecaoAntes.get(id); if (aj) volta.set(id, aj) })
-    onSelecaoChange(volta)
+    emitirSelecao(volta)
   }
 
   async function salvar() {
@@ -234,7 +242,7 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
     // Recusadas continuam marcadas (nunca somem); ignoradas nao existem no catalogo.
     const restam = new Map<string, AjusteCarta>()
     r.recusadas.forEach(id => { const aj = selecaoAntes.get(id); if (aj) restam.set(id, aj) })
-    onSelecaoChange(restam)
+    emitirSelecao(restam)
     setFolha(null)
     const total = r.entraram.length + r.somadas.length
     let texto = total === 1 ? 'Adicionada 1 carta' : `Adicionadas ${total} cartas`
@@ -246,6 +254,15 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const cartaDaFolha = folha?.tipo === 'ajuste' ? cartaDe(folha.cardId) : undefined
+  // O toast fica ACIMA da barra fixa quando ela esta na tela: cobria o botao de
+  // salvar no celular (auditoria mobile de 09/11). Sem barra, vale o CSS.
+  const barraRef = useRef<HTMLDivElement | null>(null)
+  const [toastBottom, setToastBottom] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    if (!toast) { setToastBottom(null); return }
+    const r = barraRef.current?.getBoundingClientRect()
+    setToastBottom(r && r.height > 0 ? Math.round(window.innerHeight - r.top) + 12 : null)
+  }, [toast, linhas.length])
   const pct = Math.max(20, Math.floor(100 / Math.max(1, cols.mobile)) - 3)
 
   return (
@@ -351,6 +368,9 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
 
       {selecao.size > 0 && (
         <BarraLote
+          barraRef={barraRef}
+          verAsN={!ocultarVerAsN}
+          onLimpar={() => { emitirSelecao(new Map()); setFolha(null) }}
           modo={modo}
           n={selecao.size}
           nesteResultado={nesteResultado}
@@ -371,7 +391,7 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
           salvando={salvando}
           onAjustar={id => setFolha({ tipo: 'ajuste', cardId: id, voltarLote: true })}
           onRemover={removerDoLote}
-          onLimpar={() => { onSelecaoChange(new Map()); setFolha(null) }}
+          onLimpar={() => { emitirSelecao(new Map()); setFolha(null) }}
           onSalvar={salvar}
           onFechar={() => setFolha(null)}
         />
@@ -390,7 +410,7 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
 
       {toast && (
         <Portal>
-          <div role="status" aria-live="polite" className="bx-tq-toast" style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', zIndex: Z_TOAST, width: 'min(520px, calc(100vw - 32px))', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px 10px 16px', borderRadius: 14, background: 'var(--bx-bg-elev)', border: `1px solid ${toast.tipo === 'ok' ? 'var(--bx-border-2)' : 'rgba(239,68,68,0.4)'}`, boxShadow: 'var(--bx-shadow)', fontSize: 13.5, lineHeight: 1.45, fontFamily: FONTE, color: 'var(--bx-text)' }}>
+          <div role="status" aria-live="polite" className="bx-tq-toast" style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', zIndex: Z_TOAST, bottom: toastBottom ?? undefined, width: 'min(520px, calc(100vw - 32px))', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px 10px 16px', borderRadius: 14, background: 'var(--bx-bg-elev)', border: `1px solid ${toast.tipo === 'ok' ? 'var(--bx-border-2)' : 'rgba(239,68,68,0.4)'}`, boxShadow: 'var(--bx-shadow)', fontSize: 13.5, lineHeight: 1.45, fontFamily: FONTE, color: 'var(--bx-text)' }}>
             {toast.tipo === 'ok' ? <IconCheck size={16} color="var(--bx-green)" /> : <IconWarning size={16} color="var(--bx-red)" />}
             <span style={{ flex: 1 }}>{toast.texto}</span>
             {toast.desfazer && (
@@ -402,7 +422,8 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
 
       <style>{`
         .${classeGrade} { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(${pct}%, 150px), 1fr)); }
-        @media (min-width: 769px) { .${classeGrade} { gap: 12px; grid-template-columns: repeat(${cols.desktop}, minmax(0, 1fr)); } }
+        @media (min-width: 769px) { .${classeGrade} { gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+        @media (min-width: 1280px) { .${classeGrade} { grid-template-columns: repeat(${cols.desktop}, minmax(0, 1fr)); } }
         .bx-tq-cel:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
         .bx-tq-cel img { transition: filter 0.2s ease, opacity 0.2s ease; }
         .bx-tq-tenho img { opacity: 0.78; }
