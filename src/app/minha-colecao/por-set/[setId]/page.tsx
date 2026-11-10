@@ -110,6 +110,9 @@ export default function PorSetPage() {
   const [buscaAberta, setBuscaAberta] = useState(false)
   const [busca, setBusca] = useState('')
   const [topo, setTopo] = useState(60)
+  // Cabecalho do set colado sob o header do AppLayout (so entao ele estende o fundo para cima).
+  const [colado, setColado] = useState(false)
+  const topoRef = useRef<HTMLElement | null>(null)
   const [tentativa, setTentativa] = useState(0)
   const buscaRef = useRef<HTMLInputElement | null>(null)
   const loginPedido = useRef(false)
@@ -182,7 +185,16 @@ export default function PorSetPage() {
       if (!header) return
       // Fracao de pixel: offsetHeight arredonda e deixava uma fresta de 1 px.
       // 2 px de sobreposicao ficam escondidos atras do header (z-index maior).
-      setTopo(Math.max(0, Math.floor(header.getBoundingClientRect().height) - 2))
+      const px = Math.max(0, Math.floor(header.getBoundingClientRect().height) - 2)
+      setTopo(px)
+      // Colado = o lugar NATURAL dele ja passou da linha do `top`. O natural e o
+      // topo do pai (a margem negativa colapsa ate ele), que nao e sticky e nao se
+      // mexe: medir o proprio sticky falha justo no atraso que a extensao cobre.
+      // No topo da pagina ele esta no lugar natural (logo abaixo do header, ou da
+      // barra de mundos de quem tem loja) e NAO pode estender o fundo, senao
+      // cobriria essa barra.
+      const pai = topoRef.current?.parentElement
+      if (pai) setColado(pai.getBoundingClientRect().top <= px + 1)
     }
     medir()
     // O header muda de altura depois da montagem (fonte, patrimonio, aviso de
@@ -277,7 +289,7 @@ export default function PorSetPage() {
     <AppLayout>
       <div style={{ color: 'var(--bx-text)' }}>
         {/* ── Cabecalho fixo ──────────────────────────────────────────────── */}
-        <header className="bx-tq-topo" style={{ position: 'sticky', top: topo, zIndex: 30, background: 'var(--bx-bg)', borderBottom: '1px solid var(--bx-border)' }}>
+        <header ref={topoRef} className={colado ? 'bx-tq-topo bx-tq-colado' : 'bx-tq-topo'} style={{ position: 'sticky', top: topo, zIndex: 30, background: 'var(--bx-bg)', borderBottom: '1px solid var(--bx-border)' }}>
           <div className="bx-tq-topo-linha1" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 48, height: 30, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {setInfo?.logo_url ? (
@@ -436,6 +448,12 @@ export default function PorSetPage() {
           .bx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
           /* O cabecalho e a barra sangram ate a borda: o .tcg-content da 16/24 px e eles devolvem por dentro. */
           .bx-tq-topo { margin: -16px -16px 0; padding: 12px 16px; }
+          /* Rede de seguranca do iOS: ao rolar, o Safari recolhe a barra de endereco e
+             reposiciona os dois sticky (o header da Bynx e este) em quadros diferentes;
+             por um instante sobra um vao e as cartas aparecem por ele. Colado, este
+             cabecalho pinta o proprio fundo ate 200 px para cima, atras do header
+             (z-index maior), entao nenhum vao fica a vista. */
+          .bx-tq-colado::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 200px; background: var(--bx-bg); pointer-events: none; }
           .bx-tq-barra { bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; margin-left: -16px !important; margin-right: -16px !important; }
           /* No celular o cabecalho fixo ja toma 46% da tela (auditoria de 09/11): a dica sai. */
           .bx-tq-dica { display: none; }
