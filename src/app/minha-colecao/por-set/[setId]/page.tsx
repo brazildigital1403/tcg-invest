@@ -169,13 +169,14 @@ export default function PorSetPage() {
     try { await carregar() } catch { /* mantem a tela como esta */ }
   }, [carregar])
 
-  // ── Altura do topo do AppLayout (header + switchbar) para o sticky ─────────
+  // ── Altura do .tcg-header do AppLayout para o sticky ───────────────────────
   // useLayoutEffect: com useEffect o primeiro quadro pintava o sticky 9 px fora.
+  // So o .tcg-header: o .tcg-switchbar (quem tem loja) NAO e sticky, rola
+  // embora. Somar a altura dele deixava um vao de ~45 px entre o header e o
+  // cabecalho do set, com as cartas aparecendo por ali (10/11/2026).
   useLayoutEffect(() => {
     const medir = () => {
-      const h = document.querySelector<HTMLElement>('.tcg-header')?.offsetHeight || 0
-      const s = document.querySelector<HTMLElement>('.tcg-switchbar')?.offsetHeight || 0
-      setTopo(h + s)
+      setTopo(document.querySelector<HTMLElement>('.tcg-header')?.offsetHeight || 0)
     }
     medir()
     window.addEventListener('resize', medir)
