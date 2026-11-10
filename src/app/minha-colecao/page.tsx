@@ -118,18 +118,6 @@ export default function MinhaColecao() {
   const router = useRouter()
   const [pastasTopo, setPastasTopo] = useState<any>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
-  // Sidebar "Por set" e links externos chegam com ?adicionar=por-set: abre o
-  // modal direto na aba Por set e limpa a URL. Lido pela window, nao por
-  // useSearchParams, para a pagina nao exigir Suspense no prerender.
-  const [abaModal, setAbaModal] = useState<'busca' | 'set'>('busca')
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const sp = new URLSearchParams(window.location.search)
-    if (sp.get('adicionar') === 'por-set') {
-      setAbaModal('set'); setOpenAddModal(true)
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-  }, [])
   const [openScanModal, setOpenScanModal] = useState(false)
   const limiteDisplay = (!ENFORCEMENT_ATIVO || limiteCartas === Infinity) ? '∞' : String(limiteCartas)
   const [search, setSearch] = useState('')
@@ -1583,9 +1571,8 @@ export default function MinhaColecao() {
       {openAddModal && userId && (
         <AddCardModal
           userId={userId}
-          abaInicial={abaModal}
           onClose={() => {
-            setOpenAddModal(false); setAbaModal('busca')
+            setOpenAddModal(false)
             if (reconciliarRef.current) { reconciliarRef.current = false; loadCards() }
           }}
           onAdded={(novas) => { reconciliarRef.current = true; aplicarNovas(novas) }}
