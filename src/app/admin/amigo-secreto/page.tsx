@@ -42,7 +42,7 @@ export default function AdminAmigoSecretoPage() {
       const res = await fetch('/api/admin/amigo-secreto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setErro(d.error || `Erro ${res.status}`); return }
-      setOk(corpo.acao === 'sortear' ? `Sorteio feito: ${d.n} pares.` : corpo.acao === 'remover' ? `@${corpo.instagram} removido.` : 'Fase atualizada.')
+      setOk(corpo.acao === 'sortear' ? `Sorteio feito: ${d.n} pares. E-mail "A pokébola abriu": ${d.emails?.enviados ?? 0} enviados${d.emails?.falhas ? `, ${d.emails.falhas < 0 ? 'falhou' : `${d.emails.falhas} falharam`}` : ''}.` : corpo.acao === 'remover' ? `@${corpo.instagram} removido.` : 'Fase atualizada.')
       await load()
     } finally { setOcupado(false) }
   }

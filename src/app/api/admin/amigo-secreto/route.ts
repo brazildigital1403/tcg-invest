@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { AMIGO_SECRETO_SLUG } from '@/lib/amigoSecreto'
+import { enviarLoteEmails } from '@/lib/email'
+import { FROM_CLUB, renderEmailSorteio, type EdicaoSorteio } from '@/lib/emailAmigoSecreto'
 
 export async function GET(req: NextRequest) {
   const unauth = await requireAdmin(req)
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
   const sb = getServiceSupabase()
   if (!sb) return NextResponse.json({ error: 'Serviço indisponível' }, { status: 503 })
 
-  const body = await req.json().catch(() => ({})) as { acao?: string; estado?: string; instagram?: string }
+  const body = await req.json().catch(() => ({})) as { acao?: string; estado?: string; instagram?: string; para?: string }
 
   // Remover participante antes do sorteio (analise de 04/11): quem entrou
   // pelo link sem ser do grupo sai daqui. Depois do sorteio nao: desfaria um par.
@@ -75,7 +77,29 @@ export async function POST(req: NextRequest) {
         : m
       return NextResponse.json({ error: msg }, { status: 400 })
     }
-    return NextResponse.json({ ok: true, n: (data as { n?: number } | null)?.n ?? null })
+    // Sorteio feito: cada participante recebe o e-mail "A pokebola abriu".
+    // O e-mail nao diz quem a pessoa tirou; falha no envio nao desfaz o sorteio.
+    const emails = await enviarEmailSorteio(sb).catch((e: unknown) => {
+      console.error('[amigo-secreto] e-mail do sorteio falhou:', e)
+      return { enviados: 0, falhas: -1 }
+    })
+    return NextResponse.json({ ok: true, n: (data as { n?: number } | null)?.n ?? null, emails })
+  }
+
+  // Reenvio manual (so depois do sorteio). Com `para`, manda UM e-mail de teste
+  // com nome de exemplo para esse endereco, em qualquer fase.
+  if (body.acao === 'email_sorteio') {
+    if (typeof body.para === 'string' && body.para.includes('@')) {
+      const { data: ed } = await sb.from('amigo_secreto_edicoes').select('postar_ate, revelacao_em, teto_cents').eq('slug', AMIGO_SECRETO_SLUG).single()
+      if (!ed) return NextResponse.json({ error: 'Edição não encontrada.' }, { status: 404 })
+      const { subject, html } = renderEmailSorteio({ nome: 'Du', instagram: 'bynx.gg', edicao: ed as EdicaoSorteio })
+      const r = await enviarLoteEmails([{ to: body.para.trim(), subject: `[Teste] ${subject}`, html }], { from: FROM_CLUB })
+      return NextResponse.json({ ok: r[0]?.ok ?? false, resultado: r[0] })
+    }
+    const { data: ed } = await sb.from('amigo_secreto_edicoes').select('estado').eq('slug', AMIGO_SECRETO_SLUG).single()
+    if (!ed || ed.estado === 'inscricoes') return NextResponse.json({ error: 'O sorteio ainda não foi feito.' }, { status: 400 })
+    const emails = await enviarEmailSorteio(sb)
+    return NextResponse.json({ ok: true, emails })
   }
 
   if (body.acao === 'estado' && body.estado && ['entregas', 'encerrado'].includes(body.estado)) {
@@ -85,4 +109,24 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ error: 'Ação inválida' }, { status: 400 })
+}
+
+type Sb = NonNullable<ReturnType<typeof getServiceSupabase>>
+
+/** Manda "A pokebola abriu" para todos os participantes da edicao, em lote. */
+async function enviarEmailSorteio(sb: Sb): Promise<{ enviados: number; falhas: number }> {
+  const { data: ed, error: e1 } = await sb.from('amigo_secreto_edicoes').select('id, postar_ate, revelacao_em, teto_cents').eq('slug', AMIGO_SECRETO_SLUG).single()
+  if (e1 || !ed) throw new Error(e1?.message || 'edicao_nao_encontrada')
+  const { data: ps, error: e2 } = await sb.from('amigo_secreto_participantes').select('id, instagram, nome_completo, users(email)').eq('edicao_id', ed.id)
+  if (e2) throw new Error(e2.message)
+  const itens = (ps || []).flatMap(p => {
+    const to = (p.users as unknown as { email?: string } | null)?.email
+    if (!to) return []
+    const { subject, html } = renderEmailSorteio({ nome: p.nome_completo, instagram: p.instagram, edicao: ed as EdicaoSorteio })
+    return [{ to, subject, html, chave: `amigo-secreto-sorteio-${p.id}` }]
+  })
+  const res = await enviarLoteEmails(itens, { from: FROM_CLUB })
+  const enviados = res.filter(r => r.ok).length
+  console.log(`[amigo-secreto] e-mail do sorteio: ${enviados} de ${itens.length} enviados`)
+  return { enviados, falhas: itens.length - enviados }
 }

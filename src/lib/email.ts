@@ -3490,9 +3490,10 @@ export type { EmailLoteItem, ResultadoEmail } from './email-lote'
  */
 export async function enviarLoteEmails(
   emails: EmailLoteItem[],
-  opts: { tamanho?: number; deveParar?: () => boolean } = {},
+  opts: { tamanho?: number; deveParar?: () => boolean; from?: string } = {},
 ): Promise<ResultadoEmail[]> {
-  const payload = (e: EmailLoteItem) => ({ from: FROM, to: e.to, subject: e.subject, html: e.html })
+  const from = opts.from || FROM
+  const payload = (e: EmailLoteItem) => ({ from, to: e.to, subject: e.subject, html: e.html })
   const erro = (e: { name?: string; message?: string } | null | undefined) =>
     ({ ok: false as const, nome: e?.name, erro: e?.message ?? JSON.stringify(e) })
   const res = await enviarIsolando(emails, {
