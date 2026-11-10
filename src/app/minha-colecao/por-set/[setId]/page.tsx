@@ -10,7 +10,7 @@
  * GradeTique; aqui vive so o cabecalho fixo, os filtros e os estados da tela.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/ui/AppLayout'
@@ -109,10 +109,6 @@ export default function PorSetPage() {
   const [soFaltam, setSoFaltam] = useState(false)
   const [buscaAberta, setBuscaAberta] = useState(false)
   const [busca, setBusca] = useState('')
-  const [topo, setTopo] = useState(60)
-  // Cabecalho do set colado sob o header do AppLayout (so entao ele estende o fundo para cima).
-  const [colado, setColado] = useState(false)
-  const topoRef = useRef<HTMLElement | null>(null)
   const [tentativa, setTentativa] = useState(0)
   const buscaRef = useRef<HTMLInputElement | null>(null)
   const loginPedido = useRef(false)
@@ -172,41 +168,6 @@ export default function PorSetPage() {
     try { await carregar() } catch { /* mantem a tela como esta */ }
   }, [carregar])
 
-  // ── Altura do .tcg-header do AppLayout para o sticky ───────────────────────
-  // useLayoutEffect: com useEffect o primeiro quadro pintava o sticky 9 px fora.
-  // So o .tcg-header: o .tcg-switchbar (quem tem loja) NAO e sticky, rola
-  // embora. Somar a altura dele deixava um vao de ~45 px entre o header e o
-  // cabecalho do set, com as cartas aparecendo por ali (10/11/2026).
-  useLayoutEffect(() => {
-    // Reconsulta o header a cada medida: o AppLayout troca o no depois da
-    // montagem, e um ResizeObserver preso ao no antigo nunca dispara (medido).
-    const medir = () => {
-      const header = document.querySelector<HTMLElement>('.tcg-header')
-      if (!header) return
-      // Fracao de pixel: offsetHeight arredonda e deixava uma fresta de 1 px.
-      // 2 px de sobreposicao ficam escondidos atras do header (z-index maior).
-      const px = Math.max(0, Math.floor(header.getBoundingClientRect().height) - 2)
-      setTopo(px)
-      // Colado = o lugar NATURAL dele ja passou da linha do `top`. O natural e o
-      // topo do pai (a margem negativa colapsa ate ele), que nao e sticky e nao se
-      // mexe: medir o proprio sticky falha justo no atraso que a extensao cobre.
-      // No topo da pagina ele esta no lugar natural (logo abaixo do header, ou da
-      // barra de mundos de quem tem loja) e NAO pode estender o fundo, senao
-      // cobriria essa barra.
-      const pai = topoRef.current?.parentElement
-      if (pai) setColado(pai.getBoundingClientRect().top <= px + 1)
-    }
-    medir()
-    // O header muda de altura depois da montagem (fonte, patrimonio, aviso de
-    // trial). O sticky so importa durante a rolagem, entao medir nela basta;
-    // setState com o mesmo valor nao renderiza de novo.
-    window.addEventListener('resize', medir)
-    window.addEventListener('scroll', medir, { passive: true })
-    return () => {
-      window.removeEventListener('resize', medir)
-      window.removeEventListener('scroll', medir)
-    }
-  }, [])
 
   const nomeSet = setInfo?.name_pt || setInfo?.name || ''
   useEffect(() => {
@@ -289,7 +250,7 @@ export default function PorSetPage() {
     <AppLayout>
       <div style={{ color: 'var(--bx-text)' }}>
         {/* ── Cabecalho fixo ──────────────────────────────────────────────── */}
-        <header ref={topoRef} className={colado ? 'bx-tq-topo bx-tq-colado' : 'bx-tq-topo'} style={{ position: 'sticky', top: topo, zIndex: 30, background: 'var(--bx-bg)', borderBottom: '1px solid var(--bx-border)' }}>
+        <header className="bx-tq-topo" style={{ position: 'sticky', top: 0, zIndex: 30, background: 'var(--bx-bg)', borderBottom: '1px solid var(--bx-border)' }}>
           <div className="bx-tq-topo-linha1" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 48, height: 30, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {setInfo?.logo_url ? (
@@ -448,12 +409,12 @@ export default function PorSetPage() {
           .bx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
           /* O cabecalho e a barra sangram ate a borda: o .tcg-content da 16/24 px e eles devolvem por dentro. */
           .bx-tq-topo { margin: -16px -16px 0; padding: 12px 16px; }
-          /* Rede de seguranca do iOS: ao rolar, o Safari recolhe a barra de endereco e
-             reposiciona os dois sticky (o header da Bynx e este) em quadros diferentes;
-             por um instante sobra um vao e as cartas aparecem por ele. Colado, este
-             cabecalho pinta o proprio fundo ate 200 px para cima, atras do header
-             (z-index maior), entao nenhum vao fica a vista. */
-          .bx-tq-colado::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 200px; background: var(--bx-bg); pointer-events: none; }
+          /* Um sticky so (10/11/2026). Com o header da Bynx tambem fixo, o Safari do iPhone
+             reposicionava os dois em quadros diferentes ao rolar e o cabecalho do set
+             balancava; o vao ate foi coberto, o balanco ficou. Aqui o header rola embora
+             (relative, nao static: mantem o contexto de posicao) e so este cabecalho gruda,
+             em top: 0, sem conta de altura. Vale so nesta tela, enquanto ela esta montada. */
+          .tcg-header { position: relative !important; }
           .bx-tq-barra { bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; margin-left: -16px !important; margin-right: -16px !important; }
           /* No celular o cabecalho fixo ja toma 46% da tela (auditoria de 09/11): a dica sai. */
           .bx-tq-dica { display: none; }
