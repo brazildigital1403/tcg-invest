@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { setLabel } from '@/lib/setLabel'
@@ -107,6 +107,29 @@ function OpcaoFiltro({ ativo, onClick, children }: { ativo: boolean; onClick: ()
   )
 }
 
+/**
+ * ?adicionar=por-set abre o modal "Adicionar carta" direto na aba Por set.
+ * Vive num filho com useSearchParams (dentro de <Suspense>) e nao num efeito
+ * de montagem: quem ja esta em /minha-colecao e clica "Por set" na lateral nao
+ * remonta a pagina, so muda a query -- o efeito de montagem nunca rodava de
+ * novo e o clique nao fazia nada. Mesmo padrao do PostHogPageView.
+ */
+function AbrirPorSetPelaUrl({ onAbrir }: { onAbrir: () => void }) {
+  const sp = useSearchParams()
+  const router = useRouter()
+  const pedido = sp.get('adicionar')
+  useEffect(() => {
+    if (pedido !== 'por-set') return
+    onAbrir()
+    // Limpa pelo roteador, nao por history.replaceState com o state interno do
+    // Next: esse caminho nao sincroniza o roteador, que seguia achando que a
+    // URL ainda tinha ?adicionar= e ignorava o segundo clique na lateral.
+    router.replace('/minha-colecao', { scroll: false })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedido])
+  return null
+}
+
 export default function MinhaColecao() {
   const { showAlert, showConfirm } = useAppModal()
   const [cards, setCards] = useState<any[]>([])
@@ -118,18 +141,8 @@ export default function MinhaColecao() {
   const router = useRouter()
   const [pastasTopo, setPastasTopo] = useState<any>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
-  // Sidebar "Por set" e links externos chegam com ?adicionar=por-set: abre o
-  // modal direto na aba Por set e limpa a URL. Lido pela window, nao por
-  // useSearchParams, para a pagina nao exigir Suspense no prerender.
+  // Aba em que o modal "Adicionar carta" abre; AbrirPorSetPelaUrl poe 'set'.
   const [abaModal, setAbaModal] = useState<'busca' | 'set'>('busca')
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const sp = new URLSearchParams(window.location.search)
-    if (sp.get('adicionar') === 'por-set') {
-      setAbaModal('set'); setOpenAddModal(true)
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-  }, [])
   const [openScanModal, setOpenScanModal] = useState(false)
   const limiteDisplay = (!ENFORCEMENT_ATIVO || limiteCartas === Infinity) ? '∞' : String(limiteCartas)
   const [search, setSearch] = useState('')
@@ -709,8 +722,31 @@ export default function MinhaColecao() {
 
 
 
+  // O modal "Adicionar carta" e o leitor de ?adicionar= ficam FORA do early
+  // return do loading: a colecao grande leva segundos para carregar (lookup de
+  // preco por carta) e o deep link da lateral parecia nao fazer nada enquanto
+  // isso -- o modal so nascia depois do "Carregando coleção...".
+  const modalAdicionar = (
+    <>
+      <Suspense fallback={null}>
+        <AbrirPorSetPelaUrl onAbrir={() => { setAbaModal('set'); setOpenAddModal(true) }} />
+      </Suspense>
+      {openAddModal && userId && (
+        <AddCardModal
+          userId={userId}
+          abaInicial={abaModal}
+          onClose={() => {
+            setOpenAddModal(false); setAbaModal('busca')
+            if (reconciliarRef.current) { reconciliarRef.current = false; loadCards() }
+          }}
+          onAdded={(novas) => { reconciliarRef.current = true; aplicarNovas(novas) }}
+        />
+      )}
+    </>
+  )
+
   if (loading) {
-    return <AppLayout><div>Carregando coleção...</div></AppLayout>
+    return <AppLayout><div>Carregando coleção...</div>{modalAdicionar}</AppLayout>
   }
 
   // ✅ Total real de cartas (soma de quantities, não count de tipos)
@@ -1580,17 +1616,7 @@ export default function MinhaColecao() {
         </div>
       )}
 
-      {openAddModal && userId && (
-        <AddCardModal
-          userId={userId}
-          abaInicial={abaModal}
-          onClose={() => {
-            setOpenAddModal(false); setAbaModal('busca')
-            if (reconciliarRef.current) { reconciliarRef.current = false; loadCards() }
-          }}
-          onAdded={(novas) => { reconciliarRef.current = true; aplicarNovas(novas) }}
-        />
-      )}
+      {modalAdicionar}
 
       {openScanModal && userId && (
         <ScanModal
