@@ -66,6 +66,8 @@ export type Eu = {
   bairro: string | null; cidade: string | null; uf: string | null
   rastreio: string | null; postado_em: string | null; recebido_em: string | null; recebido_em_maos: boolean
   quer_revelar: boolean; perfil_completo: boolean
+  /** Quando a pista mudou depois do sorteio (null = nunca). */
+  pista_atualizada_em: string | null
 }
 
 export type Tirou = {
@@ -75,6 +77,8 @@ export type Tirou = {
   recebido_em: string | null
   /** Quem eu tirei aceitou revelar a troca (sem dizer quem me tirou). */
   aceitou: boolean
+  /** Quando a pista de quem eu tirei mudou depois do sorteio (null = nunca). */
+  pista_atualizada_em: string | null
 }
 
 export type Recebo = { postado_em: string | null; rastreio: string | null; outro_aceitou: boolean; revelado: Ficha | null }
@@ -91,6 +95,32 @@ export type MinhaSala =
     }
 
 export type MensagemMural = { id: string; texto: string; pronta: number | null; dia: string; para: Ficha; para_mim: boolean }
+
+// ── Pista depois do sorteio (direcao "Pista na missao", 09/11/2026) ─────────
+
+/** Limite antigo do desejo: quem bateu nele teve o texto cortado na digitacao. */
+const DESEJO_LIMITE_ANTIGO = 140
+
+export type FaltaPista = 'cortado' | 'curto' | 'sem_sugestao' | null
+
+/**
+ * O que falta na pista para o aviso "Ajude quem tirou voce". "Pode escolher por
+ * mim" e escolha, nao esquecimento: nunca recebe aviso.
+ */
+export function faltaNaPista(eu: Pick<Eu, 'desejo' | 'sugestoes' | 'me_surpreenda' | 'pista_atualizada_em'>): FaltaPista {
+  if (eu.me_surpreenda) return null
+  const d = (eu.desejo || '').trim()
+  // Quem ja mexeu na pista depois do sorteio viu o texto: tamanho deixa de ser aviso.
+  if (!eu.pista_atualizada_em) {
+    if (d.length >= DESEJO_LIMITE_ANTIGO - 1 && d.length <= DESEJO_LIMITE_ANTIGO) return 'cortado'
+    if (d.length > 0 && d.length < 20) return 'curto'
+  }
+  if ((eu.sugestoes || []).length === 0) return 'sem_sugestao'
+  return null
+}
+
+/** Ultimas palavras do texto, para mostrar onde a pista parou. */
+export const finalDoTexto = (t: string, palavras = 2) => t.trim().split(/\s+/).slice(-palavras).join(' ')
 
 // ── Formatacao (sempre Brasilia) ───────────────────────────────────────────
 
@@ -148,6 +178,7 @@ export function erroAmigoSecreto(msg: string | undefined | null): string {
   if (m.includes('pokemon_invalido')) return 'Escolha um Pokémon da lista.'
   if (m.includes('dados_invalidos')) return 'Algum campo passou do tamanho. Encurte e tente de novo.'
   if (m.includes('edicao_encerrada')) return 'Esta edição já encerrou.'
+  if (m.includes('pista_encerrada')) return 'O prazo de entrega passou, e a pista não muda mais.'
   if (m.includes('nao_participante')) return 'Só quem está na sala vê o mural.'
   if (m.includes('sem_sorteio')) return 'Isso só fica disponível depois do sorteio.'
   if (m.includes('sem_postagem')) return 'Quem tirou você ainda não registrou o envio. Se o presente chegou em mãos, use essa opção.'

@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
   AMIGO_SECRETO_SLUG, DESEJO_MAX_CHARS, INSTAGRAM_RE, MENSAGENS_PRONTAS, MURAL_MAX_CHARS, MURAL_MAX_DIA,
-  POKEMON_PERFIL, brl, cepBonito, dataCurta, dataHora, diasAte, erroAmigoSecreto, horaCurta, limparInstagram, rotuloDia,
+  POKEMON_PERFIL, brl, cepBonito, dataCurta, dataHora, diasAte, erroAmigoSecreto, faltaNaPista, finalDoTexto, horaCurta, limparInstagram, rotuloDia,
   nomePokemon, spritePokemon, type EdicaoPublica, type Eu, type MensagemMural, type MinhaSala, type Tirou,
 } from '@/lib/amigoSecreto'
 import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
@@ -29,6 +29,13 @@ type Json = Record<string, unknown>
 function lerAbri(): boolean { try { return localStorage.getItem(CHAVE_ABRI) === '1' } catch { return false } }
 function gravarAbri() { try { localStorage.setItem(CHAVE_ABRI, '1') } catch {} }
 
+// Pista depois do sorteio: "Esta bom assim" esconde o aviso neste aparelho, e a
+// ultima abertura do envelope decide se o selo "Pista atualizada" aparece.
+const CHAVE_PISTA_OK = `bynx_as_pista_ok_${SLUG}`
+const CHAVE_PISTA_VISTA = `bynx_as_pista_vista_${SLUG}`
+function lerNum(k: string): number { try { return Number(localStorage.getItem(k) || 0) } catch { return 0 } }
+function gravarNum(k: string, v: number) { try { localStorage.setItem(k, String(v)) } catch {} }
+
 export default function SalaClient() {
   const { openLogin } = useAuthModal()
   const [sessao, setSessao] = useState<{ uid: string; nome: string } | null | undefined>(undefined)
@@ -41,6 +48,9 @@ export default function SalaClient() {
   const [ocupado, setOcupado] = useState(false)
   const [aberto, setAberto] = useState(false)
   const [muralAberto, setMuralAberto] = useState(true)
+  const [pistaOk, setPistaOk] = useState(() => lerNum(CHAVE_PISTA_OK) > 0)
+  const [pistaVista, setPistaVista] = useState(() => lerNum(CHAVE_PISTA_VISTA))
+  const [salvouPista, setSalvouPista] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -88,6 +98,13 @@ export default function SalaClient() {
   }
 
   const fechar = useCallback(() => setFolha(null), [])
+
+  /** Abre o envelope de quem eu tirei e marca a pista como vista. */
+  function abrirTirou() {
+    gravarAbri(); setAbri(true); setFolha('tirou')
+    const agora = Date.now()
+    gravarNum(CHAVE_PISTA_VISTA, agora); setPistaVista(agora)
+  }
 
   // ── Estados de entrada ────────────────────────────────────────────────────
 
@@ -158,6 +175,16 @@ export default function SalaClient() {
   const temDesejo = eu!.me_surpreenda || !!(eu!.desejo && eu!.desejo.trim())
   const energiaPerfil = [true, temEndereco, temDesejo]
   const energiaEntrega = [abri, !!eu!.postado_em, !!eu!.recebido_em]
+  // Pista depois do sorteio: editavel ate o prazo de entrega.
+  const pistaAberta = estado !== 'encerrado' && Date.now() <= Date.parse(sala.postar_ate)
+  const falta = faltaNaPista(eu!)
+  const nSug = (eu!.sugestoes || []).length
+  const resumoPista = [
+    eu!.me_surpreenda ? 'escolha livre' : `${falta === 'cortado' ? 'texto cortado · ' : ''}${nSug} de 3 sugestões`,
+    eu!.pista_atualizada_em ? `atualizada ${dataHora(eu!.pista_atualizada_em)}` : null,
+    pistaAberta ? `editável até ${dataCurta(sala.postar_ate)}` : `fechada em ${dataCurta(sala.postar_ate)}`,
+  ].filter(Boolean).join(' · ')
+  const pistaMudou = !!tirou?.pista_atualizada_em && Date.parse(tirou.pista_atualizada_em) > pistaVista
   const revelado = sala.revelado
 
   return (
@@ -213,7 +240,7 @@ export default function SalaClient() {
           <div className="as-lane envio first">
             {tirou ? (
               <>
-                <button type="button" className="as-verso tilt" aria-label="Ver quem eu tirei" onClick={() => { gravarAbri(); setAbri(true); setFolha('tirou') }}><Ico n="gift" s={28} /></button>
+                <button type="button" className="as-verso tilt" aria-label="Ver quem eu tirei" onClick={abrirTirou}><Ico n="gift" s={28} /></button>
                 <div className="tx">
                   <div className="as-k">Eu envio</div>
                   {eu!.postado_em ? (
@@ -224,9 +251,15 @@ export default function SalaClient() {
                     </>
                   ) : (
                     <>
-                      <button type="button" className="as-btn pri sm" onClick={() => { gravarAbri(); setAbri(true); setFolha('tirou') }}><Ico n="eye" s={16} />Ver quem eu tirei</button>
+                      <button type="button" className="as-btn pri sm" onClick={abrirTirou}><Ico n="eye" s={16} />Ver quem eu tirei</button>
                       <div className="as-meta">O @, a pista e o endereço aparecem só para você, dentro do envelope.</div>
                     </>
+                  )}
+                  {pistaMudou && (
+                    <div className="as-pista-nova">
+                      <span className="as-chip fill"><Ico n="spark" s={12} />Pista atualizada</span>
+                      <span className="as-meta">A pista mudou em {dataHora(tirou.pista_atualizada_em!)}. Confira antes de comprar.</span>
+                    </div>
                   )}
                 </div>
               </>
@@ -237,6 +270,33 @@ export default function SalaClient() {
 
           <div className="as-lane">
             <div className="as-k">Eu recebo</div>
+            {pistaAberta && falta && !pistaOk && !sala.recebo?.postado_em && (
+              <div className="as-ajuda">
+                <div className="as-eye"><Ico n="gift" s={14} />Ajude quem tirou você</div>
+                <p className="as-meta" style={{ margin: 0 }}>
+                  {falta === 'cortado'
+                    ? <>Sua pista parou no meio, em <strong>{finalDoTexto(eu!.desejo || '')}</strong>. Agora cabem {DESEJO_MAX_CHARS} caracteres: termine a frase.</>
+                    : falta === 'curto'
+                      ? <>Sua pista diz só <strong>{(eu!.desejo || '').trim()}</strong>. Conte um Pokémon favorito ou um tipo de item, e quem tirou você acerta mais fácil.</>
+                      : <>Sua pista ainda não tem sugestão. Uma carta, um sleeve ou um link já ajudam quem vai escolher o seu presente.</>}
+                </p>
+                <Energia rotulo="Sugestões na pista" segs={[nSug >= 1, nSug >= 2, nSug >= 3]} />
+                <div className="acoes">
+                  <button type="button" className="as-btn sm" onClick={() => { setSalvouPista(false); setFolha('desejo') }}>
+                    {falta === 'cortado' ? 'Terminar minha pista' : falta === 'curto' ? 'Completar minha pista' : 'Adicionar sugestões'}
+                  </button>
+                  <button type="button" className="as-btn lnk sm" style={{ width: 'auto' }} onClick={() => { gravarNum(CHAVE_PISTA_OK, Date.now()); setPistaOk(true) }}>Está bom assim</button>
+                </div>
+              </div>
+            )}
+            <button type="button" className="as-row" disabled={!pistaAberta} onClick={() => { setSalvouPista(false); setFolha('desejo') }}>
+              <span className="l">
+                <span className={`as-st${falta ? '' : ' ok'}`}>{!falta && <Ico n="check" s={13} />}</span>
+                <span>Minha pista de presente<small>{resumoPista}</small></span>
+              </span>
+              {pistaAberta && <Ico n="chev" className="arr" />}
+            </button>
+            {salvouPista && <div className="as-note">Pista salva. Quem tirou você vai ver o selo &quot;Pista atualizada&quot; ao abrir o envelope.</div>}
             {sala.recebo?.revelado ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Avatar instagram={sala.recebo.revelado.instagram} pokemon={sala.recebo.revelado.pokemon} tam={36} />
@@ -299,7 +359,13 @@ export default function SalaClient() {
       {/* ── Folhas ── */}
       {folha === 'dados' && <FolhaDados eu={eu} nome={sessao.nome} ocupado={ocupado} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(temEndereco ? null : 'endereco'); carregar() } }} />}
       {folha === 'endereco' && <FolhaEndereco eu={eu!} nome={sessao.nome} ocupado={ocupado} travado={!!tirou} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(temDesejo ? null : 'desejo') } }} />}
-      {folha === 'desejo' && <FolhaDesejo eu={eu!} teto={sala.teto_cents} ocupado={ocupado} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(eu!.pokemon ? null : 'pokemon') } }} />}
+      {folha === 'desejo' && <FolhaDesejo eu={eu!} teto={sala.teto_cents} ocupado={ocupado} onFechar={fechar}
+        depois={estado === 'inscricoes' ? undefined : { prazo: sala.postar_ate, aCaminho: !!sala.recebo?.postado_em }}
+        onSalvar={async d => {
+          if (!(await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d }))) return
+          if (estado === 'inscricoes') setFolha(eu!.pokemon ? null : 'pokemon')
+          else { setFolha(null); setSalvouPista(true) }
+        }} />}
       {folha === 'pokemon' && <FolhaPokemon eu={eu!} ocupado={ocupado} onFechar={fechar} onSalvar={async p => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: { pokemon: p || '' } })) { setFolha(null); carregar() } }} />}
       {folha === 'tirou' && tirou && <FolhaTirou tirou={tirou} postarAte={sala.postar_ate} postado={!!eu!.postado_em} onFechar={fechar} onPostei={() => setFolha('rastreio')} onAjuda={() => setFolha('ajuda')} />}
       {folha === 'rastreio' && tirou && <FolhaRastreio eu={eu!} tirou={tirou} postarAte={sala.postar_ate} ocupado={ocupado} onFechar={fechar} onSalvar={async r => { if (await chamar('amigo_secreto_postei', { p_slug: SLUG, p_rastreio: r })) setFolha(null) }} />}
@@ -565,7 +631,12 @@ function FolhaEndereco({ eu, nome, ocupado, travado, onFechar, onSalvar }: { eu:
   )
 }
 
-function FolhaDesejo({ eu, teto, ocupado, onFechar, onSalvar }: { eu: Eu; teto: number; ocupado: boolean; onFechar: () => void; onSalvar: (d: Json) => void }) {
+function FolhaDesejo({ eu, teto, ocupado, depois, onFechar, onSalvar }: {
+  eu: Eu; teto: number; ocupado: boolean
+  /** Depois do sorteio: prazo para editar e se o presente ja esta a caminho. */
+  depois?: { prazo: string; aCaminho: boolean }
+  onFechar: () => void; onSalvar: (d: Json) => void
+}) {
   const [desejo, setDesejo] = useState(eu.desejo || '')
   const [sug, setSug] = useState<string[]>((eu.sugestoes || []).length ? [...eu.sugestoes] : [''])
   const [surp, setSurp] = useState(eu.me_surpreenda)
@@ -573,8 +644,12 @@ function FolhaDesejo({ eu, teto, ocupado, onFechar, onSalvar }: { eu: Eu; teto: 
   // Uma pista basta: o 2o e o 3o campo so aparecem se a pessoa pedir.
   const addPista = () => setSug(x => x.length < 3 ? [...x, ''] : x)
   return (
-    <Folha titulo="Que presente combina com você?" eyebrow="Etapa 3 de 3 · pista de presente" onFechar={onFechar}>
-      <p className="as-meta">Deixe uma pista para quem cair com você. O presente vai até {brl(teto)}, e o frete fica por conta de quem envia.</p>
+    <Folha titulo="Que presente combina com você?" eyebrow={depois ? 'Pista de presente' : 'Etapa 3 de 3 · pista de presente'} onFechar={onFechar}>
+      <p className="as-meta">{!depois
+        ? `Deixe uma pista para quem cair com você. O presente vai até ${brl(teto)}, e o frete fica por conta de quem envia.`
+        : depois.aCaminho
+          ? 'Seu presente já está a caminho. Ainda dá para ajustar a pista, mas quem tirou você já fez o envio.'
+          : `Quem tirou você ainda está escolhendo. Quanto mais clara a pista, mais certeiro o presente. O valor vai até ${brl(teto)}, e o frete fica por conta de quem envia.`}</p>
       <form onSubmit={e => { e.preventDefault(); if (!surp && !desejo.trim()) { setErro('Escreva em poucas palavras ou marque "Pode escolher por mim".'); return } onSalvar({ desejo: desejo.trim(), sugestoes: sug.map(s => s.trim()).filter(Boolean), me_surpreenda: surp }) }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label className="as-f">
           <span className="as-lb">Em poucas palavras, o que você curte?</span>
@@ -596,7 +671,10 @@ function FolhaDesejo({ eu, teto, ocupado, onFechar, onSalvar }: { eu: Eu; teto: 
           </div>
         )}
         {erro && <div className="as-erro" role="alert">{erro}</div>}
-        <div className="as-fh" style={{ minHeight: 0 }}><span className="as-meta">Você pode editar até o sorteio.</span></div>
+        <div className="as-fh" style={{ minHeight: 0, flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+          <span className="as-meta">{depois ? `Você pode editar até ${dataCurta(depois.prazo)}.` : 'Você pode editar até o sorteio.'}</span>
+          {depois && <span className="as-meta">Quem tirou você vê só que a pista mudou. Ninguém fica sabendo quem é.</span>}
+        </div>
         <button type="submit" className="as-btn pri" disabled={ocupado}>Salvar minha pista</button>
       </form>
     </Folha>
@@ -645,7 +723,10 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
         <a className="ln" href={`https://instagram.com/${tirou.instagram}`} target="_blank" rel="noopener noreferrer"><Ico n="ext" s={14} />Abrir no Instagram, para conhecer o conteúdo</a>
       </div>
       <div className="as-card" style={{ gap: 6, padding: '10px 12px' }}>
-        <div className="as-k">O que gostaria de ganhar</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+          <div className="as-k">O que gostaria de ganhar</div>
+          {tirou.pista_atualizada_em && <span className="as-chip fill"><Ico n="spark" s={12} />Pista atualizada · {dataCurta(tirou.pista_atualizada_em)}</span>}
+        </div>
         {tirou.me_surpreenda && <div style={{ fontSize: 14 }}><strong>Pode escolher por mim.</strong> Escolha livre, até o teto.</div>}
         {tirou.desejo && <div style={{ fontSize: 14, overflowWrap: 'anywhere' }}>{tirou.desejo}</div>}
         {tirou.sugestoes.length > 0 && (

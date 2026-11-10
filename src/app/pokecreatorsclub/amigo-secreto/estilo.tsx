@@ -133,6 +133,12 @@ export const AS_CSS = `
 .as-frente .ln{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:13px;font-weight:600;color:var(--ac-1);text-decoration:none}
 @keyframes as-virar{from{transform:perspective(600px) rotateY(90deg)}to{transform:none}}
 .as-lane{display:flex;flex-direction:column;gap:8px;padding:10px 0;border-top:1px solid var(--bx-border)}
+/* Pista depois do sorteio: aviso leve para quem esta sem sugestao, e o selo para quem tirou. */
+.as-ajuda{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;border:1px solid rgba(var(--ac-1-rgb),.35);background:rgba(var(--ac-1-rgb),.06)}
+.as-ajuda .acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.as-ajuda .acoes .as-btn{width:auto}
+.as-pista-nova{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:4px}
+.as-row:disabled{cursor:default;opacity:.7}
 .as-lane.first{border-top:0;padding-top:0}
 .as-lane.envio{flex-direction:row;align-items:center;gap:14px}
 .as-lane.envio .tx{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
