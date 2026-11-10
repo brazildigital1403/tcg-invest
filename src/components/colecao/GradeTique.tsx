@@ -155,13 +155,8 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
     if (novo.has(carta.card_id)) {
       novo.delete(carta.card_id)
     } else {
-      // Carta que a pessoa ja tem: o toque e "somar 1" NA PILHA que existe
-      // (variante e idioma dela), nao uma pilha nova pelo padrao do lote, que
-      // gastaria vaga e dizia "Somar" sem somar (teste funcional de 09/11).
-      const pilha = carta.pilhas[0]
-      const ajuste: AjusteCarta = pilha ? { variante: pilha.variante, idioma: pilha.idioma, quantity: 1 } : {}
-      if (travadaPara(carta, ajuste)) { avisarTrava(); return }
-      novo.set(carta.card_id, ajuste)
+      if (travadaPara(carta, {})) { avisarTrava(); return }
+      novo.set(carta.card_id, {})
     }
     emitirSelecao(novo)
   }
