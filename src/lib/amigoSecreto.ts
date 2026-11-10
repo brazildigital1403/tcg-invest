@@ -23,7 +23,7 @@ export const MENSAGENS_PRONTAS = [
 
 export const MURAL_MAX_DIA = 3
 export const MURAL_MAX_CHARS = 120
-export const DESEJO_MAX_CHARS = 140
+export const DESEJO_MAX_CHARS = 500
 
 /** Pokemon de perfil: o slug e o que o banco guarda; o sprite vem da mesma fonte da Pokedex. */
 export const POKEMON_PERFIL: { slug: string; nome: string }[] = [
