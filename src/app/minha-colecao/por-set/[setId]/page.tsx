@@ -175,12 +175,25 @@ export default function PorSetPage() {
   // embora. Somar a altura dele deixava um vao de ~45 px entre o header e o
   // cabecalho do set, com as cartas aparecendo por ali (10/11/2026).
   useLayoutEffect(() => {
+    // Reconsulta o header a cada medida: o AppLayout troca o no depois da
+    // montagem, e um ResizeObserver preso ao no antigo nunca dispara (medido).
     const medir = () => {
-      setTopo(document.querySelector<HTMLElement>('.tcg-header')?.offsetHeight || 0)
+      const header = document.querySelector<HTMLElement>('.tcg-header')
+      if (!header) return
+      // Fracao de pixel: offsetHeight arredonda e deixava uma fresta de 1 px.
+      // 2 px de sobreposicao ficam escondidos atras do header (z-index maior).
+      setTopo(Math.max(0, Math.floor(header.getBoundingClientRect().height) - 2))
     }
     medir()
+    // O header muda de altura depois da montagem (fonte, patrimonio, aviso de
+    // trial). O sticky so importa durante a rolagem, entao medir nela basta;
+    // setState com o mesmo valor nao renderiza de novo.
     window.addEventListener('resize', medir)
-    return () => window.removeEventListener('resize', medir)
+    window.addEventListener('scroll', medir, { passive: true })
+    return () => {
+      window.removeEventListener('resize', medir)
+      window.removeEventListener('scroll', medir)
+    }
   }, [])
 
   const nomeSet = setInfo?.name_pt || setInfo?.name || ''
