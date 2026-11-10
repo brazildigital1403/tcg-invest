@@ -6,20 +6,14 @@
  * houver bottom nav por cima, ajusta `bottom` pela classe `bx-tq-barra`.
  */
 
-import React, { ReactNode } from 'react'
+import { ReactNode } from 'react'
 import Link from 'next/link'
 import { IconPlus } from '@/components/ui/Icons'
 import { IconCadeado, btnPrim, btnSec } from './TiqueBase'
 import { Vagas, fmtBRL } from './tiqueComum'
 
-export default function BarraLote({ modo, n, nesteResultado, valor, vagas, salvando, onVerLote, onSalvar, onLimpar, verAsN = true, barraRef, rodape }: {
+export default function BarraLote({ modo, n, nesteResultado, valor, vagas, salvando, onVerLote, onSalvar, rodape }: {
   modo: 'busca' | 'set'
-  /** Quem renderiza mede a barra para pousar o toast acima dela. */
-  barraRef?: React.RefObject<HTMLDivElement | null>
-  /** Esconde o Ver as N quando a tela ja mostra o lote ao lado (painel do desktop). */
-  verAsN?: boolean
-  /** Limpar selecao na propria barra (tela do set, que nao tem folha do lote). */
-  onLimpar?: () => void
   n: number
   /** Quantas das marcadas estao no resultado atual (so modo busca). */
   nesteResultado: number
@@ -39,7 +33,6 @@ export default function BarraLote({ modo, n, nesteResultado, valor, vagas, salva
 
   return (
     <div
-      ref={barraRef}
       className="bx-tq-barra"
       role="region"
       aria-label="Lote selecionado"
@@ -68,13 +61,10 @@ export default function BarraLote({ modo, n, nesteResultado, valor, vagas, salva
       )}
 
       <div style={{ display: 'flex', gap: 8 }}>
-        {modo === 'busca' && verAsN && (
+        {modo === 'busca' && (
           <button type="button" style={{ ...btnSec, flex: 1 }} onClick={onVerLote} disabled={salvando}>Ver as {n}</button>
         )}
-        {onLimpar && (modo === 'set' || !verAsN) && (
-          <button type="button" style={{ ...btnSec, flex: '0 0 auto', padding: '0 14px' }} onClick={onLimpar} disabled={salvando}>Limpar</button>
-        )}
-        <button type="button" style={{ ...btnPrim, flex: modo === 'busca' && verAsN ? 1.6 : 1, opacity: salvando ? 0.7 : 1, cursor: salvando ? 'default' : 'pointer' }} onClick={onSalvar} disabled={salvando} aria-busy={salvando}>
+        <button type="button" style={{ ...btnPrim, flex: modo === 'busca' ? 1.6 : 1, opacity: salvando ? 0.7 : 1, cursor: salvando ? 'default' : 'pointer' }} onClick={onSalvar} disabled={salvando} aria-busy={salvando}>
           {salvando ? `Gravando ${n} de ${n}` : <><IconPlus size={16} color="currentColor" />Adicionar {n} à coleção</>}
         </button>
       </div>

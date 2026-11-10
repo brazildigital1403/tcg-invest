@@ -215,7 +215,7 @@ export type BynxEvent =
          * adicoes, a mudanca foi neutra. Amostra: PostHog so ve quem aceita
          * cookie (~22% dos cadastros). A metrica principal e medida pelo banco.
          */
-        origem?: 'pokedex' | 'busca' | 'scan' | 'meta' | 'set'
+        origem?: 'pokedex' | 'busca' | 'scan' | 'meta'
         /** Tier no momento da adicao -- separa o Gratis pos-trial do resto. */
         plano?: string
       }
@@ -266,7 +266,7 @@ export type BynxEvent =
   | { name: 'meta_criada'; properties: { tipo: 'pokemon' | 'set'; alvo: string; idioma: string | null; plano: string; origem?: 'sugestao' | 'busca' | 'idioma' | 'pokedex' | 'link' } }
   | { name: 'meta_aberta'; properties: { tipo: 'pokemon' | 'set'; total: number; tenho: number; plano: string } }
   | { name: 'meta_concluida'; properties: { tipo: 'pokemon' | 'set'; total: number; plano: string } }
-  | { name: 'limite_cartas_atingido'; properties: { origem: 'meta' | 'pokedex' | 'busca' | 'set'; limite: number; plano: string } }
+  | { name: 'limite_cartas_atingido'; properties: { origem: 'meta' | 'pokedex'; limite: number; plano: string } }
   | { name: 'search_no_results'; properties: { query: string } }
 
   // Comparador de troca (2)

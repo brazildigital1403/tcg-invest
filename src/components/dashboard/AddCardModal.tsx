@@ -121,7 +121,7 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
   const router = useRouter()
 
   const [aba, setAba] = useState<Aba>(abaInicial)
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
+  const [isMobile, setIsMobile] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showLimite, setShowLimite] = useState(false)
   const [limiteCartas, setLimiteCartas] = useState(100)
@@ -166,11 +166,6 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
   const [meusSets, setMeusSets] = useState<SetLinha[] | null>(null)
   const [lancamentos, setLancamentos] = useState<SetLinha[] | null>(null)
   const setTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Fechar o modal no meio de um debounce nao pode disparar busca em componente morto.
-  useEffect(() => () => {
-    if (searchTimeout.current) clearTimeout(searchTimeout.current)
-    if (setTimeoutRef.current) clearTimeout(setTimeoutRef.current)
-  }, [])
   const setsCarregados = useRef(false)
 
   useEffect(() => {
@@ -661,7 +656,6 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
                       onPadraoChange={setPadrao}
                       plano={plano}
                       modo="busca"
-                      ocultarVerAsN={!isMobile}
                       colunas={{ mobile: 3, desktop: 6 }}
                       onSalvar={salvarLote}
                       onDesfazer={desfazerLote}

@@ -10,7 +10,7 @@
  * GradeTique; aqui vive so o cabecalho fixo, os filtros e os estados da tela.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/ui/AppLayout'
@@ -23,7 +23,6 @@ import { btnPrim, btnSec } from '@/components/colecao/TiqueBase'
 import { fmtBRL } from '@/components/colecao/tiqueComum'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit } from '@/lib/checkCardLimit'
-import { track, trackFirstCardAdded } from '@/lib/analytics'
 
 type SetInfo = {
   id: string
@@ -170,8 +169,7 @@ export default function PorSetPage() {
   }, [carregar])
 
   // ── Altura do topo do AppLayout (header + switchbar) para o sticky ─────────
-  // useLayoutEffect: com useEffect o primeiro quadro pintava o sticky 9 px fora.
-  useLayoutEffect(() => {
+  useEffect(() => {
     const medir = () => {
       const h = document.querySelector<HTMLElement>('.tcg-header')?.offsetHeight || 0
       const s = document.querySelector<HTMLElement>('.tcg-switchbar')?.offsetHeight || 0
@@ -234,11 +232,6 @@ export default function PorSetPage() {
   }
 
   function onSalvo(r: ResultadoLote) {
-    // Mesmos sinais da Pokedex e das Metas: cada carta gravada conta, e a
-    // primeira carta da conta dispara o marco.
-    const planoNome = plano.limite === -1 ? 'ilimitado' : 'free'
-    r.entraram.forEach(e => track({ name: 'card_added_to_collection', properties: { card_id: e.card_id, set_id: setId, quantity: e.quantity, origem: 'set', plano: planoNome } }))
-    if (userId && r.entraram.length > 0) trackFirstCardAdded(userId)
     // O filtro se desliga sozinho para a pessoa ver o que entrou (quadro 09).
     setSoFaltam(false)
     setPlano(p => ({ ...p, totalAtual: r.total_agora > 0 ? r.total_agora : p.totalAtual + r.entraram.length }))
@@ -325,7 +318,7 @@ export default function PorSetPage() {
             )}
             {!buscaAberta && (
               <span className="bx-tq-dica" style={{ flex: '1 1 100%', fontSize: 12, color: 'var(--bx-text-3)', lineHeight: 1.4 }}>
-                Toque ou clique para marcar. O ícone na carta ajusta variante, idioma ou quantidade.
+                Toque para marcar. O ícone na carta ajusta variante, idioma ou quantidade.
               </span>
             )}
           </div>
@@ -423,8 +416,6 @@ export default function PorSetPage() {
           /* O cabecalho e a barra sangram ate a borda: o .tcg-content da 16/24 px e eles devolvem por dentro. */
           .bx-tq-topo { margin: -16px -16px 0; padding: 12px 16px; }
           .bx-tq-barra { bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; margin-left: -16px !important; margin-right: -16px !important; }
-          /* No celular o cabecalho fixo ja toma 46% da tela (auditoria de 09/11): a dica sai. */
-          .bx-tq-dica { display: none; }
           .bx-tq-esq-grade { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
           .bx-tq-esq { animation: bxTqPulso 1.2s ease-in-out infinite alternate; }
           @keyframes bxTqPulso { from { opacity: .55 } to { opacity: 1 } }
@@ -432,7 +423,7 @@ export default function PorSetPage() {
             .bx-tq-topo { margin: -24px -24px 0; padding: 14px 24px; }
             .bx-tq-barra { bottom: 0 !important; margin-left: 0 !important; margin-right: 0 !important; }
             .bx-tq-vagas { display: block !important; }
-            .bx-tq-dica { display: inline; flex: 1 1 auto !important; text-align: right; }
+            .bx-tq-dica { flex: 1 1 auto !important; text-align: right; }
             .bx-tq-esq-grade { gap: 12px; grid-template-columns: repeat(7, minmax(0, 1fr)); }
           }
           @media (prefers-reduced-motion: reduce) { .bx-tq-esq { animation: none; opacity: .7; } }
