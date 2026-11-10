@@ -104,6 +104,8 @@ export default function SalaClient() {
     gravarAbri(); setAbri(true); setFolha('tirou')
     const agora = Date.now()
     gravarNum(CHAVE_PISTA_VISTA, agora); setPistaVista(agora)
+    // Registro da primeira abertura (so a primeira grava); falha nao atrapalha a sala.
+    supabase.rpc('amigo_secreto_abri_envelope', { p_slug: SLUG }).then(() => {}, () => {})
   }
 
   // ── Estados de entrada ────────────────────────────────────────────────────
