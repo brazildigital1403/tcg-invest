@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { IconHistory, IconCheck, IconPlus, IconBell, IconClose } from '@/components/ui/Icons'
+import { IconCheck, IconPlus, IconBell, IconClose } from '@/components/ui/Icons'
 import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTextos'
 import SinalCartaVista from '@/components/cards/SinalCartaVista'
 import { CONDICAO_KEYS } from '@/lib/condicoes'
 import { numeroSobreTotal } from '@/lib/numeroCarta'
-import HistoricoVendasLista, { type VendaRegistrada } from '@/components/ui/HistoricoVendasLista'
+import VendasReais from '@/components/ui/VendasReais'
 
 /**
  * Detalhe da carta na Pokedex. Redesenhado em 21/09/2026 (mockup "Pokedex: nova
@@ -35,9 +35,7 @@ function EnergyDot({ type, size = 14 }: { type: string; size?: number }) {
 
 const IDIOMAS = [['pt', 'PT'], ['en', 'EN'], ['jp', 'JP'], ['es', 'ES'], ['fr', 'FR'], ['de', 'DE'], ['it', 'IT'], ['cn', 'CN'], ['kr', 'KR']] as const
 const CONDICOES = CONDICAO_KEYS
-const FILTROS_DIAS = [7, 15, 30, 60] as const
 
-interface HistoricoVenda { valor_cents: number; variante: string | null; condicao: string | null; idioma: string | null; capturado_em: string }
 
 const fmtBRL = (v: unknown) => v != null && Number(v) > 0
   ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
@@ -98,21 +96,6 @@ export default function CardDetailModal({
   const ultimoVendidoFmt = c.ultima_venda?.valor != null ? fmtBRL(Number(c.ultima_venda.valor) / 100) : null
   const usdVal = Number(vAtual.usd) > 0 ? Number(vAtual.usd) : null
 
-  const [diasHistorico, setDiasHistorico] = useState<typeof FILTROS_DIAS[number]>(30)
-  const [historicoVendas, setHistoricoVendas] = useState<HistoricoVenda[]>([])
-  const [ultimasVendas, setUltimasVendas] = useState<VendaRegistrada[]>([])
-  const [carregandoHistorico, setCarregandoHistorico] = useState(false)
-  useEffect(() => {
-    if (!c.id || !ultimoVendidoFmt) { setHistoricoVendas([]); return }
-    let active = true
-    setCarregandoHistorico(true)
-    fetch(`/api/cards/${encodeURIComponent(c.id)}/historico-vendas?dias=${diasHistorico}`)
-      .then(r => r.ok ? r.json() : { historico: [], ultimas: [] })
-      .then(({ historico, ultimas }) => { if (active) { setHistoricoVendas(historico || []); setUltimasVendas(ultimas || []) } })
-      .catch(() => { if (active) { setHistoricoVendas([]); setUltimasVendas([]) } })
-      .finally(() => { if (active) setCarregandoHistorico(false) })
-    return () => { active = false }
-  }, [c.id, ultimoVendidoFmt, diasHistorico])
 
   const numero = c.number && c.set_total ? numeroSobreTotal(String(c.number).padStart(3, '0'), c.set_total) : c.number
   const raridade = raridadePt(c.rarity)
@@ -279,18 +262,10 @@ export default function CardDetailModal({
             )}
             {c.flavor_text && <p className="bx-cdm-linha" style={{ margin: 0, fontSize: 13, color: 'var(--bx-text-2)', fontStyle: 'italic', lineHeight: 1.6 }}>&ldquo;{c.flavor_text}&rdquo;</p>}
 
-            {/* Historico de vendas */}
-            {ultimoVendidoFmt && (
-              <div className="bx-cdm-linha">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span className="bx-cdm-k" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconHistory size={13} /> Histórico de vendas</span>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {FILTROS_DIAS.map(d => <button key={d} onClick={() => setDiasHistorico(d)} aria-pressed={diasHistorico === d} style={{ ...chip(diasHistorico === d), minHeight: 32, fontSize: 11.5 }}>{d}d</button>)}
-                  </div>
-                </div>
-                <HistoricoVendasLista carregando={carregandoHistorico} historico={historicoVendas} ultimas={ultimasVendas} dias={diasHistorico} />
-              </div>
-            )}
+            {/* Vendas reais (mockup aprovado em 11/11/2026) */}
+            <div className="bx-cdm-linha">
+              <VendasReais key={c.id} cardId={c.id} />
+            </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Link href={`/carta/${slug}`} prefetch={false} className="bx-cdm-link">Ver página da carta</Link>

@@ -22,9 +22,22 @@ import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 
 const DIAS_PADRAO = 30
 const DIAS_MAX = 90
-const LIMITE_LINHAS = 200
+const LIMITE_LINHAS = 500
 
 const limitador = criarLimitador({ janelaMs: 60_000, max: 120 })
+
+// Idioma da fonte ("Portugues", "Inglês", "PTEN"...) -> sigla curta da tela.
+const IDIOMAS: Record<string, string> = {
+  portugues: 'PT', ingles: 'EN', japones: 'JP', espanhol: 'ES', frances: 'FR',
+  alemao: 'DE', italiano: 'IT', coreano: 'KR', chines: 'CN', pten: 'PT/EN',
+  pt: 'PT', en: 'EN', jp: 'JP', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', kr: 'KR', cn: 'CN',
+}
+function normalizarIdioma(bruto: unknown): string | null {
+  if (bruto == null) return null
+  const chave = String(bruto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+  if (!chave) return null
+  return IDIOMAS[chave] || String(bruto).trim().toUpperCase()
+}
 
 export async function GET(
   req: NextRequest,
@@ -85,5 +98,16 @@ export async function GET(
   // isto o bloco vinha vazio com as vendas no banco. Mesmas linhas ja lidas.
   const ultimas = todas.slice(0, 5)
 
-  return NextResponse.json({ historico, ultimas }, { status: 200 })
+  // ★ 11/11/2026: painel "Vendas reais" (mockup aprovado). Todas as vendas,
+  // normalizadas: a fonte grava o idioma de dois jeitos ("Portugues" e
+  // "Português") e a contagem por idioma sairia partida em dois.
+  const vendas = todas.map(r => ({
+    data: String(r.data_venda).slice(0, 10),
+    valor_cents: r.valor_cents,
+    idioma: normalizarIdioma(r.idioma),
+    condicao: r.condicao ? String(r.condicao).trim().toUpperCase() : null,
+    variante: r.variante ? String(r.variante).trim() : null,
+  }))
+
+  return NextResponse.json({ historico, ultimas, vendas }, { status: 200 })
 }

@@ -5,13 +5,13 @@ import { supabase } from '@/lib/supabaseClient'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, isNotaTop, notaCurta } from '@/lib/graduadoras'
 import Link from 'next/link'
-import { IconHistory, IconBell, IconCheck, IconShield } from '@/components/ui/Icons'
+import { IconBell, IconCheck, IconShield } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTextos'
 import { ehVerificada, textoOrigem } from '@/lib/origemCarta'
 import { numeroSobreTotal } from '@/lib/numeroCarta'
-import HistoricoVendasLista, { type VendaRegistrada } from '@/components/ui/HistoricoVendasLista'
+import VendasReais from '@/components/ui/VendasReais'
 
 interface Props {
   card: any
@@ -38,17 +38,6 @@ const VAR_LABELS: Record<string, string> = {
 const IDIOMAS_LISTA = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as const
 const IDIOMA_LABELS: Record<string, string> = {
   pt: 'PT', en: 'EN', jp: 'JP', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', cn: 'CN', kr: 'KR',
-}
-const FILTROS_DIAS = [7, 15, 30, 60] as const
-
-interface HistoricoVenda {
-  valor_cents: number
-  variante: string | null
-  condicao: string | null
-  idioma: string | null
-  capturado_em: string
-  vendido_em?: string | null
-  data_venda?: string | null
 }
 
 function fmtBRL(n: number) {
@@ -160,10 +149,6 @@ export default function CardDetailModal({
   const [valorGrad, setValorGrad] = useState<string>(card.valor_graduada != null ? String(card.valor_graduada) : '')
   const [savingGrad, setSavingGrad] = useState(false)
   const [flashGrad, setFlashGrad] = useState(false)
-  const [historicoVendas, setHistoricoVendas] = useState<HistoricoVenda[]>([])
-  const [ultimasVendas, setUltimasVendas] = useState<VendaRegistrada[]>([])
-  const [diasHistorico, setDiasHistorico] = useState(7)
-  const [carregandoHistorico, setCarregandoHistorico] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [ficha, setFicha] = useState<any | null>(null)
 
@@ -272,21 +257,6 @@ export default function CardDetailModal({
 
   const gradMeta = GRADUADORA_MAP[graduadora] || GRADUADORAS[0]
   const gradTop = isNotaTop(nota, blackLabel)
-
-  // Historico de "ultima venda" -- so busca se a carta tem pelo menos um
-  // valor atual (sem isso nao ha o que mostrar) e refaz quando o filtro
-  // de periodo muda.
-  useEffect(() => {
-    if (!cartaUrlId || !ultimoVendidoFmt) { setHistoricoVendas([]); return }
-    let active = true
-    setCarregandoHistorico(true)
-    fetch(`/api/cards/${encodeURIComponent(cartaUrlId)}/historico-vendas?dias=${diasHistorico}`)
-      .then(r => r.ok ? r.json() : { historico: [], ultimas: [] })
-      .then(({ historico, ultimas }) => { if (active) { setHistoricoVendas(historico || []); setUltimasVendas(ultimas || []) } })
-      .catch(() => { if (active) { setHistoricoVendas([]); setUltimasVendas([]) } })
-      .finally(() => { if (active) setCarregandoHistorico(false) })
-    return () => { active = false }
-  }, [cartaUrlId, ultimoVendidoFmt, diasHistorico])
 
   function alterarQuantidade(delta: number) {
     const nova = quantity + delta
@@ -738,18 +708,14 @@ export default function CardDetailModal({
               </div>
             )}
 
-            {/* Historico de vendas */}
-            {ultimoVendidoFmt && (
-              <div className="bx-cmd-linha">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span className="bx-cmd-k" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconHistory size={13} /> Histórico de vendas</span>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {FILTROS_DIAS.map(d => <button key={d} type="button" onClick={() => setDiasHistorico(d)} aria-pressed={diasHistorico === d} style={{ ...chip(diasHistorico === d), minHeight: 32, fontSize: 11.5 }}>{d}d</button>)}
-                  </div>
-                </div>
-                <HistoricoVendasLista carregando={carregandoHistorico} historico={historicoVendas} ultimas={ultimasVendas} dias={diasHistorico} />
-              </div>
-            )}
+            {/* Vendas reais (mockup aprovado em 11/11/2026). Graduada fica sem
+                "sua copia": slab tem outro preco. */}
+            <div className="bx-cmd-linha">
+              <VendasReais key={cartaUrlId || 'x'} cardId={cartaUrlId} suaCopia={graduada ? null : {
+                idioma: (idioma || 'pt').toUpperCase(),
+                condicao: Object.entries(condicoes || {}).filter(([, n]) => Number(n) > 0).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0]?.toUpperCase() || 'NM',
+              }} />
+            </div>
 
             {/* Links + remover */}
             <div className="bx-cmd-linha bx-cmd-links">
