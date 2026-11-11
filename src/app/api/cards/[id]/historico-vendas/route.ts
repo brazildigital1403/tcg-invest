@@ -66,7 +66,7 @@ export async function GET(
 
   const desdeMs = Date.now() - dias * 24 * 60 * 60 * 1000
 
-  const historico = (data || [])
+  const todas = (data || [])
     .map((r: any) => ({
       valor_cents: r.valor_cents,
       variante: r.variante,
@@ -76,12 +76,14 @@ export async function GET(
       // data efetiva da venda: real (vendido_em) ou, no legado, a de captura.
       data_venda: r.vendido_em || (r.capturado_em ? String(r.capturado_em).slice(0, 10) : null),
     }))
-    .filter((r: any) => {
-      if (!r.data_venda) return false
-      const t = new Date(r.data_venda).getTime()
-      return Number.isFinite(t) && t >= desdeMs
-    })
-    .sort((a: any, b: any) => (a.data_venda < b.data_venda ? 1 : a.data_venda > b.data_venda ? -1 : 0))
+    .filter((r): r is typeof r & { data_venda: string } => !!r.data_venda && Number.isFinite(new Date(r.data_venda).getTime()))
+    .sort((a, b) => (a.data_venda < b.data_venda ? 1 : a.data_venda > b.data_venda ? -1 : 0))
 
-  return NextResponse.json({ historico }, { status: 200 })
+  const historico = todas.filter(r => new Date(r.data_venda).getTime() >= desdeMs)
+  // ★ 11/11/2026: as mais recentes de qualquer data. A fonte que cobria quase
+  // todo o catalogo parou em 06/09 e o maior filtro do modal e 60 dias; sem
+  // isto o bloco vinha vazio com as vendas no banco. Mesmas linhas ja lidas.
+  const ultimas = todas.slice(0, 5)
+
+  return NextResponse.json({ historico, ultimas }, { status: 200 })
 }

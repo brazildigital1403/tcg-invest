@@ -8,6 +8,7 @@ import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTexto
 import SinalCartaVista from '@/components/cards/SinalCartaVista'
 import { CONDICAO_KEYS } from '@/lib/condicoes'
 import { numeroSobreTotal } from '@/lib/numeroCarta'
+import HistoricoVendasLista, { type VendaRegistrada } from '@/components/ui/HistoricoVendasLista'
 
 /**
  * Detalhe da carta na Pokedex. Redesenhado em 21/09/2026 (mockup "Pokedex: nova
@@ -99,15 +100,16 @@ export default function CardDetailModal({
 
   const [diasHistorico, setDiasHistorico] = useState<typeof FILTROS_DIAS[number]>(30)
   const [historicoVendas, setHistoricoVendas] = useState<HistoricoVenda[]>([])
+  const [ultimasVendas, setUltimasVendas] = useState<VendaRegistrada[]>([])
   const [carregandoHistorico, setCarregandoHistorico] = useState(false)
   useEffect(() => {
     if (!c.id || !ultimoVendidoFmt) { setHistoricoVendas([]); return }
     let active = true
     setCarregandoHistorico(true)
     fetch(`/api/cards/${encodeURIComponent(c.id)}/historico-vendas?dias=${diasHistorico}`)
-      .then(r => r.ok ? r.json() : { historico: [] })
-      .then(({ historico }) => { if (active) setHistoricoVendas(historico || []) })
-      .catch(() => { if (active) setHistoricoVendas([]) })
+      .then(r => r.ok ? r.json() : { historico: [], ultimas: [] })
+      .then(({ historico, ultimas }) => { if (active) { setHistoricoVendas(historico || []); setUltimasVendas(ultimas || []) } })
+      .catch(() => { if (active) { setHistoricoVendas([]); setUltimasVendas([]) } })
       .finally(() => { if (active) setCarregandoHistorico(false) })
     return () => { active = false }
   }, [c.id, ultimoVendidoFmt, diasHistorico])
@@ -286,26 +288,7 @@ export default function CardDetailModal({
                     {FILTROS_DIAS.map(d => <button key={d} onClick={() => setDiasHistorico(d)} aria-pressed={diasHistorico === d} style={{ ...chip(diasHistorico === d), minHeight: 32, fontSize: 11.5 }}>{d}d</button>)}
                   </div>
                 </div>
-                {carregandoHistorico ? (
-                  <p style={{ fontSize: 12, color: 'var(--bx-text-faint)', margin: 0 }}>Carregando…</p>
-                ) : historicoVendas.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {historicoVendas.map((h, i) => {
-                      const dias = Math.floor((Date.now() - new Date(h.capturado_em).getTime()) / 86400000)
-                      const quando = dias <= 0 ? 'Hoje' : dias === 1 ? 'Ontem' : `${dias} dias atrás`
-                      const meta = [h.variante, h.condicao, h.idioma].filter(Boolean).join(' · ')
-                      return (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--bx-surface-2)', fontSize: 12 }}>
-                          <span style={{ color: 'var(--bx-text-2)' }}>{quando}</span>
-                          {meta && <span style={{ color: 'var(--bx-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</span>}
-                          <b>{fmtBRL(h.valor_cents / 100)}</b>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: 12, color: 'var(--bx-text-faint)', margin: 0 }}>Coletando desde hoje. O histórico completo aparece com o tempo.</p>
-                )}
+                <HistoricoVendasLista carregando={carregandoHistorico} historico={historicoVendas} ultimas={ultimasVendas} dias={diasHistorico} />
               </div>
             )}
 
