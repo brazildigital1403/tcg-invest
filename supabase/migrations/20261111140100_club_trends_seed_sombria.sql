@@ -1,13 +1,15 @@
 -- Carga da Trend Sombria (Halloween), 11/11/2026: os links na ordem que o Du mandou.
 -- 25 creators ja postaram; Doisll (sem link ainda), Memmel, Dede e CasalTCG aguardam.
--- Capas: sem capa_path, a home usa a capa automatica com a inicial do nome.
+-- Capas: trends/sombria/NN.webp no bucket club-fotos (NN = posicao), baixadas do preview
+-- publico de cada post em 11/11/2026. Quem nao postou fica sem capa (inicial do nome).
 with t as (
   insert into public.club_trends (slug, titulo, tema, status, ordem, publicado_em)
   values ('trend-sombria-halloween-2026', 'Trend Sombria', 'Halloween', 'publicado', 1, now())
   returning id
 )
-insert into public.club_trend_posts (trend_id, posicao, nome, pessoa, tipo, link_url, status)
-select t.id, v.posicao, v.nome, v.pessoa, v.tipo, v.link_url, v.status
+insert into public.club_trend_posts (trend_id, posicao, nome, pessoa, tipo, link_url, status, capa_path)
+select t.id, v.posicao, v.nome, v.pessoa, v.tipo, v.link_url, v.status,
+       case when v.status = 'publicado' then 'trends/sombria/' || lpad(v.posicao::text, 2, '0') || '.webp' end
 from t, (values
     (1, 'Minadosloots', 'Mika', 'reel', 'https://www.instagram.com/reel/Dezusfyt-0v/', 'publicado'),
     (2, 'Tocadozard', 'Toca do Zard', 'reel', 'https://www.instagram.com/reel/De0Bo5svPXW/', 'publicado'),
