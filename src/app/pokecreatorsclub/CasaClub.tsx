@@ -22,6 +22,8 @@ import { hojeBrasilia } from '@/lib/pcc/datas'
 import { proximos as proximosEventos } from './agenda/comum'
 import { AS_CSS, Ico, LOGO_PCC, SELOS } from './amigo-secreto/estilo'
 import { Rosto } from './aniversariantes/AniversariantesClient'
+import TrendsClub from './TrendsClub'
+import type { Trend } from '@/lib/pcc/trends'
 
 type Tarefa = { titulo: string; texto: string; botao: string; href: string }
 
@@ -54,6 +56,8 @@ export default function CasaClub() {
   // Ultima vez que a pessoa abriu a lista de Avisos (no navegador): o que veio depois e novo.
   const [vistoAvisos, setVistoAvisos] = useState<number | null>(null)
   const [falhou, setFalhou] = useState(false)
+  // Trends sao publicas (a home e aberta): carregam para todo mundo, sem depender do login.
+  const [trends, setTrends] = useState<Trend[] | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setLogado(!!data.session))
@@ -86,6 +90,11 @@ export default function CasaClub() {
   }, [logado])
 
   useEffect(() => { carregar() }, [carregar])
+
+  useEffect(() => {
+    // Se a leitura falhar, a home segue sem a secao (nao e tarefa de ninguem).
+    supabase.rpc('club_trends_lista').then(({ data, error }) => { if (!error && Array.isArray(data)) setTrends(data as Trend[]) })
+  }, [])
 
   const inscrito = !!sala?.inscrito
   const proximos = ordenarProximos(aniv?.lista || [])
@@ -205,6 +214,8 @@ export default function CasaClub() {
               </div>
             </>
           )}
+
+          <TrendsClub trends={trends} />
 
           {!membro && logado !== undefined && <div className="as-note">O Club vive no grupo de WhatsApp. Para entrar, fale com quem administra.</div>}
 
