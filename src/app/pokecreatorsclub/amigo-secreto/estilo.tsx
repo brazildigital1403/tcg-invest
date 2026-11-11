@@ -75,12 +75,12 @@ export function Avatar({ instagram, pokemon, tam = 32 }: { instagram: string; po
 export const LOGO_PCC = '/amigo-secreto/poke-creators-club.png'
 
 // Selos ilustrados de cada frente (256 px, 08/11/2026). A casa e a tela de
-// entrada de cada frente usam o mesmo desenho. Avisos ainda sem arte: icone.
+// entrada de cada frente usam o mesmo desenho.
 export const SELOS = {
   'amigo-secreto': '/pokecreatorsclub/selo-amigo-secreto.webp',
   aniversariantes: '/pokecreatorsclub/selo-aniversariantes.webp',
   agenda: '/pokecreatorsclub/selo-agenda.webp',
-  avisos: null,
+  avisos: '/pokecreatorsclub/selo-avisos.webp',
 } as const satisfies Record<string, string | null>
 
 export function SeloFrente({ frente, className = '' }: { frente: keyof typeof SELOS; className?: string }) {

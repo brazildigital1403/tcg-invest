@@ -224,6 +224,7 @@ export default function CasaClub() {
 const SELO_AMIGO_SECRETO = SELOS['amigo-secreto']
 const SELO_ANIVERSARIANTES = SELOS.aniversariantes
 const SELO_AGENDA = SELOS.agenda
+const SELO_AVISOS = SELOS.avisos
 // Cartas ilustradas do leque do hero (06/11), proporcao 2:3.
 const CARTA_AMIGO_SECRETO = '/pokecreatorsclub/carta-amigo-secreto.webp'
 const CARTA_ANIVERSARIANTES = '/pokecreatorsclub/carta-aniversariantes.webp'
@@ -260,8 +261,8 @@ function CartaoAgenda({ logado, carregou, hoje, proximo }: { logado: boolean; ca
   )
 }
 
-// Avisos do Club (08/11/2026, wireframe C14). O selo ilustrado vem do Du; ate
-// la, o megafone no tamanho do selo. Fixado nunca ocupa a casa: a linha fala do
+// Avisos do Club (08/11/2026, wireframe C14). Selo ilustrado do Du (11/11).
+// Fixado nunca ocupa a casa: a linha fala do
 // mais recente que nao e fixado, ou de quantos chegaram desde a ultima visita.
 function CartaoAvisos({ logado, lista, visto }: { logado: boolean; lista: Aviso[] | null; visto: number | null }) {
   const soltos = (lista || []).filter(a => !a.fixado)
@@ -274,7 +275,7 @@ function CartaoAvisos({ logado, lista, visto }: { logado: boolean; lista: Aviso[
   return (
     <section className="as-card cl-frente">
       <div className="cl-frente-g">
-        <span className="cl-selo cl-selo-ico" aria-hidden="true"><Ico n="megafone" s={36} /></span>
+        <Selo src={SELO_AVISOS} />
         <div className="cl-frente-tx">
           <h2 className="as-h3">Avisos</h2>
           <p className="as-meta">{linha}</p>
@@ -363,7 +364,6 @@ const CL_CSS = `
 .cl-frente .as-verso.sm{width:56px}
 .cl-hoje{gap:8px;padding:18px 16px}
 .cl-frentes{display:flex;flex-direction:column;gap:12px;min-width:0}
-.cl-selo-ico{display:inline-flex;align-items:center;justify-content:center;border-radius:18px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--ac-1)}
 .cl-hoje-ev{font-size:20px;word-break:normal}
 .cl-acoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .cl-hoje .at{margin-top:0}
