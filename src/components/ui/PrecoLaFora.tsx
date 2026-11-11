@@ -22,7 +22,8 @@ interface PrecoFora {
   usd_1st_edition_holofoil: number | null
   eur_media_venda: number | null
   eur_tendencia: number | null
-  coletado_em: string
+  /** NULL: so tem o de-para com a fonte, preco ainda nao coletado. */
+  coletado_em: string | null
 }
 
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0 }
@@ -74,7 +75,7 @@ export default function PrecoLaFora({ cardId, variante }: {
     return () => { ativo = false }
   }, [cardId])
 
-  if (!preco) return null
+  if (!preco || !preco.coletado_em) return null
   const usd = escolherUsd(preco, variante)
   const eurValor = num(preco.eur_media_venda) || num(preco.eur_tendencia)
   const eurRotulo = num(preco.eur_media_venda) ? 'Média de venda' : 'Tendência'
