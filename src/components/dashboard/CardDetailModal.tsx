@@ -12,6 +12,7 @@ import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTexto
 import { ehVerificada, textoOrigem } from '@/lib/origemCarta'
 import { numeroSobreTotal } from '@/lib/numeroCarta'
 import VendasReais from '@/components/ui/VendasReais'
+import PrecoLaFora from '@/components/ui/PrecoLaFora'
 
 interface Props {
   card: any
@@ -529,6 +530,10 @@ export default function CardDetailModal({
                 )}
               </div>
             )}
+
+            {/* Preco la fora (mockup aprovado em 11/11/2026): informativo, abaixo do Brasil.
+                Graduada fica de fora: o slab e outro produto, o preco de fora e da carta crua. */}
+            {!graduada && <PrecoLaFora key={cartaUrlId || 'x'} cardId={cartaUrlId} variante={varPreco} />}
 
             {/* Na sua colecao */}
             <div className="bx-cmd-bloco">

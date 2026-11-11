@@ -9,6 +9,7 @@ import SinalCartaVista from '@/components/cards/SinalCartaVista'
 import { CONDICAO_KEYS } from '@/lib/condicoes'
 import { numeroSobreTotal } from '@/lib/numeroCarta'
 import VendasReais from '@/components/ui/VendasReais'
+import PrecoLaFora from '@/components/ui/PrecoLaFora'
 
 /**
  * Detalhe da carta na Pokedex. Redesenhado em 21/09/2026 (mockup "Pokedex: nova
@@ -67,7 +68,7 @@ interface Props {
 
 export default function CardDetailModal({
   card: c, cardIndex, cards, selectedVariante, setSelectedVariante,
-  onClose, onNavigate, onAdd, isMobile, tenho = false, avisoAtivo = false, onSino, adicionando = false, exchangeRate,
+  onClose, onNavigate, onAdd, isMobile, tenho = false, avisoAtivo = false, onSino, adicionando = false,
 }: Props) {
   const prevCard = cardIndex > 0 ? cards[cardIndex - 1] : null
   const nextCard = cardIndex < cards.length - 1 ? cards[cardIndex + 1] : null
@@ -94,7 +95,6 @@ export default function CardDetailModal({
   useEffect(() => { setIdioma(c.idioma || 'pt'); setCondicao('NM') }, [c.id, c.idioma])
 
   const ultimoVendidoFmt = c.ultima_venda?.valor != null ? fmtBRL(Number(c.ultima_venda.valor) / 100) : null
-  const usdVal = Number(vAtual.usd) > 0 ? Number(vAtual.usd) : null
 
 
   const numero = c.number && c.set_total ? numeroSobreTotal(String(c.number).padStart(3, '0'), c.set_total) : c.number
@@ -190,12 +190,11 @@ export default function CardDetailModal({
                   </div>
                 ))}
               </div>
-              {usdVal && (
-                <div style={{ fontSize: 12, color: 'var(--bx-text-3)', marginTop: 8 }}>
-                  TCGPlayer · US$ {usdVal.toFixed(2).replace('.', ',')}{exchangeRate?.usd ? ` (cerca de ${fmtBRL(usdVal * exchangeRate.usd)} convertido)` : ''}
-                </div>
-              )}
             </div>
+
+            {/* Preco la fora (mockup aprovado em 11/11/2026). Trocou a linha antiga de TCGPlayer,
+                que lia price_usd_*: o Cardmarket em euro estava gravado ali como dolar. */}
+            <PrecoLaFora key={c.id} cardId={c.id} variante={vAtual.key} />
 
             {/* Suas copias */}
             <div className="bx-cdm-bloco">
