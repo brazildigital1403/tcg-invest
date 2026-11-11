@@ -188,7 +188,7 @@ export default function CasaClub() {
 
           {edicao === undefined && <div className="as-card" aria-busy="true"><div className="as-k">Carregando o Club...</div></div>}
 
-          {/* Frentes: uma embaixo da outra no celular, 3 colunas no computador largo. */}
+          {/* Frentes: uma linha so. No celular rola para o lado; no computador dividem a largura. */}
           {edicao !== undefined && !encerrada && (
             <div className="cl-frentes">
               <CartaoAmigoSecreto edicao={edicao} inscrito={inscrito} aberta={aberta} destaque={!tarefa} destino={destino} sala={sala} logado={!!logado} />
@@ -374,7 +374,13 @@ const CL_CSS = `
 .cl-frente .as-verso{width:84px}
 .cl-frente .as-verso.sm{width:56px}
 .cl-hoje{gap:8px;padding:18px 16px}
-.cl-frentes{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cl-frentes{display:grid;grid-auto-flow:column;grid-auto-columns:min(284px,82vw);gap:12px;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:16px;margin-inline:-16px;padding:2px 16px 8px;scrollbar-width:none}
+.cl-frentes::-webkit-scrollbar{display:none}
+.cl-frentes>*{scroll-snap-align:start;min-width:0}
+.cl-frente{display:flex;flex-direction:column;gap:12px}
+.cl-frente-g{flex-direction:column;gap:10px}
+.cl-frente .as-btn{margin-top:auto}
+.cl-acoes .as-btn{padding:0 8px;font-size:13.5px;white-space:nowrap}
 .cl-hoje-ev{font-size:20px;word-break:normal}
 .cl-acoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .cl-hoje .at{margin-top:0}
@@ -395,14 +401,10 @@ const CL_CSS = `
   .cl-leque > :nth-child(1){transform:rotate(-10deg)}
   .cl-leque > :nth-child(2){position:relative;z-index:1}
   .cl-leque > :nth-child(3){transform:rotate(10deg)}
-  .cl-frente{padding:24px}
-  .cl-frente-g{gap:20px;align-items:center}
-  .cl-frentes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
-  /* Numero impar de frentes: a ultima ocupa a linha inteira. Com 4, grade 2x2. */
-  .cl-frentes>:last-child:nth-child(odd){grid-column:1/-1}
-  .cl-frente .as-btn{width:auto;align-self:flex-start;min-width:220px;margin-top:auto}
-  .cl-acoes{display:flex;flex-wrap:wrap;margin-top:auto}
-  .cl-acoes .as-btn{min-width:180px;margin-top:0}
+  .cl-frente{padding:20px}
+  /* Uma linha so: as frentes dividem a largura (3 ou 4 colunas, conforme quantas houver). */
+  .cl-frentes{grid-auto-columns:minmax(0,1fr);gap:16px;margin-inline:0;padding:0;overflow:visible;align-items:stretch}
+  .cl-acoes{grid-template-columns:minmax(0,1fr);margin-top:auto}
   .cl-hoje{max-width:520px;width:100%;margin:0 auto}
 }
 `
