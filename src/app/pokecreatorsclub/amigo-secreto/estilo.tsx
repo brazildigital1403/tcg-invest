@@ -39,6 +39,7 @@ const PATHS: Record<string, React.ReactNode> = {
   spark: <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6" />,
   share: <><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />,
 }
 
 export function Ico({ n, s = 18, className = '' }: { n: keyof typeof PATHS | string; s?: number; className?: string }) {
@@ -139,6 +140,14 @@ export const AS_CSS = `
 .as-ajuda .acoes .as-btn{width:auto}
 .as-pista-nova{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:4px}
 .as-row:disabled{cursor:default;opacity:.7}
+.as-seguro{display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--bx-text-2);padding:11px 12px;border-radius:12px;border:1px solid rgba(var(--ac-1-rgb),.3);background:rgba(var(--ac-1-rgb),.05)}
+.as-seguro>div{display:flex;gap:9px;align-items:flex-start}
+.as-seguro .as-ico{color:var(--ac-1);margin-top:1px}
+.as-seguro strong{color:var(--bx-text)}
+.as-doc{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--bx-border);border-radius:10px;background:var(--bx-surface-2);padding:8px 8px 8px 12px}
+.as-doc .v{font-size:16px;font-weight:700;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.as-doc .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--bx-text-3);font-weight:800;display:block;margin-bottom:1px}
+.as-doc .as-btn{width:auto;min-height:44px;padding:0 12px}
 .as-lane.first{border-top:0;padding-top:0}
 .as-lane.envio{flex-direction:row;align-items:center;gap:14px}
 .as-lane.envio .tx{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}

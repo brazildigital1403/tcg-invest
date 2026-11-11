@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
   AMIGO_SECRETO_SLUG, DESEJO_MAX_CHARS, INSTAGRAM_RE, MENSAGENS_PRONTAS, MURAL_MAX_CHARS, MURAL_MAX_DIA,
-  POKEMON_PERFIL, brl, cepBonito, dataCurta, dataHora, diasAte, erroAmigoSecreto, faltaNaPista, finalDoTexto, horaCurta, limparInstagram, rotuloDia,
+  POKEMON_PERFIL, brl, cepBonito, cpfFinal, cpfMascara, cpfSoDigitos, cpfValido, dataCurta, dataHora, diasAte, erroAmigoSecreto, faltaNaPista, finalDoTexto, horaCurta, limparInstagram, rotuloDia,
   nomePokemon, spritePokemon, type EdicaoPublica, type Eu, type MensagemMural, type MinhaSala, type Tirou,
 } from '@/lib/amigoSecreto'
 import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
@@ -23,7 +23,7 @@ const SALA = AMIGO_SECRETO_SALA
 const SLUG = AMIGO_SECRETO_SLUG
 const CHAVE_ABRI = `bynx_as_abri_${SLUG}`
 
-type Folha = 'dados' | 'endereco' | 'desejo' | 'pokemon' | 'tirou' | 'rastreio' | 'escrever' | 'recebi' | 'ajuda' | null
+type Folha = 'dados' | 'endereco' | 'desejo' | 'pokemon' | 'tirou' | 'rastreio' | 'escrever' | 'recebi' | 'ajuda' | 'cpf' | null
 type Json = Record<string, unknown>
 
 function lerAbri(): boolean { try { return localStorage.getItem(CHAVE_ABRI) === '1' } catch { return false } }
@@ -85,6 +85,15 @@ export default function SalaClient() {
   }, [])
 
   useEffect(() => { if (sessao) carregar() }, [sessao, carregar])
+
+  // CPF de quem recebe: depois do sorteio, abre o modal uma vez por visita enquanto falta.
+  // "Agora nao" fecha so esta visita; o aviso e a linha fixa em "Eu recebo" continuam.
+  const cpfPerguntado = useRef(false)
+  useEffect(() => {
+    if (cpfPerguntado.current || !sala || !sala.inscrito) return
+    cpfPerguntado.current = true
+    if (!sala.eu.tem_cpf && (sala.estado === 'sorteado' || sala.estado === 'entregas')) setFolha(f => f ?? 'cpf')
+  }, [sala])
 
   /** Chama uma funcao do banco e, se ela devolver a sala, atualiza. */
   async function chamar(fn: string, args: Json): Promise<boolean> {
@@ -272,6 +281,14 @@ export default function SalaClient() {
 
           <div className="as-lane">
             <div className="as-k">Eu recebo</div>
+            {!eu!.tem_cpf && estado !== 'encerrado' && (
+              <div className="as-ajuda">
+                <div className="as-eye"><Ico n="alert" s={14} />Falta um dado</div>
+                <h3 className="as-h3">Ajude quem tirou você a postar</h3>
+                <p className="as-meta" style={{ margin: 0 }}>Sem o seu CPF, quem tirou você não consegue gerar a etiqueta dos Correios.</p>
+                <div className="acoes"><button type="button" className="as-btn pri sm" onClick={() => setFolha('cpf')}><Ico n="lock" s={16} />Informar meu CPF</button></div>
+              </div>
+            )}
             {pistaAberta && falta && !pistaOk && !sala.recebo?.postado_em && (
               <div className="as-ajuda">
                 <div className="as-eye"><Ico n="gift" s={14} />Ajude quem tirou você</div>
@@ -297,6 +314,13 @@ export default function SalaClient() {
                 <span>Minha pista de presente<small>{resumoPista}</small></span>
               </span>
               {pistaAberta && <Ico n="chev" className="arr" />}
+            </button>
+            <button type="button" className="as-row" disabled={estado === 'encerrado'} onClick={() => setFolha('cpf')}>
+              <span className="l">
+                <span className={`as-st${eu!.tem_cpf ? ' ok' : ' opt'}`}>{eu!.tem_cpf && <Ico n="check" s={13} />}</span>
+                <span>CPF para o envio<small>{eu!.tem_cpf ? `${cpfFinal(eu!.cpf_final)} · só quem tirou você vê` : 'Pendente · só quem tirou você vê'}</small></span>
+              </span>
+              {eu!.tem_cpf ? <Ico n="chev" className="arr" /> : <span className="as-chip fill">Informar</span>}
             </button>
             {salvouPista && <div className="as-note">Pista salva. Quem tirou você vai ver o selo &quot;Pista atualizada&quot; ao abrir o envelope.</div>}
             {sala.recebo?.revelado ? (
@@ -360,7 +384,13 @@ export default function SalaClient() {
 
       {/* ── Folhas ── */}
       {folha === 'dados' && <FolhaDados eu={eu} nome={sessao.nome} ocupado={ocupado} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(temEndereco ? null : 'endereco'); carregar() } }} />}
-      {folha === 'endereco' && <FolhaEndereco eu={eu!} nome={sessao.nome} ocupado={ocupado} travado={!!tirou} onFechar={fechar} onSalvar={async d => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: d })) { setFolha(temDesejo ? null : 'desejo') } }} />}
+      {folha === 'endereco' && <FolhaEndereco eu={eu!} nome={sessao.nome} ocupado={ocupado} travado={!!tirou} onFechar={fechar} onSalvar={async d => {
+        const { cpf, ...resto } = d
+        if (!(await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: resto }))) return
+        // O CPF vai por funcao propria (confere o digito verificador); so antes do sorteio vem junto do endereco.
+        if (cpf && !(await chamar('amigo_secreto_salvar_cpf', { p_slug: SLUG, p_cpf: String(cpf) }))) return
+        setFolha(temDesejo ? null : 'desejo')
+      }} />}
       {folha === 'desejo' && <FolhaDesejo eu={eu!} teto={sala.teto_cents} ocupado={ocupado} onFechar={fechar}
         depois={estado === 'inscricoes' ? undefined : { prazo: sala.postar_ate, aCaminho: !!sala.recebo?.postado_em }}
         onSalvar={async d => {
@@ -373,6 +403,7 @@ export default function SalaClient() {
       {folha === 'rastreio' && tirou && <FolhaRastreio eu={eu!} tirou={tirou} postarAte={sala.postar_ate} ocupado={ocupado} onFechar={fechar} onSalvar={async r => { if (await chamar('amigo_secreto_postei', { p_slug: SLUG, p_rastreio: r })) setFolha(null) }} />}
       {folha === 'recebi' && <FolhaRecebi postado={!!sala.recebo?.postado_em} ocupado={ocupado} onFechar={fechar} onConfirmar={async emMaos => { if (await chamar('amigo_secreto_recebi', { p_slug: SLUG, p_em_maos: emMaos })) setFolha(null) }} />}
       {folha === 'ajuda' && <FolhaAjuda antes={estado === 'inscricoes'} onFechar={fechar} />}
+      {folha === 'cpf' && <FolhaCpf eu={eu!} erro={erro} onFechar={fechar} onSalvar={cpf => chamar('amigo_secreto_salvar_cpf', { p_slug: SLUG, p_cpf: cpf })} />}
       {folha === 'escrever' && tirou && <FolhaEscrever tirou={tirou} hoje={sala.mensagens_hoje} ocupado={ocupado} onFechar={fechar} onEnviar={async (texto, pronta) => { if (await chamar('amigo_secreto_enviar_mensagem', { p_slug: SLUG, p_texto: texto, p_pronta: pronta })) { setFolha(null); carregar() } }} />}
     </Casca>
   )
@@ -571,7 +602,7 @@ function FolhaDados({ eu, nome, ocupado, onFechar, onSalvar }: { eu: Eu | null; 
 function FolhaEndereco({ eu, nome, ocupado, travado, onFechar, onSalvar }: { eu: Eu; nome: string; ocupado: boolean; travado: boolean; onFechar: () => void; onSalvar: (d: Json) => void }) {
   const [f, setF] = useState({
     nome_completo: eu.nome_completo || nome, cep: cepBonito(eu.cep), logradouro: eu.logradouro || '', numero: eu.numero || '',
-    complemento: eu.complemento || '', bairro: eu.bairro || '', cidade: eu.cidade || '', uf: eu.uf || '',
+    complemento: eu.complemento || '', bairro: eu.bairro || '', cidade: eu.cidade || '', uf: eu.uf || '', cpf: '',
   })
   const [buscando, setBuscando] = useState(false)
   const [erro, setErro] = useState('')
@@ -599,7 +630,13 @@ function FolhaEndereco({ eu, nome, ocupado, travado, onFechar, onSalvar }: { eu:
     if (!f.logradouro.trim()) { setCampo('logradouro'); setErro('Informe a rua.'); return }
     if (!f.numero.trim()) { setCampo('numero'); setErro('Informe o número.'); return }
     if (!f.cidade.trim() || f.uf.trim().length !== 2) { setCampo('uf'); setErro('Informe cidade e UF.'); return }
-    onSalvar({ ...f, cep, uf: f.uf.toUpperCase() })
+    // CPF so antes do sorteio (depois dele o modal da sala cuida disso). Quem ja tem CPF salvo pode deixar em branco.
+    const cpf = cpfSoDigitos(f.cpf)
+    if (!travado) {
+      if (!eu.tem_cpf && !cpf) { setCampo('cpf'); setErro('Informe o CPF: os Correios pedem para a etiqueta.'); return }
+      if (cpf && !cpfValido(cpf)) { setCampo('cpf'); setErro('Esse CPF não confere. Confira os números.'); return }
+    }
+    onSalvar({ ...f, cep, uf: f.uf.toUpperCase(), cpf: travado ? '' : cpf })
   }
 
   return (
@@ -608,6 +645,13 @@ function FolhaEndereco({ eu, nome, ocupado, travado, onFechar, onSalvar }: { eu:
       {travado && <div className="as-note">O sorteio já aconteceu: o endereço fica travado, porque quem tirou você pode já ter copiado. Se mudou, avise a organização.</div>}
       <form onSubmit={enviar} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label className="as-f"><span className="as-lb">Nome completo (para a etiqueta)</span><input className={`as-in${campo === 'nome' ? ' err' : ''}`} value={f.nome_completo} onChange={e => set('nome_completo', e.target.value)} autoComplete="name" /></label>
+        {!travado && (
+          <div className="as-f">
+            <span className="as-lb">CPF (para a etiqueta dos Correios)</span>
+            <input className={`as-in${campo === 'cpf' ? ' err' : ''}`} value={f.cpf} onChange={e => set('cpf', cpfMascara(e.target.value))} inputMode="numeric" autoComplete="off" placeholder={eu.tem_cpf ? `${cpfFinal(eu.cpf_final)} (salvo)` : '000.000.000-00'} aria-label="CPF" aria-invalid={campo === 'cpf'} />
+            <span className="as-hint">Só quem tirar você vê, dentro do endereço protegido. Apagado quando o Amigo Secreto encerrar.</span>
+          </div>
+        )}
         <div className="as-f">
           <span className="as-lb">CEP</span>
           <div className="as-two">
@@ -628,6 +672,55 @@ function FolhaEndereco({ eu, nome, ocupado, travado, onFechar, onSalvar }: { eu:
         <label className="as-f"><span className="as-lb">Cidade</span><input className={`as-in${campo === 'uf' ? ' err' : ''}`} value={f.cidade} onChange={e => set('cidade', e.target.value)} autoComplete="address-level2" disabled={travado} /></label>
         {erro && <div className="as-erro" role="alert">{erro}</div>}
         <button type="submit" className="as-btn pri" disabled={ocupado}>Salvar endereço</button>
+      </form>
+    </Folha>
+  )
+}
+
+function FolhaCpf({ eu, erro, onFechar, onSalvar }: { eu: Eu; erro: string; onFechar: () => void; onSalvar: (cpf: string) => Promise<boolean> }) {
+  const [v, setV] = useState('')
+  const [aviso, setAviso] = useState('')
+  const [salvo, setSalvo] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+  const completo = cpfSoDigitos(v).length === 11
+
+  async function enviar(e: React.FormEvent) {
+    e.preventDefault()
+    if (!cpfValido(v)) { setAviso('Esse CPF não confere. Confira os números.'); return }
+    setAviso(''); setSalvando(true)
+    const ok = await onSalvar(cpfSoDigitos(v))
+    setSalvando(false)
+    if (ok) setSalvo(true)
+  }
+
+  if (salvo) {
+    return (
+      <Folha titulo="CPF salvo" onFechar={onFechar}>
+        <p className="as-meta" style={{ fontSize: 13.5, color: 'var(--bx-text-2)' }}>Quem tirou você já consegue gerar a etiqueta dos Correios. Você não precisa fazer mais nada aqui.</p>
+        <div className="as-doc"><div><span className="k">Seu CPF</span><span className="v">{cpfFinal(cpfSoDigitos(v).slice(-5))}</span></div></div>
+        <button type="button" className="as-btn pri cta" onClick={onFechar}>Continuar</button>
+      </Folha>
+    )
+  }
+
+  const msg = aviso || erro
+  return (
+    <Folha titulo={eu.tem_cpf ? 'Trocar o seu CPF' : 'Informe o seu CPF'} eyebrow="Para o envio dos presentes" onFechar={onFechar}>
+      <p className="as-meta" style={{ fontSize: 13.5, color: 'var(--bx-text-2)' }}>Os Correios pedem o CPF de quem recebe para gerar a etiqueta. Quem tirou você precisa dele na hora de postar.</p>
+      <form onSubmit={enviar} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <label className="as-f">
+          <span className="as-lb">Seu CPF</span>
+          <input className={`as-in${msg ? ' err' : ''}`} value={v} onChange={e => { setV(cpfMascara(e.target.value)); setAviso('') }} inputMode="numeric" autoComplete="off" placeholder="000.000.000-00" aria-label="CPF" aria-invalid={!!msg} />
+          <span className={`as-hint${msg ? ' err' : ''}`} role={msg ? 'alert' : undefined}>{msg || '11 números. A gente confere o dígito verificador.'}</span>
+        </label>
+        <div className="as-seguro">
+          <div><Ico n="eye" s={16} /><span><strong>Só quem tirou você vê</strong>, dentro do endereço protegido.</span></div>
+          <div><Ico n="x" s={16} /><span>Nunca aparece no mural, no feed nem em e-mail.</span></div>
+          <div><Ico n="trash" s={16} /><span>Apagado quando o Amigo Secreto encerrar.</span></div>
+        </div>
+        <button type="submit" className="as-btn pri cta" disabled={!completo || salvando}>{salvando ? 'Salvando...' : 'Salvar CPF'}</button>
+        <button type="button" className="as-btn lnk" onClick={onFechar}>{eu.tem_cpf ? 'Cancelar' : 'Agora não'}</button>
+        {!eu.tem_cpf && <p className="as-meta" style={{ textAlign: 'center', marginTop: -4 }}>O aviso volta na próxima vez que você abrir a sala.</p>}
       </form>
     </Folha>
   )
@@ -714,6 +807,11 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
   async function copiar() {
     try { await navigator.clipboard.writeText(endereco); setCopiado(true); setTimeout(() => setCopiado(false), 1500) } catch {}
   }
+  const cpfTirou = e?.cpf || ''
+  const [cpfCopiado, setCpfCopiado] = useState(false)
+  async function copiarCpf() {
+    try { await navigator.clipboard.writeText(cpfMascara(cpfTirou)); setCpfCopiado(true); setTimeout(() => setCpfCopiado(false), 1500) } catch {}
+  }
   const pk = nomePokemon(tirou.pokemon)
   return (
     <Folha titulo="Você tirou..." eyebrow="Envelope aberto" onFechar={onFechar}>
@@ -749,8 +847,14 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
           {enderecoAberto && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 0 10px' }}>
               <div className="as-addr"><b>Endereço de entrega (etiqueta)</b>{endereco}</div>
+              {cpfTirou ? (
+                <div className="as-doc">
+                  <div><span className="k">CPF do destinatário</span><span className="v">{cpfMascara(cpfTirou)}</span></div>
+                  <button type="button" className="as-btn" onClick={copiarCpf}><Ico n="copy" s={16} />{cpfCopiado ? 'Copiado' : 'Copiar'}</button>
+                </div>
+              ) : <div className="as-note"><strong>CPF ainda não informado.</strong> Esta pessoa vê um aviso na sala para completar. Você não precisa pedir nada.</div>}
               <button type="button" className="as-btn" onClick={copiar}><Ico n="copy" s={16} />{copiado ? 'Copiado' : 'Copiar endereço'}</button>
-              <div className="as-meta">Na etiqueta, só o nome, sem o seu @. Ao fechar, o endereço some da tela; você reabre pelo cartão da missão.</div>
+              <div className="as-meta">Na etiqueta, só o nome, sem o seu @. Os Correios pedem o CPF para gerar a etiqueta. Ao fechar, o endereço some da tela; você reabre pelo cartão da missão.</div>
             </div>
           )}
         </div>

@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   // So a edicao em curso: a 2a edicao nao pode listar WhatsApp e cidade da 1a.
   const [{ data: parts, error: e2 }, { count: nMsgs, error: e3 }] = await Promise.all([
     sb.from('amigo_secreto_participantes')
-      .select('id, instagram, whatsapp, nome_completo, pokemon, cep, numero, cidade, uf, desejo, me_surpreenda, tirou_id, rastreio, postado_em, recebido_em, quer_revelar, created_at, users(email)')
+      .select('id, instagram, whatsapp, nome_completo, pokemon, cep, numero, cpf, cidade, uf, desejo, me_surpreenda, tirou_id, rastreio, postado_em, recebido_em, quer_revelar, created_at, users(email)')
       .eq('edicao_id', edicao.id)
       .order('created_at', { ascending: false }),
     sb.from('amigo_secreto_mensagens').select('id', { count: 'exact', head: true }).eq('edicao_id', edicao.id),
@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
       cidade: p.cidade, uf: p.uf, created_at: p.created_at,
       email: (p.users as unknown as { email?: string } | null)?.email || null,
       completo: !!(p.cep && p.numero && (p.me_surpreenda || (p.desejo && p.desejo.trim()))),
+      // So "preenchido" ou "pendente": o numero nunca sai do banco por aqui.
+      cpf_ok: !!p.cpf,
       tem_par: !!p.tirou_id, postado_em: p.postado_em, rastreio: p.rastreio, recebido_em: p.recebido_em, quer_revelar: p.quer_revelar,
     }))
 

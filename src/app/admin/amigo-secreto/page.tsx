@@ -15,7 +15,7 @@ type Edicao = {
 type Participante = {
   instagram: string; whatsapp: string | null; nome_completo: string | null; pokemon: string | null
   cidade: string | null; uf: string | null; created_at: string; email: string | null
-  completo: boolean; tem_par: boolean; postado_em: string | null; rastreio: string | null; recebido_em: string | null; quer_revelar: boolean
+  completo: boolean; cpf_ok: boolean; tem_par: boolean; postado_em: string | null; rastreio: string | null; recebido_em: string | null; quer_revelar: boolean
 }
 
 export default function AdminAmigoSecretoPage() {
@@ -95,7 +95,7 @@ export default function AdminAmigoSecretoPage() {
             <div className="am-title">Participantes ({lista.length})</div>
             <div className="am-scroll">
               <table className="am-table">
-                <thead><tr><th>Instagram</th><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Cidade</th><th>Perfil</th><th>Postou</th><th>Recebeu</th><th>Entrou</th>{edicao.estado === 'inscricoes' && <th></th>}</tr></thead>
+                <thead><tr><th>Instagram</th><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Cidade</th><th>Perfil</th><th>CPF</th><th>Postou</th><th>Recebeu</th><th>Entrou</th>{edicao.estado === 'inscricoes' && <th></th>}</tr></thead>
                 <tbody>
                   {lista.map(p => (
                     <tr key={p.instagram}>
@@ -105,13 +105,14 @@ export default function AdminAmigoSecretoPage() {
                       <td>{p.whatsapp || '—'}</td>
                       <td>{p.cidade ? `${p.cidade}/${p.uf}` : '—'}</td>
                       <td>{p.completo ? 'completo' : <span className="am-warn">incompleto</span>}</td>
+                      <td>{p.cpf_ok ? 'preenchido' : <span className="am-warn">pendente</span>}</td>
                       <td>{p.postado_em ? `${dataCurta(p.postado_em)}${p.rastreio ? ` · ${p.rastreio}` : ''}` : '—'}</td>
                       <td>{p.recebido_em ? dataCurta(p.recebido_em) : '—'}</td>
                       <td>{dataCurta(p.created_at)}</td>
                       {edicao.estado === 'inscricoes' && <td><button type="button" className="am-btn2 am-sm" disabled={ocupado} onClick={() => acao({ acao: 'remover', instagram: p.instagram }, `Remover @${p.instagram} desta edição? A conta Bynx continua; só a inscrição sai.`)}>Remover</button></td>}
                     </tr>
                   ))}
-                  {lista.length === 0 && <tr><td colSpan={10}>Ninguém entrou ainda.</td></tr>}
+                  {lista.length === 0 && <tr><td colSpan={11}>Ninguém entrou ainda.</td></tr>}
                 </tbody>
               </table>
             </div>

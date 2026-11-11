@@ -68,12 +68,15 @@ export type Eu = {
   quer_revelar: boolean; perfil_completo: boolean
   /** Quando a pista mudou depois do sorteio (null = nunca). */
   pista_atualizada_em: string | null
+  /** CPF de quem recebe (11/11/2026): o dono ve so os 5 ultimos digitos. */
+  tem_cpf: boolean
+  cpf_final: string | null
 }
 
 export type Tirou = {
   instagram: string; pokemon: string | null; nome_completo: string | null
   desejo: string | null; sugestoes: string[]; me_surpreenda: boolean
-  endereco: { cep: string; logradouro: string | null; numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null; uf: string | null } | null
+  endereco: { cep: string; logradouro: string | null; numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null; uf: string | null; cpf?: string | null } | null
   recebido_em: string | null
   /** Quem eu tirei aceitou revelar a troca (sem dizer quem me tirou). */
   aceitou: boolean
@@ -121,6 +124,37 @@ export function faltaNaPista(eu: Pick<Eu, 'desejo' | 'sugestoes' | 'me_surpreend
 
 /** Ultimas palavras do texto, para mostrar onde a pista parou. */
 export const finalDoTexto = (t: string, palavras = 2) => t.trim().split(/\s+/).slice(-palavras).join(' ')
+
+// ── CPF de quem recebe (11/11/2026) ────────────────────────────────────────
+// Os Correios pedem o CPF do destinatario para a etiqueta. A conta do digito
+// verificador roda aqui e de novo no banco (amigo_secreto_cpf_valido).
+
+export const cpfSoDigitos = (v: string) => v.replace(/\D/g, '').slice(0, 11)
+
+/** Mascara progressiva: 123 -> 123, 1234 -> 123.4, 12345678909 -> 123.456.789-09. */
+export function cpfMascara(v: string): string {
+  const d = cpfSoDigitos(v)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
+}
+
+export function cpfValido(v: string): boolean {
+  const d = cpfSoDigitos(v)
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false
+  const dv = (n: number) => {
+    let s = 0
+    for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i)
+    const r = (s * 10) % 11
+    return r === 10 ? 0 : r
+  }
+  return dv(9) === Number(d[9]) && dv(10) === Number(d[10])
+}
+
+/** Os 5 ultimos digitos que o banco devolve ao dono, no formato da mascara. */
+export const cpfFinal = (cf: string | null | undefined) =>
+  cf && cf.length === 5 ? `•••.•••.${cf.slice(0, 3)}-${cf.slice(3)}` : ''
 
 // ── Formatacao (sempre Brasilia) ───────────────────────────────────────────
 
@@ -178,6 +212,7 @@ export function erroAmigoSecreto(msg: string | undefined | null): string {
   if (m.includes('pokemon_invalido')) return 'Escolha um Pokémon da lista.'
   if (m.includes('dados_invalidos')) return 'Algum campo passou do tamanho. Encurte e tente de novo.'
   if (m.includes('edicao_encerrada')) return 'Esta edição já encerrou.'
+  if (m.includes('cpf_invalido')) return 'Esse CPF não confere. Confira os números.'
   if (m.includes('pista_encerrada')) return 'O prazo de entrega passou, e a pista não muda mais.'
   if (m.includes('nao_participante')) return 'Só quem está na sala vê o mural.'
   if (m.includes('sem_sorteio')) return 'Isso só fica disponível depois do sorteio.'
