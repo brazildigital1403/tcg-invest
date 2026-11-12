@@ -10,7 +10,7 @@
 export type BlogBlock =
   | { id: string; type: 'heading'; level: 2 | 3; text: string }
   | { id: string; type: 'paragraph'; html: string }
-  | { id: string; type: 'image'; url: string; alt: string; caption?: string }
+  | { id: string; type: 'image'; url: string; alt: string; caption?: string; href?: string }
   | { id: string; type: 'youtube'; videoId: string; caption?: string }
   | { id: string; type: 'instagram'; url: string }
   | { id: string; type: 'tiktok'; url: string }
@@ -95,7 +95,23 @@ export function validateBlocks(input: unknown): BlogBlock[] {
         if (!url) throw new BlogBlockValidationError(`bloco ${i + 1} (imagem): sem URL`)
         const alt = typeof b.alt === 'string' ? b.alt.trim() : ''
         const caption = typeof b.caption === 'string' ? b.caption.trim() : undefined
-        return { id, type: 'image', url, alt, caption } as BlogBlock
+        // Link opcional ao clicar: caminho interno (/servicos) ou http(s). Qualquer
+        // outra coisa (javascript:, //host) e recusada com erro, nao descartada calada.
+        const hrefRaw = typeof b.href === 'string' ? b.href.trim() : ''
+        let href: string | undefined
+        if (hrefRaw) {
+          const interno = hrefRaw.startsWith('/') && !hrefRaw.startsWith('//')
+          let externo = false
+          try {
+            const u = new URL(hrefRaw)
+            externo = u.protocol === 'https:' || u.protocol === 'http:'
+          } catch { externo = false }
+          if (!interno && !externo) {
+            throw new BlogBlockValidationError(`bloco ${i + 1} (imagem): link precisa comecar com / ou https://`)
+          }
+          href = hrefRaw
+        }
+        return { id, type: 'image', url, alt, caption, href } as BlogBlock
       }
       case 'youtube': {
         const videoId = typeof b.videoId === 'string' ? b.videoId.trim() : ''

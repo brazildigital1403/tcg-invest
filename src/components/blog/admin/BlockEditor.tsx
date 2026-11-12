@@ -153,6 +153,12 @@ function BlockFields({ block, onChange }: { block: BlogBlock; onChange: (b: Blog
             placeholder="Legenda (opcional)"
             style={inputStyle}
           />
+          <input
+            value={block.href || ''}
+            onChange={(e) => onChange({ ...block, href: e.target.value })}
+            placeholder="Link ao clicar na imagem (opcional): /servicos ou https://..."
+            style={inputStyle}
+          />
         </div>
       )
 
