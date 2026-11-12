@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
   AMIGO_SECRETO_SLUG, DESEJO_MAX_CHARS, INSTAGRAM_RE, MENSAGENS_PRONTAS, MURAL_MAX_CHARS, MURAL_MAX_DIA,
-  POKEMON_PERFIL, brl, cepBonito, cpfFinal, cpfMascara, cpfSoDigitos, cpfValido, dataCurta, dataHora, diasAte, erroAmigoSecreto, faltaNaPista, finalDoTexto, horaCurta, limparInstagram, rotuloDia,
+  POKEMON_PERFIL, brl, cepBonito, cpfFinal, primeiroNomeBonito, cpfMascara, cpfSoDigitos, cpfValido, dataCurta, dataHora, diasAte, erroAmigoSecreto, faltaNaPista, finalDoTexto, horaCurta, limparInstagram, rotuloDia,
   nomePokemon, spritePokemon, type EdicaoPublica, type Eu, type MensagemMural, type MinhaSala, type Tirou,
 } from '@/lib/amigoSecreto'
 import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
@@ -804,6 +804,11 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
   const endereco = e
     ? [tirou.nome_completo, `${e.logradouro || ''}${e.numero ? `, ${e.numero}` : ''}${e.complemento ? `, ${e.complemento}` : ''}`, `${e.bairro ? `${e.bairro}, ` : ''}${e.cidade || ''}${e.uf ? `, ${e.uf}` : ''}`, `CEP ${cepBonito(e.cep)}`].filter(Boolean).join('\n')
     : ''
+  // Na tela, "n" e "compl." na frente de cada numero (dois numeros seguidos confundiam); a copia para a etiqueta segue sem rotulo.
+  const enderecoVisual = e
+    ? [tirou.nome_completo, `${e.logradouro || ''}${e.numero ? `, nº ${e.numero}` : ''}`, e.complemento ? `Compl.: ${e.complemento}` : '', `${e.bairro ? `${e.bairro}, ` : ''}${e.cidade || ''}${e.uf ? `, ${e.uf}` : ''}`, `CEP ${cepBonito(e.cep)}`].filter(Boolean).join('\n')
+    : ''
+  const primeiroNome = primeiroNomeBonito(tirou.nome_completo)
   async function copiar() {
     try { await navigator.clipboard.writeText(endereco); setCopiado(true); setTimeout(() => setCopiado(false), 1500) } catch {}
   }
@@ -819,7 +824,7 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
       <div className="as-frente">
         <Avatar instagram={tirou.instagram} pokemon={tirou.pokemon} tam={52} />
         <div className="at">@{tirou.instagram}</div>
-        <div className="as-meta">Criador de Pokémon TCG{pk ? ` · ${pk} como avatar` : ''}</div>
+        <div className="as-meta">{primeiroNome && <><strong style={{ color: 'var(--bx-text)' }}>{primeiroNome}</strong> · </>}Criador de Pokémon TCG{pk ? ` · ${pk} como avatar` : ''}</div>
         <a className="ln" href={`https://instagram.com/${tirou.instagram}`} target="_blank" rel="noopener noreferrer"><Ico n="ext" s={14} />Abrir no Instagram, para conhecer o conteúdo</a>
       </div>
       <div className="as-card" style={{ gap: 6, padding: '10px 12px' }}>
@@ -846,7 +851,7 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
           </button>
           {enderecoAberto && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 0 10px' }}>
-              <div className="as-addr"><b>Endereço de entrega (etiqueta)</b>{endereco}</div>
+              <div className="as-addr"><b>Endereço de entrega (etiqueta)</b>{enderecoVisual}</div>
               {cpfTirou ? (
                 <div className="as-doc">
                   <div><span className="k">CPF do destinatário</span><span className="v">{cpfMascara(cpfTirou)}</span></div>

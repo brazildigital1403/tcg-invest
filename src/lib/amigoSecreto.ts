@@ -156,6 +156,12 @@ export function cpfValido(v: string): boolean {
 export const cpfFinal = (cf: string | null | undefined) =>
   cf && cf.length === 5 ? `•••.•••.${cf.slice(0, 3)}-${cf.slice(3)}` : ''
 
+/** "EDUARDO GOMES" -> "Eduardo": o primeiro nome ajuda a ligar o @ a quem a pessoa conhece (11/11/2026). */
+export function primeiroNomeBonito(nome: string | null | undefined): string {
+  const p = (nome || '').trim().split(/\s+/)[0] || ''
+  return p ? p.charAt(0).toLocaleUpperCase('pt-BR') + p.slice(1).toLocaleLowerCase('pt-BR') : ''
+}
+
 // ── Formatacao (sempre Brasilia) ───────────────────────────────────────────
 
 const TZ = 'America/Sao_Paulo'
