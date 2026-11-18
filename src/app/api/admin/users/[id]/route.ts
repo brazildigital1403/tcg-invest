@@ -43,6 +43,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       { count: totalAnuncios },
       { count: totalCompras },
       authRes,
+      clubRes,
     ] = await Promise.all([
       // Conta pela SOMA de quantity, igual a lista /admin/users. Antes esta
       // ficha contava LINHAS: um usuario aparecia com 891 na lista e 229 aqui.
@@ -58,6 +59,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         .eq('buyer_id', id)
         .in('status', ['concluido', 'enviado', 'reservado', 'em_negociacao']),
       sb.rpc('admin_get_users_last_sign_in', { user_ids: [id] }),
+      // Poke Creators Club: se e Creator, desde quando, como entrou e o que falta no cadastro.
+      sb.rpc('club_membro_json', { p_user: id }),
     ])
 
     const lastSignInAt =
@@ -78,6 +81,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         total_anuncios: totalAnuncios || 0,
         total_compras:  totalCompras  || 0,
       },
+      // Sem resposta (funcao ausente), a ficha esconde o bloco do Club em vez de quebrar.
+      club: clubRes.error ? null : clubRes.data,
     })
   } catch (err: any) {
     console.error('[admin/users/[id] GET]', err?.message)
@@ -203,6 +208,22 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       case 'set_separadores': {
         patch.separadores_desbloqueado = !!value
         break
+      }
+
+      // ─── Poke Creators Club: marcar ou tirar um Creator ───────────────────
+      // Nao mexe em users: a funcao grava club_membros e o registro em club_organizacao_log.
+      case 'club_marcar':
+      case 'club_remover': {
+        const { data: club, error: clubErr } = await sb.rpc('club_membro_admin_interno', {
+          p_user: id,
+          p_acao: action === 'club_marcar' ? 'marcar' : 'remover',
+          p_autor: null,
+        })
+        if (clubErr) {
+          console.error('[admin/users/[id] PATCH club]', clubErr.message)
+          return NextResponse.json({ error: clubErr.message }, { status: 500 })
+        }
+        return NextResponse.json({ ok: true, club })
       }
 
       default:

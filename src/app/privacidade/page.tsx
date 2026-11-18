@@ -23,7 +23,7 @@ export const metadata = {
   },
 }
 
-const UPDATED = '8 de novembro de 2026'
+const UPDATED = '18 de novembro de 2026'
 
 export default function PrivacidadePage() {
   return (
@@ -98,6 +98,7 @@ export default function PrivacidadePage() {
 
           <SubTitle>2.5 Dados do Poké Creators Club:</SubTitle>
           <P>O Poké Creators Club é a área da Bynx para o grupo de criadores de conteúdo de Pokémon TCG, em <strong>bynx.gg/pokecreatorsclub</strong>. Participar é opcional.</P>
+          <P><strong>Entrada no Club.</strong> Ao entrar no Club, você confirma o seu @ do Instagram e, se quiser, o WhatsApp. Guardamos que você é membro, desde quando e como entrou: pelo botão de entrada, por uma das frentes do Club ou por marcação da organização. O @ e o WhatsApp também ficam salvos na sua conta Bynx, e você muda os dois em Minha conta. A organização vê no painel quem é membro do Club.</P>
           <P><strong>Amigo Secreto.</strong> Para participar, você informa:</P>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '8px 0 16px' }}>
             <li>seu @ do Instagram;</li>
@@ -135,6 +136,7 @@ export default function PrivacidadePage() {
                 ['Processar pagamentos e assinaturas', 'Execução de contrato (Art. 7º, V)'],
                 ['Exibir anúncios no Marketplace', 'Execução de contrato (Art. 7º, V)'],
                 ['Exibir perfil público de loja (B2B)', 'Execução de contrato (Art. 7º, V)'],
+                ['Cadastro de membro do Poké Creators Club (@, WhatsApp, data e origem da entrada)', 'Consentimento (Art. 7º, I)'],
                 ['Amigo Secreto do Poké Creators Club', 'Execução de contrato (Art. 7º, V)'],
                 ['Lista de Aniversariantes do Poké Creators Club', 'Consentimento (Art. 7º, I)'],
                 ['Agenda do Poké Creators Club (eventos e @ de quem participa)', 'Legítimo interesse (Art. 7º, IX)'],
@@ -190,7 +192,7 @@ export default function PrivacidadePage() {
             <li>Anúncios moderados (removidos pela Bynx): mantidos como histórico interno por até 12 (doze) meses para fins de auditoria;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Pedidos de compra e venda</strong> (valores, endereço de entrega, rastreio): 5 (cinco) anos, pelo mesmo motivo fiscal — e porque é o prazo em que uma das partes ainda pode reclamar da transação;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Avaliações públicas do Marketplace</strong>: permanecem após a exclusão da conta de quem avaliou, de forma desvinculada do perfil. Elas fazem parte da reputação de <em>outra</em> pessoa, que não pode perder o histórico dela porque alguém saiu;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Poké Creators Club</strong>: os dados do Amigo Secreto ficam guardados enquanto a conta existir, e o endereço só aparece para quem tirou você durante a edição. Os dados de Aniversariantes ficam até você sair da lista ou excluir a conta. Os eventos da Agenda ficam como histórico do Club, e um @ citado em evento sai a pedido. O registro das ações de organizador fica guardado para auditoria interna;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Poké Creators Club</strong>: os dados do Amigo Secreto ficam guardados enquanto a conta existir, e o endereço só aparece para quem tirou você durante a edição. Os dados de Aniversariantes ficam até você sair da lista ou excluir a conta. O registro de membro do Club (desde quando e como você entrou) fica enquanto a conta existir. Os eventos da Agenda ficam como histórico do Club, e um @ citado em evento sai a pedido. O registro das ações de organizador fica guardado para auditoria interna;</li>
             <li>Após exclusão da conta: dados são anonimizados ou excluídos em até 30 (trinta) dias, exceto os itens acima e onde houver obrigação legal de retenção.</li>
           </ul>
         </Section>

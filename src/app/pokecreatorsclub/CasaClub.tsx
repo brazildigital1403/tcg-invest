@@ -6,9 +6,10 @@
 //
 // Nova frente entra como mais um cartao, sem "em breve".
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
@@ -19,13 +20,16 @@ import { AGENDA, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, AVISOS, CLU
 import { diaMes, diasAtePrazo, ehNovo, pedeResposta, prazoPassou, ultimaVisita, type Aviso, type ListaAvisos } from '@/lib/pcc/avisos'
 import { TIPOS, horaCurta, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
 import { hojeBrasilia } from '@/lib/pcc/datas'
+import type { CadastroClub } from '@/lib/pcc/membro'
 import { proximos as proximosEventos } from './agenda/comum'
 import { AS_CSS, Ico, LOGO_PCC, SELOS } from './amigo-secreto/estilo'
 import { Rosto } from './aniversariantes/AniversariantesClient'
+import EntrarClub from './EntrarClub'
 import TrendsClub from './TrendsClub'
 import type { Trend } from '@/lib/pcc/trends'
 
-type Tarefa = { titulo: string; texto: string; botao: string; href: string }
+// Tarefa leva a um endereço (href) ou abre algo na própria casa (acao).
+type Tarefa = { titulo: string; texto: string; botao: string; href?: string; acao?: () => void }
 
 /** Tarefas da pessoa no Amigo Secreto, da mais urgente para a menos urgente. */
 function tarefasDe(sala: MinhaSala | null): Tarefa[] {
@@ -48,6 +52,10 @@ function tarefasDe(sala: MinhaSala | null): Tarefa[] {
 export default function CasaClub() {
   const { openLogin } = useAuthModal()
   const [logado, setLogado] = useState<boolean | undefined>(undefined)
+  const [nome, setNome] = useState('')
+  // Cadastro no Club: undefined = ainda lendo, null = sem resposta (segue o que a casa ja sabia).
+  const [cadastro, setCadastro] = useState<CadastroClub | null | undefined>(undefined)
+  const [folhaEntrar, setFolhaEntrar] = useState(false)
   const [edicao, setEdicao] = useState<EdicaoPublica | null | undefined>(undefined)
   const [sala, setSala] = useState<MinhaSala | null>(null)
   const [aniv, setAniv] = useState<ListaAniversarios | null>(null)
@@ -60,26 +68,32 @@ export default function CasaClub() {
   const [trends, setTrends] = useState<Trend[] | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setLogado(!!data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setLogado(!!s))
+    supabase.auth.getSession().then(({ data }) => { setLogado(!!data.session); setNome(String(data.session?.user.user_metadata?.name || '')) })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { setLogado(!!s); setNome(String(s?.user.user_metadata?.name || '')) })
     return () => sub.subscription.unsubscribe()
   }, [])
 
   const carregar = useCallback(async () => {
     if (logado === undefined) return
     setFalhou(false)
+    // Cada leitura recomeça do zero: o cadastro de antes do login (ou de outra conta) não vale para esta sessão,
+    // e sem isso um membro veria por um instante o cartão de entrar depois de logar.
+    setCadastro(undefined)
     // Agenda: de hoje ate 400 dias (o teto do banco). Se falhar, o cartao fica
     // sem a linha "Proximo" e a casa nao acusa falha: nao e tarefa da pessoa.
     const hoje = hojeBrasilia()
     const ate = new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia + 398)).toISOString().slice(0, 10)
-    const [e, m, a, g, av] = await Promise.all([
+    const [e, m, a, g, av, c] = await Promise.all([
       supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG }),
       logado ? supabase.rpc('amigo_secreto_meu', { p_slug: AMIGO_SECRETO_SLUG }) : Promise.resolve({ data: null, error: null }),
       logado ? supabase.rpc('club_aniversarios_lista') : Promise.resolve({ data: null, error: null }),
       // Comeca ontem: a live que vira o dia ainda esta "agora" depois da meia-noite.
       logado ? supabase.rpc('club_agenda_lista', { p_de: new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia - 1)).toISOString().slice(0, 10), p_ate: ate }) : Promise.resolve({ data: null, error: null }),
       logado ? supabase.rpc('club_avisos_lista') : Promise.resolve({ data: null, error: null }),
+      logado ? supabase.rpc('club_meu_cadastro') : Promise.resolve({ data: null, error: null }),
     ])
+    // Cadastro no Club: como a Agenda, falha nao acusa erro na casa; sem resposta, vale o que a casa ja sabia.
+    setCadastro(c.error ? null : (c.data as CadastroClub | null) ?? null)
     setAgenda(g.error ? null : (g.data as ListaAgenda | null) ?? null)
     // Avisos: como a Agenda, falha nao acusa erro na casa; o cartao fica sem a linha.
     setAvisos(av.error ? null : (av.data as ListaAvisos | null) ?? null)
@@ -99,6 +113,12 @@ export default function CasaClub() {
   const inscrito = !!sala?.inscrito
   const proximos = ordenarProximos(aniv?.lista || [])
   const naLista = !!aniv?.lista.some(p => p.eu)
+  // Membro: o que o banco diz (club_membros); sem resposta, quem ja esta no Amigo Secreto ou nos Aniversariantes.
+  const membro = cadastro ? cadastro.membro : inscrito || naLista
+  const faltaArroba = !!cadastro?.faltam.includes('instagram')
+  // Quem nao esta logado, quem ainda nao e membro e quem e membro mas esta sem @ ve a missao de entrar.
+  const precisaEntrar = logado === false || (logado === true && cadastro !== undefined && (!membro || faltaArroba))
+  const abrirEntrar = useCallback(() => { if (precisaEntrar) setFolhaEntrar(true) }, [precisaEntrar])
   const tarefas = tarefasDe(sala)
   // Enquete de aviso sem o voto da pessoa, com 3 dias ou menos de prazo, vira tarefa (wireframe C15).
   for (const a of avisos?.avisos || []) {
@@ -107,13 +127,20 @@ export default function CasaClub() {
     }
   }
   if (aniv && !naLista) tarefas.push({ titulo: 'Coloque sua data', texto: 'Aniversariantes: só dia e mês.', botao: 'Entrar na lista', href: ANIVERSARIANTES })
+  // Entrar no Club vem antes das outras tarefas: e o primeiro passo (mockup aprovado em 18/11).
+  if (precisaEntrar) {
+    tarefas.unshift(logado === false
+      ? { titulo: 'Entre no Club', texto: 'Entre na sua conta e confirme o seu @ do Instagram.', botao: 'Entrar no Club', acao: () => openLogin({ next: `${CLUB}?entrar=1`, cta: 'Entrar no Club' }) }
+      : membro
+        ? { titulo: 'Falta o seu @ do Instagram', texto: 'Complete o cadastro do Club.', botao: 'Completar', acao: () => setFolhaEntrar(true) }
+        : { titulo: 'Entre no Club', texto: 'Confirme o seu @ do Instagram. Leva um minuto.', botao: 'Entrar no Club', acao: () => setFolhaEntrar(true) })
+  }
   const tarefa = tarefas[0]
   const aniversarioHoje = proximos.filter(p => p.emDias === 0 && !p.eu)
   const proximoAniv = proximos.find(p => p.emDias > 0 && !p.eu)
   const encerrada = edicao?.estado === 'encerrado'
   const aberta = !!edicao && edicao.estado === 'inscricoes' && Date.parse(edicao.inscricoes_ate) > Date.now()
   const destino = inscrito ? AMIGO_SECRETO_SALA : AMIGO_SECRETO
-  const membro = inscrito || naLista
   const hojeBr = hojeBrasilia()
   const eventos = proximosEventos(agenda?.eventos || [], hojeBr).filter(e => e.status === 'publicado')
   // Cartas "Hoje": evento antes do aniversario, no maximo duas no total (wireframe C12).
@@ -146,8 +173,10 @@ export default function CasaClub() {
               <div className="as-eye"><Ico n="star" s={14} />Sua missão agora</div>
               <h2 className="as-h3">{tarefa.titulo}</h2>
               <p className="as-meta">{tarefa.texto}</p>
-              <Link href={tarefa.href} className="as-btn pri">{tarefa.botao}</Link>
-              {tarefas.length > 1 && <Link href={tarefas[1].href} className="as-btn lnk">{tarefas.length === 2 ? 'Ver mais 1 tarefa' : `Ver mais ${tarefas.length - 1} tarefas`}</Link>}
+              {tarefa.acao
+                ? <button type="button" className="as-btn pri" onClick={tarefa.acao}>{tarefa.botao}</button>
+                : <Link href={tarefa.href || CLUB} className="as-btn pri">{tarefa.botao}</Link>}
+              {tarefas.length > 1 && <Link href={tarefas[1].href || CLUB} className="as-btn lnk">{tarefas.length === 2 ? 'Ver mais 1 tarefa' : `Ver mais ${tarefas.length - 1} tarefas`}</Link>}
             </section>
           )}
 
@@ -217,17 +246,34 @@ export default function CasaClub() {
 
           <TrendsClub trends={trends} />
 
-          {!membro && logado !== undefined && <div className="as-note">O Club vive no grupo de WhatsApp. Para entrar, fale com quem administra.</div>}
-
           <footer className="as-foot">
             <span>Poké Creators Club</span>
             <span><Link href="/termos">Termos</Link>·<Link href="/privacidade">Privacidade</Link></span>
           </footer>
         </div>
       </main>
+      <Suspense fallback={null}><AbrirEntrarPelaUrl pronto={logado === true && cadastro !== undefined} abrir={abrirEntrar} /></Suspense>
+      {folhaEntrar && <EntrarClub cadastro={cadastro ?? null} nome={nome} onFechar={() => setFolhaEntrar(false)} onEntrou={setCadastro} />}
       <style>{AS_CSS + CL_CSS}</style>
     </div>
   )
+}
+
+// Quem volta do login com ?entrar=1 cai direto no modal. useSearchParams fica num
+// componente a parte, em Suspense, para a casa continuar estatica no build.
+function AbrirEntrarPelaUrl({ pronto, abrir }: { pronto: boolean; abrir: () => void }) {
+  const qp = useSearchParams()
+  const router = useRouter()
+  const quer = qp.get('entrar') === '1'
+  const feito = useRef(false)
+  useEffect(() => {
+    if (!quer) { feito.current = false; return }
+    if (!pronto || feito.current) return
+    feito.current = true
+    router.replace(CLUB, { scroll: false })
+    abrir()
+  }, [quer, pronto, abrir, router])
+  return null
 }
 
 // Selos ilustrados das frentes (06/11, pedido do Du: "cara de Pokemon").

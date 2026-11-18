@@ -75,7 +75,7 @@ export function BlocoData({ dia, mes }: { dia: string; mes: string }) {
 }
 
 /** Folha de baixo para cima no celular; janela centralizada no computador. */
-export function Folha({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: React.ReactNode }) {
+export function Folha({ titulo, eyebrow, onFechar, children }: { titulo: string; eyebrow?: string; onFechar: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
@@ -90,7 +90,7 @@ export function Folha({ titulo, onFechar, children }: { titulo: string; onFechar
     <div className="as-sheet-bg" onClick={onFechar}>
       <div ref={ref} tabIndex={-1} className="as-sheet" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
         <div className="as-handle" />
-        <div className="as-sh"><h3 className="as-h3">{titulo}</h3><button type="button" className="as-ib" aria-label="Fechar" onClick={onFechar}><Ico n="x" s={20} /></button></div>
+        <div className="as-sh"><div>{eyebrow && <div className="as-eye" style={{ marginBottom: 2 }}>{eyebrow}</div>}<h3 className="as-h3">{titulo}</h3></div><button type="button" className="as-ib" aria-label="Fechar" onClick={onFechar}><Ico n="x" s={20} /></button></div>
         {children}
       </div>
     </div>

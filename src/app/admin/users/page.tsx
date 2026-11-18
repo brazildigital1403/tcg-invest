@@ -30,6 +30,8 @@ type User = {
   lojas_count: number
   indicacoes_count: number
   pokedex_count: number
+  // Poke Creators Club (club_membros): quem e Creator
+  is_creator?: boolean
 }
 
 const FILTER_TABS = [
@@ -37,6 +39,7 @@ const FILTER_TABS = [
   { key: 'pro',       label: 'Pro' },
   { key: 'trial',     label: 'Trial' },
   { key: 'free',      label: 'Free' },
+  { key: 'creator',   label: 'Creators' },
   { key: 'suspended', label: 'Suspensos' },
 ]
 
@@ -362,6 +365,17 @@ function UsersView() {
                                 flexShrink: 0,
                               }}>
                                 Suspenso
+                              </span>
+                            )}
+                            {u.is_creator && (
+                              <span style={{
+                                fontSize: 9, fontWeight: 800,
+                                padding: '2px 8px', borderRadius: 100,
+                                color: '#0a0a0a', background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                                textTransform: 'uppercase', letterSpacing: '0.08em',
+                                flexShrink: 0,
+                              }}>
+                                Creator
                               </span>
                             )}
                           </div>

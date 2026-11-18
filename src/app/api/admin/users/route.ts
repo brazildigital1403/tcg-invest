@@ -9,7 +9,17 @@ function supabaseAdmin() {
   )
 }
 
-// GET /api/admin/users?q=&page=1&perPage=50&filter=pro|trial|free|suspended
+// Linha da lista: as colunas de users mais a linha de club_membros (Poke Creators Club) quando o join vem.
+type MembroClube = { origem: string; created_at: string }
+type LinhaUsuario = {
+  id: string; email: string; name: string | null; username: string | null; city: string | null; whatsapp: string | null
+  is_pro: boolean; plano: string | null; trial_expires_at: string | null; pro_expira_em: string | null
+  scan_creditos: number | null; suspended_at: string | null; created_at: string; last_seen_at: string | null
+  club_membros?: MembroClube | MembroClube[] | null
+}
+
+// GET /api/admin/users?q=&page=1&perPage=50&filter=pro|trial|free|suspended|creator
+// creator = so quem esta em club_membros (Poke Creators Club, migration 20261118160000).
 export async function GET(req: NextRequest) {
   try {
     const unauth = await requireAdmin(req)
@@ -25,33 +35,47 @@ export async function GET(req: NextRequest) {
     const from = (page - 1) * perPage
     const to   = from + perPage - 1
 
-    let query = sb
-      .from('users')
-      .select('id, email, name, username, city, whatsapp, is_pro, plano, trial_expires_at, pro_expira_em, scan_creditos, suspended_at, created_at, last_seen_at', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to)
-
-    if (q) {
-      // S29 FIX (auditoria admin): sanitizar input pra evitar query injection.
-      // Permite apenas alfanuméricos, espaço, ponto, @ (email), hífen, underscore.
-      const safeQ = q.replace(/[^a-zA-Z0-9 @._\-\u00C0-\u017F]/g, '').trim().slice(0, 100)
-      if (safeQ) {
-        query = query.or(`email.ilike.%${safeQ}%,name.ilike.%${safeQ}%,username.ilike.%${safeQ}%`)
-      }
-    }
-
+    const COLUNAS: string = 'id, email, name, username, city, whatsapp, is_pro, plano, trial_expires_at, pro_expira_em, scan_creditos, suspended_at, created_at, last_seen_at'
     const nowISO = new Date().toISOString()
-    if (filter === 'pro') {
-      query = query.eq('is_pro', true)
-    } else if (filter === 'trial') {
-      query = query.eq('is_pro', false).gt('trial_expires_at', nowISO)
-    } else if (filter === 'free') {
-      query = query.eq('is_pro', false).or(`trial_expires_at.is.null,trial_expires_at.lt.${nowISO}`)
-    } else if (filter === 'suspended') {
-      query = query.not('suspended_at', 'is', null)
+
+    // Creator: junta a linha de club_membros (uma por conta). No filtro Creators o
+    // join e interno, entao so voltam (e so sao contados) os membros.
+    const buscar = async (comClube: boolean) => {
+      const join: string = !comClube ? '' : filter === 'creator' ? ', club_membros!inner(origem, created_at)' : ', club_membros(origem, created_at)'
+      let query = sb
+        .from('users')
+        .select(`${COLUNAS}${join}`, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
+      if (q) {
+        // S29 FIX (auditoria admin): sanitizar input pra evitar query injection.
+        // Permite apenas alfanuméricos, espaço, ponto, @ (email), hífen, underscore.
+        const safeQ = q.replace(/[^a-zA-Z0-9 @._\-\u00C0-\u017F]/g, '').trim().slice(0, 100)
+        if (safeQ) {
+          query = query.or(`email.ilike.%${safeQ}%,name.ilike.%${safeQ}%,username.ilike.%${safeQ}%`)
+        }
+      }
+
+      if (filter === 'pro') {
+        query = query.eq('is_pro', true)
+      } else if (filter === 'trial') {
+        query = query.eq('is_pro', false).gt('trial_expires_at', nowISO)
+      } else if (filter === 'free') {
+        query = query.eq('is_pro', false).or(`trial_expires_at.is.null,trial_expires_at.lt.${nowISO}`)
+      } else if (filter === 'suspended') {
+        query = query.not('suspended_at', 'is', null)
+      }
+
+      return await query
     }
 
-    const { data, error, count } = await query
+    let res = await buscar(true)
+    // A tabela do Club ainda nao existe neste banco (migration 20261118160000 nao aplicada,
+    // ou codigo no ar antes dela): a lista volta sem a marca de Creator em vez de quebrar.
+    // No filtro Creators nao ha o que mostrar, e o erro segue.
+    if (res.error && filter !== 'creator' && /club_membros/i.test(res.error.message)) res = await buscar(false)
+    const { data, error, count } = res
 
     if (error) {
       console.error('[admin/users GET]', error.message)
@@ -61,7 +85,9 @@ export async function GET(req: NextRequest) {
     // S32: enriquecer com last_sign_in_at (auth.users via RPC) + coleção + anúncios ativos.
     // S40: + contagem de tickets (abertos / total) por usuário.
     // 4 queries paralelas — adicionam 1 round-trip total, sem N+1.
-    const userIds = (data || []).map(u => u.id)
+    // O select e montado como texto (com ou sem o join do Club), entao o tipo vem daqui.
+    const linhas = (data ?? []) as unknown as LinhaUsuario[]
+    const userIds = linhas.map(u => u.id)
 
     const lastSignInMap   = new Map<string, string | null>()
     const collectionMap   = new Map<string, number>()
@@ -137,11 +163,16 @@ export async function GET(req: NextRequest) {
     }
 
     const now = Date.now()
-    const users = (data || []).map(u => {
+    const users = linhas.map(row => {
+      const { club_membros: membro, ...u } = row
+      const m = Array.isArray(membro) ? membro[0] : membro
       const trialMs = u.trial_expires_at ? new Date(u.trial_expires_at).getTime() : 0
       const isTrial = !u.is_pro && trialMs > now
       return {
         ...u,
+        is_creator: !!m,
+        creator_origem: m?.origem ?? null,
+        creator_desde: m?.created_at ?? null,
         display_name: u.name || null,
         plano_efetivo: u.is_pro ? 'pro' : isTrial ? 'trial' : 'free',
         trial_days_left: isTrial ? Math.ceil((trialMs - now) / 86_400_000) : 0,

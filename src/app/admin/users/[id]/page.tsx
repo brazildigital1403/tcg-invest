@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconWarning, IconBolt } from '@/components/ui/Icons'
+import { ORIGEM_MEMBRO, type CadastroClub } from '@/lib/pcc/membro'
+
+// Cadastro do Club em texto: o que o perfil ja tem e o que falta (so para Creator).
+function textoCadastroClub(c: CadastroClub): string {
+  if (c.faltam.length === 0) return 'Completo (@ e WhatsApp)'
+  const falta = c.faltam.map(f => (f === 'instagram' ? 'o @ do Instagram' : 'o WhatsApp'))
+  return `Falta ${falta.join(' e ')}`
+}
 
 type User = {
   id: string
@@ -178,6 +186,8 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true)
   const [user, setUser]       = useState<User | null>(null)
   const [stats, setStats]     = useState<Stats | null>(null)
+  // Poke Creators Club (club_membros): null = a API nao respondeu, e o bloco do Club some.
+  const [club, setClub]       = useState<CadastroClub | null>(null)
 
   // R6 Commit 3: aba 'resync' removida (endpoint /api/admin/resync-price foi deletado).
   // Refactor futuro: criar nova aba "Re-scan ZenRows" que dispara scan sob demanda.
@@ -224,6 +234,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
       const d = await res.json()
       setUser(d.user)
       setStats(d.stats)
+      setClub(d.club ?? null)
       setEditName(d.user.name || '')
       setEditUsername(d.user.username || '')
       setEditCity(d.user.city || '')
@@ -333,6 +344,18 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     } finally {
       setBusy(false)
     }
+  }
+
+  async function marcarCreator() {
+    const ok = await showConfirm({ message: `Marcar ${user?.email} como Creator do Club? A conta passa a aparecer no filtro Creators.` })
+    if (!ok) return
+    await doAction('club_marcar', null, 'Marcado como Creator.')
+  }
+
+  async function removerDoClub() {
+    const ok = await showConfirm({ message: `Tirar ${user?.email} do Club? A conta continua na Bynx e só deixa de ser Creator. A pessoa pode entrar de novo pelo botão do Club. A mudança fica registrada.` })
+    if (!ok) return
+    await doAction('club_remover', null, 'Removido do Club.')
   }
 
   async function grantPro() {
@@ -575,6 +598,15 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
               }}>
                 Plano {p.label}{user.plano_efetivo === 'trial' && user.trial_days_left ? ` · ${user.trial_days_left}d restantes` : ''}
               </span>
+              {club?.membro && (
+                <span style={{
+                  fontSize: 11, fontWeight: 800,
+                  padding: '4px 10px', borderRadius: 100,
+                  color: '#0a0a0a', background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                }}>
+                  Creator
+                </span>
+              )}
               {user.username && (
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.04)' }}>
                   @{user.username}
@@ -693,6 +725,16 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
             <InfoRow label="Plano" value={user.plano || '—'} />
             <InfoRow label="Pro expira em"   value={fmtDateTime(user.pro_expira_em)} />
             <InfoRow label="Trial expira em" value={fmtDateTime(user.trial_expires_at)} />
+
+            {club && (
+              <>
+                <h3 style={{ ...sectionTitle, marginTop: 28 }}>Poké Creators Club</h3>
+                <InfoRow label="Creator" value={club.membro ? 'Sim' : 'Não'} />
+                {club.membro && <InfoRow label="Desde" value={fmtDateTime(club.desde)} />}
+                {club.membro && club.origem && <InfoRow label="Origem" value={ORIGEM_MEMBRO[club.origem] || club.origem} />}
+                {club.membro && <InfoRow label="Cadastro do Club" value={textoCadastroClub(club)} />}
+              </>
+            )}
           </div>
 
           {/* ── Ações administrativas ── */}
@@ -709,6 +751,9 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
             <ActionButton label="Estender trial"  onClick={extendTrial} color="#60a5fa" busy={busy} variant="outline" />
             <ActionButton label="+ Créditos scan" onClick={addCredits}  color="#22c55e" busy={busy} variant="outline" />
             <ActionButton label={user.separadores_desbloqueado ? 'Bloquear separadores' : 'Liberar separadores'} onClick={toggleSeparadores} color="#f59e0b" busy={busy} variant="outline" />
+            {club && (club.membro
+              ? <ActionButton label="Remover do Club" onClick={removerDoClub} color="#f59e0b" busy={busy} variant="outline" />
+              : <ActionButton label="Marcar como Creator" onClick={marcarCreator} color="#f59e0b" busy={busy} variant="outline" />)}
 
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0', paddingTop: 16 }}>
               <h3 style={{ ...sectionTitle, fontSize: 10, marginBottom: 10 }}><IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Zona perigosa</h3>
