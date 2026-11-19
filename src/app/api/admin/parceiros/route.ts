@@ -209,6 +209,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 400 })
     }
 
+    // Todo parceiro e Creator do Club (pedido do Du, 19/11/2026): mesma funcao do botao "Marcar
+    // como Creator" da ficha do usuario (quem ja e membro fica como esta). Falha aqui nunca desfaz
+    // o parceiro ja criado: fica no log e o admin marca na ficha.
+    let creator: 'marcado' | 'falhou' = 'marcado'
+    try {
+      const { error: creatorErr } = await supabase.rpc('club_membro_admin_interno', { p_user: userId, p_acao: 'marcar', p_autor: null })
+      if (creatorErr) throw new Error(creatorErr.message)
+    } catch (e) {
+      creator = 'falhou'
+      console.error('[admin/parceiros] marcar Creator falhou:', e instanceof Error ? e.message : e)
+    }
+
     // Cupom pronto: avisa o parceiro com o link da Central e a apresentacao
     // para repassar. Falha de e-mail nunca desfaz o parceiro ja criado.
     try {
@@ -224,6 +236,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       parceiroId: inserted?.[0]?.id,
       vinculadoExistente: !!existentes.data[0],
+      creator,
       stripe: {
         promotionCodeId: promotionCode.id,
         ativo: promotionCode.active,
