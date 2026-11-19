@@ -21,6 +21,7 @@ import SlabArte, { SLAB_ARTE_CSS } from '@/components/graduadas/SlabArte'
 import { trackSignUp } from '@/lib/analytics'
 import { SENHA_REGRA_MSG } from '@/lib/senha'
 import { APRESENTACAO_PARCERIA } from '@/lib/parceriaMaterial'
+import { CONVITE_PADRAO } from '@/lib/convitesGrupoPrazo'
 import {
   IconCalendar, IconCheck, IconChevronDown, IconClock, IconClose, IconInstagram, IconLink, IconAccount, IconCollection,
   IconCard, IconShare, IconDownload, IconChart, IconPokeball,
@@ -206,9 +207,9 @@ export default function CriadoresClient() {
   }, [evento])
 
   useEffect(() => {
-    const c = new URLSearchParams(window.location.search).get('c')
+    // Sem ?c= abre o convite padrao: o link dos criadores e so /criadores.
+    const c = new URLSearchParams(window.location.search).get('c') || CONVITE_PADRAO
     setCodigo(c)
-    if (!c) { setEstado('invalido'); return }
     carregarConvite(c, true)
     const aoVoltar = () => { if (document.visibilityState === 'visible') carregarConvite(c) }
     document.addEventListener('visibilitychange', aoVoltar)

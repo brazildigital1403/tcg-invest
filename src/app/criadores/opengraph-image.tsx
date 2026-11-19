@@ -103,7 +103,7 @@ export default async function Image() {
               Sem cartão
             </div>
             <div style={{ display: 'flex', fontSize: 22, fontWeight: 700, color: '#fff', padding: '9px 20px', borderRadius: 99, border: '2px solid rgba(255,255,255,0.22)' }}>
-              100 convites até 06/11
+              100 convites
             </div>
           </div>
         </div>

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import CriadoresClient from './CriadoresClient'
 
-// Landing do convite de grupo para criadores (23/10/2026): /criadores?c=<codigo>.
+// Landing do convite de grupo para criadores (23/10/2026). Desde 19/11/2026 o link e um so,
+// /criadores (convite padrao, sem prazo); /criadores?c=<codigo> segue abrindo qualquer convite.
 // Pagina ESTATICA: o codigo do link e lido no navegador e validado em
 // /api/criadores/convite, entao nao ha render por request. Fora do AppLayout,
 // sem indexacao e fora do sitemap -- o link circula so no grupo.
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   // layout raiz (os da home). A imagem sai de ./opengraph-image.tsx.
   openGraph: {
     title: 'Creator Bynx: 1 ano de Bynx Pro para criadores',
-    description: 'Convite para criadores de Pokémon TCG: 1 ano de Bynx Pro, sem cartão e sem cobrança no fim. 100 convites até 06/11.',
+    description: 'Convite para criadores de Pokémon TCG: 1 ano de Bynx Pro, sem cartão e sem cobrança no fim. 100 convites.',
     url: 'https://bynx.gg/criadores',
     siteName: 'Bynx',
     locale: 'pt_BR',

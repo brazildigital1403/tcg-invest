@@ -11,6 +11,7 @@
 // Evento de funil e medicao: falha vira log, nunca derruba a pessoa.
 
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { CODIGOS_ANTIGOS, semPrazo } from '@/lib/convitesGrupoPrazo'
 
 export type EstadoConvite = 'ativo' | 'encerrado' | 'invalido'
 
@@ -38,7 +39,8 @@ const CODIGO_RE = /^[a-z0-9-]{4,40}$/
 export function normalizarCodigo(c: unknown): string | null {
   if (typeof c !== 'string') return null
   const v = c.trim().toLowerCase()
-  return CODIGO_RE.test(v) ? v : null
+  // Link antigo (ja compartilhado) abre o convite de hoje: todo caminho passa por aqui.
+  return CODIGO_RE.test(v) ? (CODIGOS_ANTIGOS[v] ?? v) : null
 }
 
 interface LinhaConvite {
@@ -80,7 +82,8 @@ export function conviteParaPublico(c: LinhaConvite | null): ConviteGrupoPublico 
   const restantes = Math.max(0, c.max_usos - c.usos)
   const motivo = estado !== 'encerrado' ? undefined
     : !c.ativo ? 'desligado' : restantes === 0 ? 'vagas' : 'prazo'
-  return { estado, nome: c.nome, diasPro: c.dias_pro, expiraEm: c.expira_em, vagas: c.max_usos, restantes, motivo }
+  // Convite sem prazo (data muito distante) nao anuncia data: a landing nao mostra "ate DD/MM".
+  return { estado, nome: c.nome, diasPro: c.dias_pro, expiraEm: semPrazo(c.expira_em) ? undefined : c.expira_em, vagas: c.max_usos, restantes, motivo }
 }
 
 export async function registrarEventoConvite(conviteId: string, etapa: 'visita' | 'cta' | 'envio' | 'erro'): Promise<void> {

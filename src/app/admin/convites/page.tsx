@@ -1,13 +1,16 @@
 'use client'
 
-// Admin — convites de grupo (/criadores?c=<codigo>, N dias de Pro).
-// Cria o link, mostra o funil por etapa e quem entrou (com cartas na colecao,
-// perfil publico e pedido de parceria), e liga/desliga ou estende o convite.
+// Admin — convite de grupo dos criadores. Um link so, sem prazo: /criadores (o convite padrao,
+// codigo "criadores"); /criadores?c=<codigo> segue abrindo qualquer convite que exista.
+// Mostra o link, as vagas e o funil por etapa, quem entrou (com cartas na colecao, perfil
+// publico e pedido de parceria) e liga/desliga ou amplia o convite. Nao cria convite novo:
+// o Du decidiu em 19/11/2026 que ficar criando link para criador nao faz sentido.
 // O pedido de parceria so aparece aqui: o cupom sai em /admin/parceiros.
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { IconCopy, IconPlus, IconClose } from '@/components/ui/Icons'
+import { IconCopy } from '@/components/ui/Icons'
+import { CONVITE_PADRAO, semPrazo } from '@/lib/convitesGrupoPrazo'
 
 type Convite = {
   id: string; codigo: string; nome: string; campanha: string; dias_pro: number
@@ -25,15 +28,13 @@ const dataHora = (iso: string) =>
 const data = (iso: string) =>
   new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
 
-const FORM = { codigo: 'criadores-out26', nome: 'Grupo de criadores', max_usos: '50', dias_validade: '14' }
+/** O convite padrao abre em /criadores; os outros, com o codigo no link. */
+const caminho = (codigo: string) => (codigo === CONVITE_PADRAO ? '/criadores' : `/criadores?c=${codigo}`)
 
 export default function AdminConvitesPage() {
   const [convites, setConvites] = useState<Convite[] | null>(null)
   const [resgates, setResgates] = useState<Resgate[]>([])
   const [erro, setErro] = useState('')
-  const [form, setForm] = useState(FORM)
-  const [formAberto, setFormAberto] = useState(false)
-  const [salvando, setSalvando] = useState(false)
   const [copiado, setCopiado] = useState('')
 
   async function load() {
@@ -46,21 +47,6 @@ export default function AdminConvitesPage() {
   }
   useEffect(() => { load() }, [])
 
-  async function criar(e: React.FormEvent) {
-    e.preventDefault()
-    setSalvando(true); setErro('')
-    try {
-      const res = await fetch('/api/admin/convites-grupo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo: form.codigo, nome: form.nome, campanha: form.codigo, max_usos: Number(form.max_usos), dias_validade: Number(form.dias_validade) }),
-      })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) { setErro(d.error || `Erro ${res.status}`); return }
-      setFormAberto(false); setForm(FORM)
-      await load()
-    } finally { setSalvando(false) }
-  }
-
   async function mudar(id: string, corpo: Record<string, unknown>, confirmar?: string) {
     if (confirmar && !window.confirm(confirmar)) return
     const res = await fetch('/api/admin/convites-grupo', {
@@ -72,7 +58,7 @@ export default function AdminConvitesPage() {
   }
 
   function copiar(codigo: string) {
-    const link = `${window.location.origin}/criadores?c=${codigo}`
+    const link = `${window.location.origin}${caminho(codigo)}`
     navigator.clipboard?.writeText(link).then(() => { setCopiado(codigo); setTimeout(() => setCopiado(''), 1500) }).catch(() => {})
   }
 
@@ -82,28 +68,15 @@ export default function AdminConvitesPage() {
       <div className="cg-head">
         <div style={{ flex: 1, minWidth: 180 }}>
           <h1 className="cg-h1">Convites de grupo</h1>
-          <p className="cg-sub">Link único com ano de Pro. Hoje: criadores.</p>
+          <p className="cg-sub">Um link só para criadores, com 1 ano de Pro por resgate. Sem prazo: o limite são as vagas.</p>
         </div>
-        <button className={formAberto ? 'cg-btn2' : 'cg-btn'} onClick={() => setFormAberto(v => !v)}>
-          {formAberto ? <><IconClose size={14} color="currentColor" /> Fechar</> : <><IconPlus size={14} color="currentColor" /> Novo convite</>}
-        </button>
       </div>
 
       {erro && <p className="cg-erro">{erro}</p>}
 
-      {formAberto && (
-        <form onSubmit={criar} className="cg-box cg-form">
-          <label>Código do link<input value={form.codigo} onChange={e => setForm(f => ({ ...f, codigo: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} /></label>
-          <label>Nome interno<input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} /></label>
-          <label>Vagas<input type="number" min={1} max={1000} value={form.max_usos} onChange={e => setForm(f => ({ ...f, max_usos: e.target.value }))} /></label>
-          <label>Prazo do link (dias)<input type="number" min={1} max={90} value={form.dias_validade} onChange={e => setForm(f => ({ ...f, dias_validade: e.target.value }))} /></label>
-          <button className="cg-btn" disabled={salvando}>{salvando ? 'Criando...' : 'Criar convite'}</button>
-          <p className="cg-sub" style={{ gridColumn: '1 / -1' }}>Cada resgate dá 365 dias de Pro. Assinante pago fica fora.</p>
-        </form>
-      )}
-
       {convites === null ? <p className="cg-sub">Carregando...</p> : convites.length === 0 ? <p className="cg-sub">Nenhum convite ainda.</p> : convites.map(c => {
-        const vencido = Date.parse(c.expira_em) <= Date.now()
+        const sem = semPrazo(c.expira_em)
+        const vencido = !sem && Date.parse(c.expira_em) <= Date.now()
         const cheio = c.usos >= c.max_usos
         const status = !c.ativo ? 'Desligado' : vencido ? 'Vencido' : cheio ? 'Lotado' : 'No ar'
         const lista = resgates.filter(r => r.convite_id === c.id)
@@ -117,13 +90,13 @@ export default function AdminConvitesPage() {
             <div className="cg-row">
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div className="cg-title">{c.nome} <span className={`cg-tag${status === 'No ar' ? ' on' : ''}`}>{status}</span></div>
-                <div className="cg-sub">/criadores?c={c.codigo} · até {dataHora(c.expira_em)} · {c.usos} de {c.max_usos} vagas</div>
+                <div className="cg-sub">{caminho(c.codigo)}{sem ? '' : ` · até ${dataHora(c.expira_em)}`} · {c.usos} de {c.max_usos} vagas</div>
               </div>
               <button className="cg-btn2" onClick={() => copiar(c.codigo)}><IconCopy size={14} color="currentColor" />{copiado === c.codigo ? 'Copiado' : 'Copiar link'}</button>
               {c.ativo
                 ? <button className="cg-btn2" onClick={() => mudar(c.id, { ativo: false }, 'Desligar o convite? Quem abrir o link verá "Este convite encerrou". Quem já resgatou mantém o Pro.')}>Desligar</button>
                 : <button className="cg-btn2" onClick={() => mudar(c.id, { ativo: true })}>Religar</button>}
-              <button className="cg-btn2" onClick={() => mudar(c.id, { mais_dias: 7 })}>+7 dias</button>
+              {!sem && <button className="cg-btn2" onClick={() => mudar(c.id, { mais_dias: 7 })}>+7 dias</button>}
               <button className="cg-btn2" onClick={() => mudar(c.id, { max_usos: c.max_usos + 10 })}>+10 vagas</button>
             </div>
             <div className="cg-funil">
@@ -167,15 +140,9 @@ const CSS = `
 .cg-sub{font-size:12.5px;color:var(--bx-text-3);margin:6px 0 0}
 .cg-sub a{color:var(--ac-1)}
 .cg-erro{font-size:13px;color:var(--bx-red);margin:0 0 12px}
-.cg-btn,.cg-btn2{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:10px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:opacity .15s ease,background .15s ease}
-.cg-btn{background:var(--ac-grad);color:var(--bx-brand-ink);border:1px solid transparent}
-.cg-btn:disabled{opacity:.6}
-.cg-btn2{background:var(--bx-surface-2);color:var(--bx-text-2);border:1px solid var(--bx-border-2)}
+.cg-btn2{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:10px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:opacity .15s ease,background .15s ease;background:var(--bx-surface-2);color:var(--bx-text-2);border:1px solid var(--bx-border-2)}
 .cg-btn2:hover{background:var(--bx-surface-3)}
 .cg-box{background:var(--bx-surface);border:1px solid var(--bx-border);border-radius:12px;padding:16px;margin-bottom:16px}
-.cg-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
-.cg-form label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--bx-text-3)}
-.cg-form input{height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--bx-border-2);background:var(--bx-bg-elev);color:var(--bx-text);font:inherit;font-size:14px;text-transform:none;letter-spacing:0}
 .cg-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cg-title{font-size:16px;font-weight:800;color:var(--bx-text);display:flex;align-items:center;gap:8px}
 .cg-tag{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--bx-surface-3);color:var(--bx-text-3)}
