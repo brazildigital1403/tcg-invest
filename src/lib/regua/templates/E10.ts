@@ -71,6 +71,12 @@ export type DadosE10 = {
     }
     /** Segunda historia, opcional, mesmo formato (bloco "03"). */
     historia2?: DadosE10['edicao']['historia']
+    /**
+     * P.S. proprio da edicao. Sem ele, sai o padrao da busca ("Vale para qualquer
+     * carta, nao so <recorte>..."). Quando a ultima historia muda de assunto
+     * (ex.: leilao), o P.S. da busca fica sem sentido: a edicao traz o seu.
+     */
+    ps?: { antes: string; link: string; href: string; depois: string }
     despedida: string
   }
   /** Abertura 5+ cartas; null = abertura padrao. */
@@ -190,7 +196,9 @@ function montar(d: DadosE10, ctx: CtxRegua) {
         ${p(esc(e.despedida), 'margin:0 0 18px;font-size:16px;line-height:25px;color:#a3a4a6;')}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
           <td bgcolor="#080a0f" style="background-color:#080a0f;border-left:3px solid #f59e0b;border-radius:0 12px 12px 0;padding:14px 16px;${FONT}">
-            <p style="margin:0;font-size:16px;line-height:25px;color:#f0f0f0;"><b>P.S.</b> Vale para qualquer carta, não só ${esc(e.gaveta.recorte)}: <a href="${attr(link('/busca', CAMPANHA, 'ps'))}" target="_blank" style="color:#f59e0b;text-decoration:underline;">digite o nome na busca</a> e o menor preço aparece na hora, sem login.</p>
+            <p style="margin:0;font-size:16px;line-height:25px;color:#f0f0f0;"><b>P.S.</b> ${e.ps
+              ? `${esc(e.ps.antes)} <a href="${attr(link(e.ps.href, CAMPANHA, 'ps'))}" target="_blank" style="color:#f59e0b;text-decoration:underline;">${esc(e.ps.link)}</a> ${esc(e.ps.depois)}`
+              : `Vale para qualquer carta, não só ${esc(e.gaveta.recorte)}: <a href="${attr(link('/busca', CAMPANHA, 'ps'))}" target="_blank" style="color:#f59e0b;text-decoration:underline;">digite o nome na busca</a> e o menor preço aparece na hora, sem login.`}</p>
           </td>
         </tr></table>`, '28px 32px 0'),
   ].join('\n')
