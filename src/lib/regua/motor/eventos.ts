@@ -1091,10 +1091,14 @@ export const ORDEM_EVENTOS: { id: string; avaliar: (ctx: Contexto) => Promise<Av
   { id: 'E04', avaliar: avaliarE04 },
   { id: 'E07', avaliar: avaliarE07 },
   { id: 'E06', avaliar: avaliarE06 },
-  { id: 'E08', avaliar: avaliarE08 },
-  { id: 'E09', avaliar: avaliarE09 },
+  // E15 e E20 antes do E08 (20/11): o digest diario, com aquecimento de imagem,
+  // comia o orcamento de 42 s e o winback do toque 2 (19/11) registrou zero sem
+  // olhar ninguem. Os dois sao raros e limitados; o E08 e grande e diario, e o
+  // que nao couber numa rodada sai na seguinte, como ja acontecia.
   { id: 'E15', avaliar: avaliarE15 },
   { id: 'E20', avaliar: avaliarE20 },
+  { id: 'E08', avaliar: avaliarE08 },
+  { id: 'E09', avaliar: avaliarE09 },
   { id: 'E16', avaliar: avaliarE16 },
 ]
 

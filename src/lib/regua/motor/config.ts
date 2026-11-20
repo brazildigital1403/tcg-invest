@@ -40,7 +40,8 @@ export const E06_PRIMEIRA = '2026-11-06'
 export const E06_INTERVALO_DIAS = 14
 
 /** E15: os 3 toques do winback (pula a semana da Black Friday). */
-export const E15_TOQUES: string[] = ['2026-11-12', '2026-11-19', '2026-12-01']
+// Toque 2 era 19/11 e nao saiu (orcamento do cron consumido pelo E08); remarcado para 23/11 (Du, 20/11).
+export const E15_TOQUES: string[] = ['2026-11-12', '2026-11-23', '2026-12-01']
 
 /**
  * A substituicao decidida: com a chave ligada E o gatilho aberto, o welcome
