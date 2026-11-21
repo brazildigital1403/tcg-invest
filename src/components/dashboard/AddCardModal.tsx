@@ -511,7 +511,7 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 0 : 24 }}>
-      <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 1000, maxHeight: isMobile ? '100dvh' : '90vh', height: isMobile ? '100dvh' : '90vh', background: 'var(--bx-bg-elev)', border: isMobile ? 'none' : '1px solid var(--bx-border-2)', borderRadius: isMobile ? 0 : 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif", color: 'var(--bx-text)' }}>
+      <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 1240, maxHeight: isMobile ? '100dvh' : '90vh', height: isMobile ? '100dvh' : '90vh', background: 'var(--bx-bg-elev)', border: isMobile ? 'none' : '1px solid var(--bx-border-2)', borderRadius: isMobile ? 0 : 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif", color: 'var(--bx-text)' }}>
 
         {/* HEADER */}
         <div style={{ padding: isMobile ? '12px 16px 10px' : '16px 28px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -635,7 +635,7 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
                 )}
 
                 {isSearching && (
-                  <div aria-hidden="true" style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(6,1fr)', gap: isMobile ? 8 : 12 }}>
+                  <div aria-hidden="true" style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(auto-fill, minmax(150px, 1fr))', gap: isMobile ? 8 : 12 }}>
                     {[...Array(isMobile ? 6 : 12)].map((_, i) => (
                       <div key={i} style={{ background: 'var(--bx-surface)', borderRadius: 12, overflow: 'hidden' }}>
                         <div style={{ paddingBottom: '140%', background: 'var(--bx-surface-2)' }} />
@@ -665,7 +665,6 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
                       plano={plano}
                       modo="busca"
                       ocultarVerAsN={!isMobile}
-                      colunas={{ mobile: 3, desktop: 6 }}
                       onSalvar={salvarLote}
                       onDesfazer={desfazerLote}
                       onSalvo={aoSalvo}

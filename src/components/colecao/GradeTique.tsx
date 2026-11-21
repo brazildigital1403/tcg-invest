@@ -46,8 +46,10 @@ export interface GradeTiqueProps {
   plano: PlanoTique
   /** busca: barra com "M neste resultado" e "Ver as N"; set: sem "Ver as N". */
   modo: 'busca' | 'set'
-  /** Padrao 3 / 7 (set) e 3 / 6 (busca). */
-  colunas?: { mobile: number; desktop: number }
+  /** Celular: colunas fixas (padrao 3). Desktop: a grade se ajusta sozinha e
+   *  `minDesktop` e a largura minima da carta em px (padrao 180 no set, 150 na
+   *  busca). Coluna fixa no desktop deixava a carta com 100 px no modal. */
+  colunas?: { mobile?: number; minDesktop?: number }
   /** No desktop do modal o lote ja aparece no painel ao lado: esconde o Ver as N da barra. */
   ocultarVerAsN?: boolean
   /** Quem chama grava (RPC colecao_adicionar_lote). null = falhou. */
@@ -81,7 +83,7 @@ function pilhasEfetivas(carta: CartaTique, overlay: Map<string, Overlay>): Pilha
 }
 
 export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, onPadraoChange, plano, modo, colunas, ocultarVerAsN, onSalvar, onDesfazer, onSalvo, rodape }: GradeTiqueProps) {
-  const cols = colunas || { mobile: 3, desktop: modo === 'set' ? 7 : 6 }
+  const cols = { mobile: colunas?.mobile ?? 3, minDesktop: colunas?.minDesktop ?? (modo === 'set' ? 180 : 150) }
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
   const classeGrade = `bx-tq-grade-${uid}`
 
@@ -427,8 +429,7 @@ export default function GradeTique({ cartas, selecao, onSelecaoChange, padrao, o
 
       <style>{`
         .${classeGrade} { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(${pct}%, 150px), 1fr)); }
-        @media (min-width: 769px) { .${classeGrade} { gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
-        @media (min-width: 1280px) { .${classeGrade} { grid-template-columns: repeat(${cols.desktop}, minmax(0, 1fr)); } }
+        @media (min-width: 769px) { .${classeGrade} { gap: 12px; grid-template-columns: repeat(auto-fill, minmax(${cols.minDesktop}px, 1fr)); } }
         .bx-tq-cel:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
         .bx-tq-cel img { transition: filter 0.2s ease, opacity 0.2s ease; }
         .bx-tq-tenho img { opacity: 0.78; }
