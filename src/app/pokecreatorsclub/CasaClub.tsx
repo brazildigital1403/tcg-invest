@@ -86,6 +86,9 @@ export default function CasaClub() {
   const [album, setAlbum] = useState<AlbumMinha | null>(null)
   const [folhaVirar, setFolhaVirar] = useState(false)
   const fecharVirar = useCallback(() => setFolhaVirar(false), [])
+  // Estável de propósito: o modal de entrada agora faz a casa renderizar de novo enquanto está aberto
+  // (o álbum chega, a carta vira), e um onFechar novo a cada render faz a folha puxar o foco de volta.
+  const fecharEntrar = useCallback(() => setFolhaEntrar(false), [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setLogado(!!data.session); setNome(String(data.session?.user.user_metadata?.name || '')) })
@@ -289,7 +292,7 @@ export default function CasaClub() {
         </div>
       </main>
       <Suspense fallback={null}><AbrirEntrarPelaUrl pronto={logado === true && cadastro !== undefined} abrir={abrirEntrar} /></Suspense>
-      {folhaEntrar && <EntrarClub cadastro={cadastro ?? null} nome={nome} onFechar={() => setFolhaEntrar(false)} onEntrou={setCadastro} />}
+      {folhaEntrar && <EntrarClub cadastro={cadastro ?? null} nome={nome} onFechar={fecharEntrar} onEntrou={setCadastro} onAlbum={setAlbum} />}
       {folhaVirar && album && <FolhaVirar album={album} onAlbum={setAlbum} onFechar={fecharVirar} />}
       <style>{AS_CSS + CL_CSS + (album ? CARTA_CSS + FOLHAS_CSS + FAIXA_CSS : '')}</style>
     </div>

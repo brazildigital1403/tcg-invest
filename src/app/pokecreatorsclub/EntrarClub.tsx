@@ -32,11 +32,13 @@ function zapBonito(v: string): string {
   return v
 }
 
-export default function EntrarClub({ cadastro, nome, onFechar, onEntrou }: {
+export default function EntrarClub({ cadastro, nome, onFechar, onEntrou, onAlbum }: {
   cadastro: CadastroClub | null
   nome: string
   onFechar: () => void
   onEntrou: (c: CadastroClub) => void
+  /** Recebe o álbum lido logo depois de entrar e o atualizado a cada carta virada (a casa acompanha, sem recarregar). */
+  onAlbum?: (a: AlbumMinha) => void
 }) {
   // Fotografia de quando a folha abriu: depois de entrar, o cadastro do pai muda.
   const [eraMembro] = useState(!!cadastro?.membro)
@@ -89,6 +91,8 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou }: {
     setAlbumNovo(lido && lido.cartas.some(c => c.estado === 'nova') ? lido : null)
     setResultado(novo)
     onEntrou(novo)
+    // A casa por trás já mostra a faixa e a tarefa da carta nova, sem recarregar.
+    if (lido) onAlbum?.(lido)
   }
 
   // ── Pronto ────────────────────────────────────────────────────────────────
@@ -97,7 +101,7 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou }: {
     return (
       <Folha eyebrow={eraMembro ? 'Cadastro completo' : 'Você entrou no Club'} titulo={`Tudo certo${primeiroNome ? `, ${primeiroNome}` : ''}`} onFechar={onFechar}>
         {albumNovo ? (
-          <CartaDeEntrada album={albumNovo} onFechar={onFechar}>
+          <CartaDeEntrada album={albumNovo} onFechar={onFechar} onAlbum={onAlbum}>
             {semWhats && <div className="as-note">Você pode colocar o WhatsApp depois, em Minha conta.</div>}
           </CartaDeEntrada>
         ) : (

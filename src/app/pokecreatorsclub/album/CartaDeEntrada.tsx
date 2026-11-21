@@ -16,10 +16,12 @@ import { nn, tituloDe, virarCartas, type AlbumMinha } from '@/lib/pcc/album'
 import { CARTA_CSS, CartaFrente, CartaVerso } from './CartaClub'
 import { FOLHAS_CSS } from './FolhasAlbum'
 
-export default function CartaDeEntrada({ album, onFechar, children }: {
+export default function CartaDeEntrada({ album, onFechar, onAlbum, children }: {
   /** O álbum lido logo depois de entrar: tem pelo menos uma carta nova (fechada). */
   album: AlbumMinha
   onFechar: () => void
+  /** Recebe o álbum atualizado depois da virada (a casa e o contador acompanham). */
+  onAlbum?: (a: AlbumMinha) => void
   /** Aviso extra entre o texto e os botões (o do WhatsApp). */
   children?: ReactNode
 }) {
@@ -47,6 +49,7 @@ export default function CartaDeEntrada({ album, onFechar, children }: {
     if (!r.ok) { setErro(r.msg); return }
     setAtual(r.album)
     setVirada(true)
+    onAlbum?.(r.album)
   }
 
   if (virada) {
