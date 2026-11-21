@@ -230,7 +230,7 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
         // ("30 anos", "obsidiana em chamas charmander") e ruido de copiar e
         // colar ("Blastoise-EX (029"). Envelopa a v8: zero regressao medida.
         // v1 a v8 continuam no banco: reverter e trocar este nome.
-        const { data, error } = await supabase.rpc('smart_search_cards_v9', {
+        const { data, error } = await supabase.rpc('smart_search_cards_v10', {
           q: value,
           limit_n: PAGE_SIZE,
           offset_n: 0,
@@ -262,7 +262,7 @@ export default function AddCardModal({ userId, abaInicial = 'busca', onClose, on
     if (loadingMore || !hasMore || !termoResultado.trim()) return
     setLoadingMore(true)
     try {
-      const { data, error } = await supabase.rpc('smart_search_cards_v9', {
+      const { data, error } = await supabase.rpc('smart_search_cards_v10', {
         q: termoResultado,
         limit_n: PAGE_SIZE,
         offset_n: offset,
