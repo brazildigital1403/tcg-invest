@@ -2,8 +2,9 @@
 //
 // Organizadores do Club no /admin (08/11/2026, quadro AD0). So o Du entra aqui.
 // Organizador e uma conta da Bynx com papeis; o navegador nunca escreve em
-// club_organizadores. Papeis da v1: agenda e aniversariantes. Amigo Secreto
-// nao e papel: fica so com o Du.
+// club_organizadores. Papeis: agenda, aniversariantes, avisos e colecao (o album:
+// concede carta de missao manual e desfaz os proprios lotes). Amigo Secreto nao
+// e papel: fica so com o Du.
 //
 // GET: organizadores com o @ e o e-mail da conta.
 // POST {acao:'adicionar', conta, papeis}  conta = @ do perfil ou e-mail
@@ -14,7 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 
-const PAPEIS = ['agenda', 'aniversariantes', 'avisos'] as const
+const PAPEIS = ['agenda', 'aniversariantes', 'avisos', 'colecao'] as const
 
 const limparPapeis = (p: unknown): string[] =>
   Array.isArray(p) ? Array.from(new Set(p.filter((x): x is string => typeof x === 'string' && (PAPEIS as readonly string[]).includes(x)))) : []

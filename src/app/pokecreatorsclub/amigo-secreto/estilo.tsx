@@ -48,6 +48,12 @@ const PATHS: Record<string, React.ReactNode> = {
   tachinha: <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7" />,
   enquete: <path d="M5 20V10M12 20V4M19 20v-7" />,
   link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  // Album do Club (19/11/2026): um icone por missao. O microfone e o de "No palco".
+  mic: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></>,
+  insta: <><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4.2" /><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none" /></>,
+  colecao: <><rect x="2.4" y="4.8" width="13.2" height="16.8" rx="2.4" /><rect x="6" y="2.4" width="13.2" height="16.8" rx="2.4" /><path d="M9.6 10.8l1.8 2.4 3-4.8" /></>,
+  trend: <path d="M3.6 16.8l6-6 3.6 3.6 7.2-8.4M16.8 6h3.6v3.6" />,
+  chat: <path d="M3.6 3.6h16.8a1.2 1.2 0 011.2 1.2v10.8a1.2 1.2 0 01-1.2 1.2H7.2l-4.8 3.6V4.8a1.2 1.2 0 011.2-1.2z" />,
 }
 
 export function Ico({ n, s = 18, className = '' }: { n: keyof typeof PATHS | string; s?: number; className?: string }) {

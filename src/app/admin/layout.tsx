@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconShield, IconTag, IconLink, IconStar, IconLeilao, IconRestauro, IconBox, IconCalendar, IconMenu, IconClose } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconShield, IconTag, IconLink, IconStar, IconLeilao, IconRestauro, IconBox, IconCalendar, IconMenu, IconClose, IconCollection } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
@@ -161,6 +161,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconCalendar, countKey: 'aniversariantes', group: 'Comunidade' },
   { label: 'Agenda do Club', href: '/admin/club-eventos', Icon: IconStar, group: 'Comunidade' },
   { label: 'Avisos do Club', href: '/admin/club-avisos', Icon: IconBell, group: 'Comunidade' },
+  { label: 'Álbum do Club', href: '/admin/colecao', Icon: IconCollection, group: 'Comunidade' },
   { label: 'Organizadores do Club', href: '/admin/club-organizadores', Icon: IconKey, group: 'Comunidade' },
 ]
 

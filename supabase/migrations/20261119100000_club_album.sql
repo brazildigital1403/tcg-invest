@@ -28,7 +28,7 @@
 --   drop function public.club_colecao_conceder_interno(uuid, smallint[], uuid[], text, uuid, text);
 --   drop function public.club_colecao_resolver_interno(text[]);
 --   drop function public.club_retirada_pedir(text);
---   drop function public.club_carta_virar(uuid);
+--   drop function public.club_carta_virar(text, smallint[]);
 --   drop function public.club_colecao_minha(text);
 --   drop function public.club_missao_cumprida(uuid, text, uuid);
 --   drop table public.club_retiradas;
@@ -337,48 +337,60 @@ $$;
 revoke all on function public.club_colecao_minha(text) from public, anon, authenticated;
 grant execute on function public.club_colecao_minha(text) to authenticated;
 
--- Vira a carta: grava revelada_em so na linha da propria pessoa. Idempotente
--- (a primeira vez vale). So conta como virada para o contador do album.
-create or replace function public.club_carta_virar(p_carta uuid)
+-- Vira cartas ganhas: grava revelada_em so nas linhas da propria pessoa, na
+-- edicao pelo slug (o album nao devolve o id das cartas). Sem p_numeros vira todas
+-- as que chegaram fechadas ("Virar todas"); com p_numeros vira so essas e recusa
+-- tudo se alguma nao for dela. Idempotente: a primeira vez vale e o que ja estava
+-- virado nao muda. Devolve o total de viradas e a data de cada carta virada.
+create or replace function public.club_carta_virar(p_slug text, p_numeros smallint[] default null)
 returns jsonb
 language plpgsql security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_uid  uuid := auth.uid();
-  v_col  uuid;
-  v_rev  timestamptz;
+  v_uid     uuid := auth.uid();
+  v_col     uuid;
+  v_pedidas smallint[];
+  v_tem     integer;
 begin
   if v_uid is null then raise exception 'nao_logado'; end if;
-  select c.colecao_id into v_col from public.club_cartas c where c.id = p_carta;
-  if not found then raise exception 'carta_nao_ganha'; end if;
+  if not exists (select 1 from public.club_membros m where m.user_id = v_uid) then raise exception 'nao_membro'; end if;
+  select c.id into v_col from public.club_colecoes c where c.slug = p_slug;
+  if not found then raise exception 'edicao_nao_encontrada'; end if;
 
-  select d.revelada_em into v_rev
-  from public.club_desbloqueios d
-  where d.user_id = v_uid and d.carta_id = p_carta and d.revogado_em is null
-  for update;
-  if not found then raise exception 'carta_nao_ganha'; end if;
-
-  if v_rev is null then
-    update public.club_desbloqueios d set revelada_em = now()
-    where d.user_id = v_uid and d.carta_id = p_carta
-    returning d.revelada_em into v_rev;
+  if p_numeros is not null then
+    select coalesce(array_agg(distinct n), '{}'::smallint[]) into v_pedidas from unnest(p_numeros) n where n is not null;
+    select count(*) into v_tem
+    from public.club_desbloqueios d
+    join public.club_cartas c on c.id = d.carta_id
+    where d.user_id = v_uid and d.revogado_em is null and c.colecao_id = v_col and c.numero = any(v_pedidas);
+    if cardinality(v_pedidas) = 0 or v_tem <> cardinality(v_pedidas) then raise exception 'carta_nao_ganha'; end if;
   end if;
 
+  update public.club_desbloqueios d set revelada_em = now()
+  from public.club_cartas c
+  where c.id = d.carta_id and c.colecao_id = v_col
+    and d.user_id = v_uid and d.revogado_em is null and d.revelada_em is null
+    and (p_numeros is null or c.numero = any(v_pedidas));
+
   return jsonb_build_object(
-    'carta', p_carta,
-    'revelada_em', v_rev,
     'reveladas', (
       select count(*) from public.club_desbloqueios d
       join public.club_cartas c on c.id = d.carta_id
       where d.user_id = v_uid and d.revogado_em is null and d.revelada_em is not null and c.colecao_id = v_col
     ),
-    'total', (select count(*) from public.club_cartas c where c.colecao_id = v_col)
+    'total', (select count(*) from public.club_cartas c where c.colecao_id = v_col),
+    'cartas', coalesce((
+      select jsonb_agg(jsonb_build_object('numero', c.numero, 'revelada_em', d.revelada_em) order by c.numero)
+      from public.club_desbloqueios d
+      join public.club_cartas c on c.id = d.carta_id
+      where d.user_id = v_uid and d.revogado_em is null and d.revelada_em is not null and c.colecao_id = v_col
+    ), '[]'::jsonb)
   );
 end;
 $$;
-revoke all on function public.club_carta_virar(uuid) from public, anon, authenticated;
-grant execute on function public.club_carta_virar(uuid) to authenticated;
+revoke all on function public.club_carta_virar(text, smallint[]) from public, anon, authenticated;
+grant execute on function public.club_carta_virar(text, smallint[]) to authenticated;
 
 -- Pedido do set fisico ("Receber meu set em casa"): so com todas as cartas
 -- viradas, dentro do prazo, uma vez por edicao e ate o teto da tiragem.
