@@ -1,24 +1,27 @@
 'use client'
 
 // A carta que chega com a entrada no Club (mockup aprovado em 18/11/2026, estado "Você entrou no
-// Club"). Vai dentro do "pronto" do modal de entrada: o verso da carta 01, "A carta 01 chegou" e
-// dois botões. O toque na carta (ou o botão) vira a carta ali mesmo, pela mesma função do álbum
-// (club_carta_virar), e o álbum já guarda a virada. As outras cartas que a entrada valeu (o @
-// vale a 03) ficam fechadas esperando no álbum: aqui só a primeira tem a cerimônia.
+// Club"). Vai dentro do "pronto" do modal de entrada: o verso da carta, "A carta 01 chegou" e dois
+// botões. O toque na carta (ou o botão) vira a carta ali mesmo, pela mesma função do álbum
+// (club_carta_virar), e o álbum já guarda a virada. Quem entrou agora recebe a 01; quem já era
+// membro e completa o cadastro recebe a que o @ valeu (a 03). As outras cartas fechadas ficam
+// esperando no álbum: aqui só uma tem a cerimônia.
 //
-// Quem chama só mostra isto quando há edição aberta e carta nova; sem edição, o "pronto" segue
-// como era. Traz o próprio CSS da carta: a casa só o carrega depois que o álbum existe.
+// Quem chama só mostra isto quando há edição aberta e carta que chegou com a ação; sem isso, o
+// "pronto" segue como era. Traz o próprio CSS da carta: a casa só o carrega depois que o álbum existe.
 
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ALBUM } from '@/lib/pcc/rotas'
-import { nn, tituloDe, virarCartas, type AlbumMinha } from '@/lib/pcc/album'
+import { missaoDe, nn, tituloDe, virarCartas, type AlbumMinha } from '@/lib/pcc/album'
 import { CARTA_CSS, CartaFrente, CartaVerso } from './CartaClub'
 import { FOLHAS_CSS } from './FolhasAlbum'
 
-export default function CartaDeEntrada({ album, onFechar, onAlbum, children }: {
-  /** O álbum lido logo depois de entrar: tem pelo menos uma carta nova (fechada). */
+export default function CartaDeEntrada({ album, chegadas, onFechar, onAlbum, children }: {
+  /** O álbum lido logo depois de salvar. */
   album: AlbumMinha
+  /** Os números das cartas que chegaram fechadas com esta ação (não as que já esperavam no álbum). */
+  chegadas: number[]
   onFechar: () => void
   /** Recebe o álbum atualizado depois da virada (a casa e o contador acompanham). */
   onAlbum?: (a: AlbumMinha) => void
@@ -29,14 +32,17 @@ export default function CartaDeEntrada({ album, onFechar, onAlbum, children }: {
   const [virada, setVirada] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [erro, setErro] = useState('')
-  // A carta da cerimônia: a 01 (entrar). Se ela não estiver fechada, a primeira que estiver.
+  // A carta da cerimônia: a 01 (entrar), se chegou agora; senão a primeira que chegou. Uma 01 que já
+  // esperava fechada desde antes não conta: quem completa o cadastro não "entrou" agora.
   const [numero] = useState(() => {
-    const novas = album.cartas.filter(c => c.estado === 'nova')
-    return (novas.find(c => c.numero === 1) || novas[0])?.numero ?? 1
+    const fechadas = new Set(album.cartas.filter(c => c.estado === 'nova').map(c => c.numero))
+    const vindas = chegadas.filter(n => fechadas.has(n))
+    return (vindas.includes(1) ? 1 : vindas[0]) ?? [...fechadas][0] ?? 1
   })
 
   const carta = atual.cartas.find(c => c.numero === numero)
   if (!carta) return null
+  const missao = missaoDe(carta)
   const total = atual.total
   const outras = atual.cartas.filter(c => c.estado === 'nova' && c.numero !== numero).length
   const mais = outras > 0 ? `Mais ${outras} ${outras === 1 ? 'carta espera fechada' : 'cartas esperam fechadas'} no seu álbum.` : ''
@@ -78,7 +84,7 @@ export default function CartaDeEntrada({ album, onFechar, onAlbum, children }: {
       </div>
       <div className="cen">
         <div className="al-t">A carta {nn(numero)} chegou</div>
-        <p className="as-meta">{numero === 1 ? 'Entrar no Club vale a primeira carta. Toque para virar.' : 'Toque para virar.'}</p>
+        <p className="as-meta">{numero === 1 ? 'Entrar no Club vale a primeira carta. Toque para virar.' : missao ? `Missão cumprida: ${missao.titulo}. Toque para virar.` : 'Toque para virar.'}</p>
         {mais && <p className="as-meta">{mais}</p>}
       </div>
       {children}

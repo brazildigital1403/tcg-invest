@@ -292,7 +292,7 @@ export default function CasaClub() {
         </div>
       </main>
       <Suspense fallback={null}><AbrirEntrarPelaUrl pronto={logado === true && cadastro !== undefined} abrir={abrirEntrar} /></Suspense>
-      {folhaEntrar && <EntrarClub cadastro={cadastro ?? null} nome={nome} onFechar={fecharEntrar} onEntrou={setCadastro} onAlbum={setAlbum} />}
+      {folhaEntrar && <EntrarClub cadastro={cadastro ?? null} nome={nome} albumAntes={album} onFechar={fecharEntrar} onEntrou={setCadastro} onAlbum={setAlbum} />}
       {folhaVirar && album && <FolhaVirar album={album} onAlbum={setAlbum} onFechar={fecharVirar} />}
       <style>{AS_CSS + CL_CSS + (album ? CARTA_CSS + FOLHAS_CSS + FAIXA_CSS : '')}</style>
     </div>

@@ -6,10 +6,12 @@
 // @ passa pelo mesmo caminho, sem trocar a origem. O @ e o WhatsApp também ficam no
 // perfil, como no cadastro do Amigo Secreto.
 //
-// O "pronto" de quem acabou de entrar mostra a carta 01 (mockup de 18/11/2026): logo depois do
-// club_entrar o álbum é lido (ele confere as missões e entrega a carta), e a carta chega fechada,
-// para virar ali mesmo. Sem edição aberta, ou se a leitura falhar, o "pronto" segue sem carta. Quem
-// só completa o cadastro (já era membro) também fica como era.
+// O "pronto" mostra a carta que a ação valeu (mockup de 18/11/2026): logo depois do club_entrar o
+// álbum é lido (ele confere as missões e entrega as cartas), e a carta chega fechada, para virar ali
+// mesmo. Quem acabou de entrar recebe a 01. Quem já era membro e completa o cadastro recebe a que o
+// @ valeu (a 03), e para saber o que é novo o modal compara o álbum de antes (o que a casa já tinha ao
+// abrir a folha) com o de depois: uma 01 que já esperava fechada não é da ação. Sem edição aberta, sem
+// o álbum de antes (membro antigo) ou se a leitura falhar, o "pronto" segue sem carta.
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -32,12 +34,14 @@ function zapBonito(v: string): string {
   return v
 }
 
-export default function EntrarClub({ cadastro, nome, onFechar, onEntrou, onAlbum }: {
+export default function EntrarClub({ cadastro, nome, albumAntes, onFechar, onEntrou, onAlbum }: {
   cadastro: CadastroClub | null
   nome: string
+  /** O álbum que a casa já tinha quando a folha abriu (nulo: sem edição aberta ou ainda não é membro). */
+  albumAntes?: AlbumMinha | null
   onFechar: () => void
   onEntrou: (c: CadastroClub) => void
-  /** Recebe o álbum lido logo depois de entrar e o atualizado a cada carta virada (a casa acompanha, sem recarregar). */
+  /** Recebe o álbum lido logo depois de salvar e o atualizado a cada carta virada (a casa acompanha, sem recarregar). */
   onAlbum?: (a: AlbumMinha) => void
 }) {
   // Fotografia de quando a folha abriu: depois de entrar, o cadastro do pai muda.
@@ -54,8 +58,9 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou, onAlbum
   const [bloqueado, setBloqueado] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [resultado, setResultado] = useState<CadastroClub | null>(null)
-  // O álbum lido logo depois de entrar, só quando há carta nova para mostrar no "pronto".
-  const [albumNovo, setAlbumNovo] = useState<AlbumMinha | null>(null)
+  // O álbum lido logo depois de salvar e os números das cartas que chegaram com a ação: só quando há
+  // carta para mostrar no "pronto".
+  const [albumNovo, setAlbumNovo] = useState<{ album: AlbumMinha; chegadas: number[] } | null>(null)
 
   const igLimpo = limparInstagram(ig)
   const igOk = INSTAGRAM_RE.test(igLimpo)
@@ -84,11 +89,18 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou, onAlbum
       return
     }
     const novo = data as CadastroClub
-    // Quem acabou de entrar ganha a carta 01 na hora (o álbum entrega ao ser lido). Quem só completa o
-    // cadastro não passa por aqui. A leitura nunca lança: sem edição aberta ou com falha, vem sem álbum.
-    const lido = eraMembro ? null : (await carregarAlbum()).album
+    // O álbum entrega as cartas ao ser lido. Quem acabou de entrar recebe a 01; quem já era membro só conta
+    // o que ainda não era dele quando a folha abriu (sem o álbum de antes não dá para provar o que é novo, e
+    // então o "pronto" fica sem carta). A leitura nunca lança: sem edição aberta ou com falha, vem sem álbum.
+    const lido = (await carregarAlbum()).album
+    let chegadas: number[] = []
+    if (lido && !eraMembro) chegadas = lido.cartas.filter(c => c.estado === 'nova').map(c => c.numero)
+    else if (lido && albumAntes) {
+      const eram = new Set(albumAntes.cartas.filter(c => c.estado === 'nova' || c.estado === 'ganha').map(c => c.numero))
+      chegadas = lido.cartas.filter(c => c.estado === 'nova' && !eram.has(c.numero)).map(c => c.numero)
+    }
     setOcupado(false)
-    setAlbumNovo(lido && lido.cartas.some(c => c.estado === 'nova') ? lido : null)
+    setAlbumNovo(lido && chegadas.length ? { album: lido, chegadas } : null)
     setResultado(novo)
     onEntrou(novo)
     // A casa por trás já mostra a faixa e a tarefa da carta nova, sem recarregar.
@@ -101,7 +113,7 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou, onAlbum
     return (
       <Folha eyebrow={eraMembro ? 'Cadastro completo' : 'Você entrou no Club'} titulo={`Tudo certo${primeiroNome ? `, ${primeiroNome}` : ''}`} onFechar={onFechar}>
         {albumNovo ? (
-          <CartaDeEntrada album={albumNovo} onFechar={onFechar} onAlbum={onAlbum}>
+          <CartaDeEntrada album={albumNovo.album} chegadas={albumNovo.chegadas} onFechar={onFechar} onAlbum={onAlbum}>
             {semWhats && <div className="as-note">Você pode colocar o WhatsApp depois, em Minha conta.</div>}
           </CartaDeEntrada>
         ) : (
