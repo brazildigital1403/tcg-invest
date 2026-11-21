@@ -5,10 +5,14 @@
 // ("Admin Bynx"). As regras ficam no banco; aqui so a forma dos dados e as datas (o campo
 // datetime-local vem em horario de Brasilia e vira ISO).
 //
-// GET ?slug=                                              -> painel: edicoes + a escolhida com as 12 cartas
+// GET ?slug=                                              -> painel (v2): edicoes + a escolhida com as cartas e a regra de cada uma
 // POST multipart {id, numero, arte}                       -> sobe a arte da carta
 // POST {acao:'edicao', id, dados}                         -> club_colecao_salvar_interno
-// POST {acao:'estado', id, como, dados?}                  -> club_colecao_estado_interno (publicar | recolher | encerrar)
+// POST {acao:'estado', id, como, dados?}                  -> club_colecao_estado_v2_interno (publicar | recolher | encerrar)
+// POST {acao:'edicao_criar', dados}                       -> club_colecao_criar_interno (edicao nova, em rascunho)
+// POST {acao:'carta_criar', id, dados}                    -> club_carta_criar_interno (numero, missao, regra, rosto da missao)
+// POST {acao:'carta_regra', id, numero, dados}            -> club_carta_regra_salvar_interno (so em rascunho)
+// POST {acao:'carta_apagar', id, numero}                  -> club_carta_apagar_interno (so em rascunho e sem dono)
 // POST {acao:'carta', id, numero, dados}                  -> club_carta_salvar_interno
 // POST {acao:'previa', id, numeros, ids}                  -> club_colecao_previa_lote_interno
 // POST {acao:'conceder', id, numeros, ids, origem, nota}  -> club_colecao_conceder_tokens_interno
@@ -30,6 +34,35 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const STATUS_PEDIDO = ['solicitada', 'combinada', 'postada', 'entregue', 'cancelada']
 const TEXTOS_CARTA = ['nome', 'tipo', 'raridade', 'texto_efeito', 'homenageado', 'como_ganhar'] as const
+// O banco aceita carta de 1 a 99 (o teto de 12 saiu na Fase 2). A regra de cada edicao (total previsto) fica la.
+const MAX_NUMERO = 99
+const TEXTOS_MISSAO = ['missao_titulo', 'missao_icone', 'missao_botao', 'missao_href'] as const
+
+/** A regra da missao como o Admin manda: tipo, parametro e "so vale depois da abertura". O banco valida o conteudo. */
+function regraDoCorpo(d: Record<string, unknown>, p: Record<string, unknown>): boolean {
+  if ('regra_tipo' in d) {
+    if (typeof d.regra_tipo !== 'string') return false
+    p.regra_tipo = d.regra_tipo
+  }
+  if ('regra_param' in d) {
+    if (!d.regra_param || typeof d.regra_param !== 'object' || Array.isArray(d.regra_param)) return false
+    p.regra_param = d.regra_param
+  }
+  if ('regra_desde_abertura' in d) {
+    if (typeof d.regra_desde_abertura !== 'boolean') return false
+    p.regra_desde_abertura = d.regra_desde_abertura
+  }
+  for (const campo of TEXTOS_MISSAO) {
+    if (!(campo in d)) continue
+    if (typeof d[campo] !== 'string' && d[campo] !== null) return false
+    p[campo] = d[campo]
+  }
+  if ('como_ganhar' in d) {
+    if (typeof d.como_ganhar !== 'string') return false
+    p.como_ganhar = d.como_ganhar
+  }
+  return true
+}
 
 const falha = (codigo: string, status = 400, detalhe?: string | null) =>
   NextResponse.json({ error: codigo, ...(detalhe ? { detalhe } : {}) }, { status })
@@ -48,8 +81,8 @@ const inteiroOuNulo = (v: unknown): number | null | undefined => {
   return Number.isInteger(n) ? n : undefined
 }
 function numerosValidos(v: unknown): number[] | null {
-  if (!Array.isArray(v) || v.length === 0 || v.length > 12) return null
-  if (!v.every(n => Number.isInteger(n) && n >= 1 && n <= 12)) return null
+  if (!Array.isArray(v) || v.length === 0 || v.length > MAX_NUMERO) return null
+  if (!v.every(n => Number.isInteger(n) && n >= 1 && n <= MAX_NUMERO)) return null
   return Array.from(new Set(v as number[]))
 }
 function idsValidos(v: unknown): string[] | null {
@@ -60,7 +93,7 @@ function idsValidos(v: unknown): string[] | null {
 /** GET: o painel da edicao. */
 export async function tratarGet(req: NextRequest, sb: SupabaseClient) {
   const slug = req.nextUrl.searchParams.get('slug')
-  const { data, error } = await sb.rpc('club_colecao_painel_interno', { p_slug: slug && SLUG.test(slug) ? slug : null })
+  const { data, error } = await sb.rpc('club_colecao_painel_v2_interno', { p_slug: slug && SLUG.test(slug) ? slug : null })
   if (error) return falha(error.message, 500)
   return NextResponse.json({ painel: data })
 }
@@ -73,7 +106,7 @@ export async function tratarPost(req: NextRequest, sb: SupabaseClient) {
     const id = form?.get('id')
     const numero = Number(form?.get('numero'))
     const arte = form?.get('arte')
-    if (!ehId(id) || !Number.isInteger(numero) || numero < 1 || numero > 12 || !(arte instanceof File)) return falha('dados_invalidos')
+    if (!ehId(id) || !Number.isInteger(numero) || numero < 1 || numero > MAX_NUMERO || !(arte instanceof File)) return falha('dados_invalidos')
     if (arte.size > MAX_ARTE) return falha('arte_tamanho')
     const r = await subirArte(sb, { colecaoId: id, numero, bytes: new Uint8Array(await arte.arrayBuffer()) })
     if (!r.ok) return falha(r.erro, r.status)
@@ -113,7 +146,7 @@ export async function tratarPost(req: NextRequest, sb: SupabaseClient) {
       if (n === undefined && d[campo] !== undefined) return falha('prazo_invalido')
       if (typeof n === 'number') p[campo] = n
     }
-    const { data, error } = await sb.rpc('club_colecao_estado_interno', {
+    const { data, error } = await sb.rpc('club_colecao_estado_v2_interno', {
       p_colecao: body.id, p_acao: body.como, p_autor: null, p_dados: Object.keys(p).length ? p : null,
     })
     if (error) return falha(error.message, 400, error.details)
@@ -122,7 +155,7 @@ export async function tratarPost(req: NextRequest, sb: SupabaseClient) {
 
   if (body.acao === 'carta') {
     const numero = Number(body.numero)
-    if (!ehId(body.id) || !Number.isInteger(numero) || numero < 1 || numero > 12) return falha('dados_invalidos')
+    if (!ehId(body.id) || !Number.isInteger(numero) || numero < 1 || numero > MAX_NUMERO) return falha('dados_invalidos')
     const d = objeto(body.dados)
     const p: Record<string, unknown> = {}
     for (const campo of TEXTOS_CARTA) {
@@ -146,6 +179,59 @@ export async function tratarPost(req: NextRequest, sb: SupabaseClient) {
     return NextResponse.json({ carta: r.carta, campos: r.campos })
   }
 
+  if (body.acao === 'edicao_criar') {
+    const d = objeto(body.dados)
+    const p: Record<string, unknown> = {}
+    for (const campo of ['slug', 'titulo', 'papel', 'trilha'] as const) {
+      if (typeof d[campo] === 'string') p[campo] = d[campo]
+    }
+    for (const campo of ['total_previsto', 'tiragem_fisica'] as const) {
+      const n = inteiroOuNulo(d[campo])
+      if (n === undefined && d[campo] !== undefined) return falha(campo === 'total_previsto' ? 'total_invalido' : 'tiragem_invalida')
+      if (typeof n === 'number') p[campo] = String(n)
+    }
+    const { data, error } = await sb.rpc('club_colecao_criar_interno', { p, p_autor: null })
+    if (error) return falha(error.message, 400, error.details)
+    return NextResponse.json({ edicao: data })
+  }
+
+  if (body.acao === 'carta_criar') {
+    if (!ehId(body.id)) return falha('dados_invalidos')
+    const d = objeto(body.dados)
+    const numero = Number(d.numero)
+    if (!Number.isInteger(numero) || numero < 1 || numero > MAX_NUMERO) return falha('numero_invalido')
+    const p: Record<string, unknown> = { numero: String(numero) }
+    if (typeof d.missao === 'string') p.missao = d.missao
+    if ('secreta' in d) {
+      if (typeof d.secreta !== 'boolean') return falha('secreta_invalida')
+      p.secreta = d.secreta
+    }
+    if (!regraDoCorpo(d, p)) return falha('dados_invalidos')
+    const { data, error } = await sb.rpc('club_carta_criar_interno', { p_colecao: body.id, p, p_autor: null })
+    if (error) return falha(error.message, 400, error.details)
+    return NextResponse.json({ carta: data })
+  }
+
+  if (body.acao === 'carta_regra') {
+    const numero = Number(body.numero)
+    if (!ehId(body.id) || !Number.isInteger(numero) || numero < 1 || numero > MAX_NUMERO) return falha('dados_invalidos')
+    const p: Record<string, unknown> = {}
+    if (!regraDoCorpo(objeto(body.dados), p)) return falha('dados_invalidos')
+    const { data, error } = await sb.rpc('club_carta_regra_salvar_interno', { p_colecao: body.id, p_numero: numero, p, p_autor: null })
+    if (error) return falha(error.message, 400, error.details)
+    return NextResponse.json({ regra: data })
+  }
+
+  if (body.acao === 'carta_apagar') {
+    const numero = Number(body.numero)
+    if (!ehId(body.id) || !Number.isInteger(numero) || numero < 1 || numero > MAX_NUMERO) return falha('dados_invalidos')
+    const { data, error } = await sb.rpc('club_carta_apagar_interno', { p_colecao: body.id, p_numero: numero, p_autor: null })
+    if (error) return falha(error.message, 400, error.details)
+    const r = data as { numero: number; arte_anterior: string | null }
+    if (r.arte_anterior) await sb.storage.from('club-colecao').remove([r.arte_anterior])
+    return NextResponse.json({ apagada: r.numero })
+  }
+
   if (body.acao === 'previa' || body.acao === 'conceder') {
     const numeros = numerosValidos(body.numeros)
     const ids = idsValidos(body.ids)
@@ -156,6 +242,13 @@ export async function tratarPost(req: NextRequest, sb: SupabaseClient) {
       return NextResponse.json({ previa: data })
     }
     if (body.origem !== 'manual' && body.origem !== 'brinde') return falha('origem_invalida')
+    // A camiseta entrega so as cartas da Base (decisao de 21/11/2026): em capitulo, brinde e recusado.
+    if (body.origem === 'brinde') {
+      const { data: ed, error: eEd } = await sb.from('club_colecoes').select('papel').eq('id', body.id).maybeSingle()
+      if (eEd) return falha(eEd.message, 500)
+      if (!ed) return falha('edicao_nao_encontrada')
+      if (ed.papel !== 'base') return falha('brinde_so_na_base')
+    }
     const nota = typeof body.nota === 'string' ? body.nota.trim().slice(0, 200) : ''
     const { data, error } = await sb.rpc('club_colecao_conceder_tokens_interno', {
       p_colecao: body.id, p_numeros: numeros, p_ids: ids, p_origem: body.origem, p_autor: null, p_nota: nota || null,

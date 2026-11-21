@@ -2,13 +2,13 @@
 
 // Conceder cartas no /admin (21/11/2026): cola @ ou e-mails, ve a previa do que vai acontecer
 // (nada e gravado) e so entao confirma. Dois jeitos: "Por @ ou e-mail" (uma carta, de missao
-// manual: presenca, palco, trend...) e "Camiseta" (as 12 de uma vez, origem brinde, um set
+// manual: presenca, palco, trend...) e "Camiseta" (so na Base: todas de uma vez, origem brinde, um set
 // digital por conta). Cada confirmacao vira um LOTE que da para desfazer no Historico.
 // Quem nao tem conta (ou tem conta mas nao entrou no Club) aparece na previa e nao recebe;
 // depois de conceder, o que nao deu para achar volta para a caixa para tentar de novo.
 
 import { useMemo, useState } from 'react'
-import { MISSOES, nn } from '@/lib/pcc/album'
+import { nn } from '@/lib/pcc/album'
 import { erroAdminAlbum, separarTokens, type EdicaoAdmin, type EstadoLinha, type PreviaLote, type ResultadoLote } from '@/lib/pcc/albumAdmin'
 import { chamar } from './api'
 
@@ -74,7 +74,8 @@ export default function ConcederAdmin({ ed, onMudou, onErro, onOk }: Props) {
     <div className="ac-box">
       <div className="ac-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={modo === 'arroba'} className={`ac-tab${modo === 'arroba' ? ' on' : ''}`} onClick={() => mudar(() => setModo('arroba'))}>Por @ ou e-mail</button>
-        <button type="button" role="tab" aria-selected={modo === 'camiseta'} className={`ac-tab${modo === 'camiseta' ? ' on' : ''}`} onClick={() => mudar(() => setModo('camiseta'))}>Camiseta ({ed.cartas.length} cartas)</button>
+        {/* A camiseta entrega so as cartas da Base (decisao de 21/11/2026): em capitulo a aba nao existe e a rota recusa. */}
+        {ed.papel === 'base' && <button type="button" role="tab" aria-selected={modo === 'camiseta'} className={`ac-tab${modo === 'camiseta' ? ' on' : ''}`} onClick={() => mudar(() => setModo('camiseta'))}>Camiseta ({ed.cartas.length} cartas)</button>}
       </div>
 
       {modo === 'arroba' ? (
@@ -82,7 +83,7 @@ export default function ConcederAdmin({ ed, onMudou, onErro, onOk }: Props) {
           <label className="ac-lb" htmlFor="cd-carta">Carta</label>
           <select id="cd-carta" className="ac-in" value={numero} onChange={e => mudar(() => setNumero(Number(e.target.value)))}>
             {ed.cartas.map(c => (
-              <option key={c.numero} value={c.numero}>{nn(c.numero)} · {MISSOES[c.missao]?.titulo || 'Carta'} · {c.modo === 'manual' ? 'manual' : 'automática'}</option>
+              <option key={c.numero} value={c.numero}>{nn(c.numero)} · {c.missao_titulo || 'Carta'} · {c.modo === 'manual' ? 'manual' : 'automática'}</option>
             ))}
           </select>
           {carta?.modo === 'auto' && <span className="ac-hint" style={{ color: '#f59e0b' }}>Esta carta se ganha sozinha quando a pessoa cumpre a missão. Conceder aqui pula a missão.</span>}

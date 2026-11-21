@@ -5,7 +5,7 @@
 // desfazer o lote inteiro (quem ja pediu o set fica de fora, e o banco conta quantos).
 
 import { useEffect, useState } from 'react'
-import { MISSOES, nn } from '@/lib/pcc/album'
+import { nn } from '@/lib/pcc/album'
 import { dataBr, dataHoraCurta, erroAdminAlbum, type EdicaoAdmin, type ItemHistorico } from '@/lib/pcc/albumAdmin'
 import { chamar } from './api'
 
@@ -30,7 +30,7 @@ function descrever(i: ItemHistorico, ed: EdicaoAdmin): { titulo: string; detalhe
       const numeros = lista(d, 'numeros').filter((n): n is number => typeof n === 'number')
       const unica = numeros.length === 1 ? ed.cartas.find(c => c.numero === numeros[0]) : null
       const o = numeros.length > 1 && numeros.length >= ed.cartas.length ? `as ${ed.cartas.length} cartas`
-        : unica ? `a carta ${nn(unica.numero)} · ${MISSOES[unica.missao]?.titulo || ''}`.trim()
+        : unica ? `a carta ${nn(unica.numero)} · ${unica.missao_titulo || ''}`.trim()
         : `as cartas ${numeros.map(nn).join(', ')}`
       const pessoas = num(d, 'pessoas')
       const nota = txt(d, 'nota')

@@ -11,9 +11,8 @@ import { AGENDA, ANIVERSARIANTES, AVISOS, CLUB } from '@/lib/pcc/rotas'
 export type EstadoCarta = 'nova' | 'ganha' | 'bloqueada' | 'previa' | 'secreta'
 export type OrigemCarta = 'auto' | 'manual' | 'brinde'
 
-export type MissaoId =
-  | 'entrei' | 'data' | 'arroba' | 'colecao' | 'opiniao' | 'indicacao'
-  | 'graduada' | 'plateia' | 'palco' | 'trend' | 'ideia' | 'completo'
+/** A chave da missão. Na edição 1 são as doze da Fase 1; nos capítulos é livre (vem do banco). */
+export type MissaoId = string
 
 export type CartaAlbum = {
   numero: number
@@ -24,6 +23,11 @@ export type CartaAlbum = {
   como_ganhar: string
   /** Falta só na carta secreta que ainda não foi ganha. */
   missao?: MissaoId
+  /** O rosto da missão vindo do banco (Fase 2). Quando falta, vale o mapa MISSOES abaixo. */
+  missao_titulo?: string | null
+  missao_icone?: string | null
+  missao_botao?: string | null
+  missao_href?: string | null
   // Rosto da carta: só chega quando ela é da pessoa ou foi liberada como prévia.
   nome?: string | null
   tipo?: string | null
@@ -104,7 +108,19 @@ export const MISSOES: Record<MissaoId, Missao> = {
   completo: { titulo: 'Surpresa', icone: 'spark' },
 }
 
-export const missaoDe = (c: CartaAlbum): Missao | null => (c.missao ? MISSOES[c.missao] ?? null : null)
+/** A missão da carta: o que veio do banco, quando veio; senão o mapa da edição 1. */
+export function missaoDe(c: Pick<CartaAlbum, 'missao' | 'modo' | 'missao_titulo' | 'missao_icone' | 'missao_botao' | 'missao_href'>): Missao | null {
+  if (!c.missao) return null
+  if (c.missao_titulo) {
+    return {
+      titulo: c.missao_titulo,
+      icone: c.missao_icone || MISSOES[c.missao]?.icone || 'star',
+      ...(c.missao_botao && c.missao_href ? { botao: c.missao_botao, href: c.missao_href } : {}),
+      ...(c.modo === 'manual' ? { confere: true } : {}),
+    }
+  }
+  return MISSOES[c.missao] ?? null
+}
 
 /** Título da carta no álbum: o nome, quando já pode aparecer; senão a missão. */
 export function tituloDe(c: CartaAlbum): string {

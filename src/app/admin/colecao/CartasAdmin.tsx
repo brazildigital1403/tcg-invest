@@ -1,15 +1,16 @@
 'use client'
 
-// As 12 cartas da edicao no /admin (21/11/2026): nome, tipo, raridade, texto, homenagem, "como
+// As cartas da edicao no /admin (21/11/2026; Fase 2: qualquer total, carta nova e missao como dado): nome, tipo, raridade, texto, homenagem, "como
 // ganhar", previa e a arte. O cartao mostra a carta como o membro vai ver (mesmo componente
 // do album). A arte sobe pela rota (o servidor confere o tipo pelo conteudo e apaga a anterior).
 // A previa libera o rosto da carta para todos os membros antes de ganhar: so com nome e arte.
 
 import { useState } from 'react'
-import { MISSOES, nn, type CartaAlbum } from '@/lib/pcc/album'
+import { nn, type CartaAlbum } from '@/lib/pcc/album'
 import { erroAdminAlbum, type CartaAdmin, type EdicaoAdmin } from '@/lib/pcc/albumAdmin'
 import { CartaFrente } from '@/app/pokecreatorsclub/album/CartaClub'
 import { chamar, enviarArte } from './api'
+import { MissaoBloco, NovaCarta } from './MissaoAdmin'
 
 type Aviso = { onMudou: () => void; onErro: (m: string) => void; onOk: (m: string) => void }
 
@@ -21,10 +22,32 @@ const chave = (c: CartaAdmin) => [c.id, c.nome, c.tipo, c.raridade, c.texto_efei
 
 export default function CartasAdmin({ ed, onMudou, onErro, onOk }: { ed: EdicaoAdmin } & Aviso) {
   const encerrada = ed.status === 'encerrada'
+  const [nova, setNova] = useState(false)
+  const [soFaltam, setSoFaltam] = useState(false)
+  // Carta nova so em rascunho e fora da edicao 1 (que segue a regra da Fase 1 e ja tem as 12).
+  const podeCriar = ed.motor === 2 && ed.status === 'rascunho' && (ed.total_previsto === null || ed.total_cartas < ed.total_previsto)
+  const incompletas = new Set(ed.faltando.map(x => x.numero))
+  const lista = soFaltam ? ed.cartas.filter(c => incompletas.has(c.numero)) : ed.cartas
   return (
-    <div className="ac-cartas">
-      {ed.cartas.map(c => <CartaForm key={chave(c)} carta={c} ed={ed} travada={encerrada} onMudou={onMudou} onErro={onErro} onOk={onOk} />)}
-    </div>
+    <>
+      <div className="ac-row sp">
+        <span className="ac-mut"><b>{ed.total_cartas}</b> de {ed.total_previsto ?? '?'} cartas criadas{incompletas.size > 0 ? `, ${incompletas.size} com dado faltando` : ''}.</span>
+        <div className="ac-row">
+          {incompletas.size > 0 && (
+            <label className="ac-tg" style={{ minHeight: 36 }}>
+              <input type="checkbox" checked={soFaltam} onChange={e => setSoFaltam(e.target.checked)} />
+              <span>Só as que faltam</span>
+            </label>
+          )}
+          {podeCriar && !nova && <button type="button" className="ac-btn sm" onClick={() => { setNova(true); onErro(''); onOk('') }}>Nova carta</button>}
+        </div>
+      </div>
+      {nova && podeCriar && <NovaCarta ed={ed} onFechar={() => setNova(false)} onMudou={onMudou} onErro={onErro} onOk={onOk} />}
+      {ed.cartas.length === 0 && !nova && <div className="ac-box"><p className="ac-mut">Esta edição ainda não tem cartas. Comece por &quot;Nova carta&quot;.</p></div>}
+      <div className="ac-cartas">
+        {lista.map(c => <CartaForm key={chave(c)} carta={c} ed={ed} travada={encerrada} onMudou={onMudou} onErro={onErro} onOk={onOk} />)}
+      </div>
+    </>
   )
 }
 
@@ -36,7 +59,6 @@ function CartaForm({ carta, ed, travada, onMudou, onErro, onOk }: { carta: Carta
   const [ocupado, setOcupado] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [msg, setMsg] = useState<{ tom: 'erro' | 'ok'; texto: string } | null>(null)
-  const m = MISSOES[carta.missao]
   const falta = ed.faltando.find(x => x.numero === carta.numero)?.campos || []
   const mudou = f.nome !== (carta.nome ?? '') || f.tipo !== (carta.tipo ?? '') || f.raridade !== (carta.raridade ?? '') || f.texto !== (carta.texto_efeito ?? '')
     || f.homenageado !== (carta.homenageado ?? '') || f.como !== carta.como_ganhar || f.previa !== carta.previa
@@ -93,10 +115,11 @@ function CartaForm({ carta, ed, travada, onMudou, onErro, onOk }: { carta: Carta
       </div>
       <div className="ac-campos">
         <div className="ac-cab">
-          <b>{nn(carta.numero)} · {m?.titulo || 'Carta'}</b>
+          <b>{nn(carta.numero)} · {carta.missao_titulo || 'Carta'}</b>
           <span>{carta.modo === 'manual' ? 'Manual: a organização confere' : carta.secreta ? 'Secreta: vem das outras' : 'Automática'} · {carta.donos} {carta.donos === 1 ? 'pessoa tem' : 'pessoas têm'}{carta.donos > 0 ? `, ${carta.viradas} ${carta.viradas === 1 ? 'virou' : 'viraram'}` : ''}</span>
         </div>
-        {falta.length > 0 && <span className="ac-hint" style={{ color: '#f59e0b' }}>Falta: {falta.join(', ')}</span>}
+        {falta.length > 0 && <span className="ac-hint" style={{ color: '#f59e0b' }}>Falta: {falta.map(x => (x === 'missao' ? 'título da missão' : x)).join(', ')}</span>}
+        <MissaoBloco carta={carta} ed={ed} onMudou={onMudou} onErro={onErro} onOk={onOk} />
         <div className="ac-f"><label className="ac-lb" htmlFor={`nome-${carta.numero}`}>Nome da carta</label><input id={`nome-${carta.numero}`} className="ac-in" value={f.nome} maxLength={60} disabled={travada} onChange={campo('nome')} /></div>
         <div className="ac-2">
           <div className="ac-f"><label className="ac-lb" htmlFor={`tipo-${carta.numero}`}>Tipo</label><input id={`tipo-${carta.numero}`} className="ac-in" value={f.tipo} maxLength={30} disabled={travada} onChange={campo('tipo')} /></div>

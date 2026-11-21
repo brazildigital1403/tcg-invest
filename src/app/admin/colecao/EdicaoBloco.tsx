@@ -5,7 +5,7 @@
 // avisos do que falta para publicar e a conta dos prazos que o publicar vai gravar.
 
 import { useState } from 'react'
-import { FASES, dataBr, dataHoraCurta, deDatetimeLocal, erroAdminAlbum, paraDatetimeLocal, type EdicaoAdmin } from '@/lib/pcc/albumAdmin'
+import { FASES, PAPEIS_EDICAO, TRILHAS, dataBr, dataHoraCurta, deDatetimeLocal, erroAdminAlbum, paraDatetimeLocal, type EdicaoAdmin } from '@/lib/pcc/albumAdmin'
 import { nn } from '@/lib/pcc/album'
 import { chamar } from './api'
 
@@ -17,7 +17,7 @@ type Props = {
   onIrParaCarta: (numero: number) => void
 }
 
-const ROTULO_FALTA: Record<string, string> = { nome: 'nome', tipo: 'tipo', raridade: 'raridade', texto: 'texto', arte: 'arte' }
+const ROTULO_FALTA: Record<string, string> = { nome: 'nome', tipo: 'tipo', raridade: 'raridade', texto: 'texto', arte: 'arte', missao: 'título da missão' }
 const DIA = 24 * 60 * 60 * 1000
 
 export default function EdicaoBloco({ ed, onMudou, onErro, onOk, onIrParaCarta }: Props) {
@@ -43,6 +43,7 @@ export default function EdicaoBloco({ ed, onMudou, onErro, onOk, onIrParaCarta }
       <div className="ac-row sp">
         <div>
           <div className="ac-row"><h2 className="ac-h2">Edição {ed.edicao}: {ed.titulo}</h2><span className={`ac-fase ${ed.fase}`}>{FASES[ed.fase]}</span></div>
+          <p className="ac-mut" style={{ marginTop: 4 }}>{PAPEIS_EDICAO[ed.papel]}{ed.trilha ? ` · trilha ${TRILHAS[ed.trilha]}` : ''} · {ed.total_cartas} de {ed.total_previsto ?? '?'} cartas{ed.tiragem_fisica === 0 ? ' · só digital, sem set físico' : ''}</p>
           {ed.status !== 'rascunho' && (
             <p className="ac-datas" style={{ marginTop: 6 }}>
               <span>Abre <b>{dataHoraCurta(ed.abre_em)}</b></span>

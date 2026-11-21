@@ -6,6 +6,10 @@ import type { MissaoId } from '@/lib/pcc/album'
 
 export type FaseEdicao = 'rascunho' | 'agendada' | 'aberta' | 'so_pedidos' | 'prazo_encerrado' | 'encerrada'
 
+export type RegraTipo = 'manual' | 'sinal' | 'cartas_da_edicao' | 'conteudos' | 'conteudos_sequencia'
+export type PapelEdicao = 'base' | 'capitulo' | 'especial'
+export type TrilhaEdicao = 'creator' | 'bynx' | 'club'
+
 export type CartaAdmin = {
   id: string
   numero: number
@@ -20,6 +24,15 @@ export type CartaAdmin = {
   arte_path: string | null
   previa: boolean
   secreta: boolean
+  /** A regra da missão (Fase 2): tipo em lista fechada, parâmetro e "só vale depois da abertura". */
+  regra_tipo: RegraTipo | null
+  regra_param: Record<string, unknown>
+  regra_desde_abertura: boolean
+  /** O rosto da missão no álbum: título curto, ícone, texto do botão e para onde ele leva. */
+  missao_titulo: string | null
+  missao_icone: string | null
+  missao_botao: string | null
+  missao_href: string | null
   /** Quantas pessoas têm a carta (sem contar as revogadas) e quantas já viraram. */
   donos: number
   viradas: number
@@ -36,6 +49,13 @@ export type EdicaoAdmin = {
   fecha_em: string | null
   pedir_set_ate: string | null
   tiragem_fisica: number | null
+  papel: PapelEdicao
+  trilha: TrilhaEdicao | null
+  ciclo: number
+  /** Quantas cartas a edição precisa ter para publicar (12 na Base, 9 nos capítulos). */
+  total_previsto: number | null
+  /** 1 = regra da Fase 1 (a edição 1); 2 = regra por dado, editável aqui. */
+  motor: 1 | 2
   total_cartas: number
   faltando: { numero: number; campos: string[] }[]
   resumo: { pessoas: number; ganhas: number; reveladas: number; pedidos: number; pedidos_ativos: number }
@@ -43,7 +63,7 @@ export type EdicaoAdmin = {
 }
 
 export type PainelAdmin = {
-  edicoes: { slug: string; edicao: number; titulo: string; status: string }[]
+  edicoes: { slug: string; edicao: number; titulo: string; status: string; papel: PapelEdicao; trilha: TrilhaEdicao | null }[]
   edicao: EdicaoAdmin | null
 }
 
@@ -89,6 +109,71 @@ export type PedidoSetAdmin = {
   whatsapp: string | null
 }
 export type PedidosAdmin = { tiragem: number | null; ativos: number; lista: PedidoSetAdmin[] }
+
+export const PAPEIS_EDICAO: Record<PapelEdicao, string> = { base: 'Base', capitulo: 'Capítulo', especial: 'Especial' }
+export const TRILHAS: Record<TrilhaEdicao, string> = { creator: 'Creator', bynx: 'Bynx', club: 'Club' }
+
+export const REGRAS: Record<RegraTipo, string> = {
+  manual: 'Manual: a organização concede',
+  sinal: 'Sinal: o site confere um gesto',
+  cartas_da_edicao: 'Cartas da edição: deriva de outras cartas',
+  conteudos: 'Conteúdos do portfólio',
+  conteudos_sequencia: 'Semanas seguidas com conteúdo',
+}
+
+/**
+ * As fontes do tipo "sinal", iguais às do banco (club_sinal_conta). `n` = a fonte tem um limiar próprio
+ * (cartas na pasta, cartas do set, tamanho da meta). `semData` = não aceita "só vale depois da abertura".
+ * `fatia2` = a tabela chega com o portfólio: a regra é aceita, mas ainda não confere nada.
+ */
+export const FONTES: { id: string; nome: string; n?: string; semData?: boolean; fatia2?: boolean }[] = [
+  { id: 'membro', nome: 'É membro do Club' },
+  { id: 'aniversario', nome: 'Data nos Aniversariantes' },
+  { id: 'instagram', nome: '@ do Instagram no perfil', semData: true },
+  { id: 'voto', nome: 'Voto em enquete do Club' },
+  { id: 'indicacao', nome: 'Indicação ativada' },
+  { id: 'colecao_cartas', nome: 'Cartas na coleção' },
+  { id: 'colecao_graduada', nome: 'Carta graduada' },
+  { id: 'colecao_dias', nome: 'Dias diferentes adicionando carta' },
+  { id: 'colecao_set', nome: 'Cartas do mesmo set', n: 'Cartas no set' },
+  { id: 'meta', nome: 'Meta de coleção criada' },
+  { id: 'meta_concluida', nome: 'Meta de coleção concluída', n: 'Tamanho mínimo da meta' },
+  { id: 'pasta', nome: 'Pasta com cartas', n: 'Cartas na pasta' },
+  { id: 'pasta_publica', nome: 'Pasta pública', n: 'Cartas na pasta' },
+  { id: 'acompanhando', nome: 'Cartas acompanhadas' },
+  { id: 'preco_alvo', nome: 'Preço-alvo definido' },
+  { id: 'centralizacao', nome: 'Centralização medida' },
+  { id: 'ficha_criador', nome: 'Ficha de criador', fatia2: true },
+  { id: 'bio_criador', nome: 'Bio de uma linha', fatia2: true },
+  { id: 'aceite', nome: 'Aceite de um termo', fatia2: true },
+]
+
+/** Os ícones que o álbum sabe desenhar (amigo-secreto/estilo.tsx). Ícone novo é código. */
+export const ICONES_MISSAO = [
+  'star', 'cal', 'insta', 'colecao', 'enquete', 'share', 'trophy', 'users', 'mic', 'trend', 'chat', 'spark',
+  'eye', 'search', 'pin', 'livro', 'gift', 'video', 'link', 'megafone', 'loja', 'sacola', 'tachinha', 'check', 'clock', 'box', 'lock', 'user',
+] as const
+
+/** A regra em uma frase, para a lista de cartas do Admin. */
+export function resumoRegra(c: Pick<CartaAdmin, 'regra_tipo' | 'regra_param' | 'regra_desde_abertura'>): string {
+  const p = c.regra_param || {}
+  const depois = c.regra_desde_abertura ? ', só depois da abertura' : ''
+  if (!c.regra_tipo) return 'Sem regra'
+  if (c.regra_tipo === 'manual') return 'A organização concede'
+  if (c.regra_tipo === 'sinal') {
+    const f = FONTES.find(x => x.id === p.fonte)
+    const n = f?.n && p.n ? ` (${f.n.toLowerCase()}: ${p.n})` : ''
+    return `${f?.nome || String(p.fonte)}${n}, mínimo ${p.minimo}${depois}`
+  }
+  if (c.regra_tipo === 'cartas_da_edicao') {
+    return p.todas ? `Ter ${p.minimo} das outras cartas desta edição` : `Ter ${p.minimo} destas: ${Array.isArray(p.chaves) ? p.chaves.join(', ') : ''}`
+  }
+  if (c.regra_tipo === 'conteudos') {
+    const filtros = (['formato', 'tema', 'rede'] as const).filter(k => p[k]).map(k => `${k} ${p[k]}`).join(', ')
+    return `${p.minimo} conteúdo(s) no portfólio${filtros ? ` (${filtros})` : ''}${depois}`
+  }
+  return `${p.semanas} semanas seguidas com conteúdo${depois}`
+}
 
 export const FASES: Record<FaseEdicao, string> = {
   rascunho: 'Rascunho',
@@ -139,11 +224,40 @@ export function erroAdminAlbum(codigo?: string | null, detalhe?: string | null):
     pedido_nao_encontrado: 'Pedido não encontrado.',
     pedido_cancelado: 'Pedido cancelado não muda.',
     pedido_entregue: 'Pedido entregue não cancela.',
+    slug_invalido: 'O endereço usa só letras minúsculas, números e hífen, sem espaço.',
+    slug_repetido: 'Já existe uma edição com esse endereço.',
+    edicao_repetida: 'Não conseguimos numerar a edição. Tente de novo.',
+    papel_invalido: 'Papel inválido.',
+    trilha_invalida: 'Trilha inválida.',
+    total_invalido: 'O total de cartas vai de 1 a 99.',
+    ciclo_invalido: 'Ciclo inválido.',
+    base_repetida: 'Este ciclo já tem uma Base.',
+    edicao_motor_antigo: 'A edição 1 usa a regra da Fase 1: cartas e regras dela não mudam por aqui.',
+    edicao_publicada: 'Só dá para mexer em cartas e regras com a edição em rascunho. Recolha a edição antes.',
+    edicao_cheia: 'A edição já tem todas as cartas previstas.',
+    numero_invalido: 'O número da carta vai de 1 a 99.',
+    numero_repetido: 'Já existe uma carta com esse número nesta edição.',
+    missao_invalida: 'A chave da missão usa só letras minúsculas, números e sublinhado (2 a 40).',
+    missao_repetida: 'Já existe uma carta com essa chave de missão nesta edição.',
+    secreta_invalida: 'Valor de carta secreta inválido.',
+    fonte_sem_data: 'Essa fonte não tem data: não dá para marcar "só vale depois da abertura".',
+    missao_titulo_invalido: 'O título da missão precisa ter de 2 a 30 caracteres.',
+    missao_icone_invalido: 'Ícone fora da lista.',
+    missao_botao_invalido: 'O botão precisa de texto (2 a 24 caracteres) e de destino, os dois juntos.',
+    missao_href_invalido: 'O destino do botão é um caminho do site, começando com barra. Endereço de fora não vale.',
+    carta_com_dono: 'Alguém já tem essa carta: ela não pode ser apagada.',
+    brinde_so_na_base: 'A camiseta entrega só as cartas da Base.',
     'Não autorizado': 'Sessão do Admin expirada. Entre de novo.',
+  }
+  if (c === 'regra_invalida') {
+    const d = (detalhe || '').trim()
+    return /^[0-9]+$/.test(d) ? `A regra da carta ${d} está inválida. Abra a missão dela e salve de novo.` : `Regra inválida${d ? ` (${d})` : ''}. Confira o tipo, a fonte e os números.`
   }
   if (c === 'cartas_incompletas') {
     const d = (detalhe || '').trim()
-    return d && /^[0-9,]+$/.test(d) ? `Faltam dados nas cartas ${d.split(',').join(', ')}. Veja o aviso no topo.` : 'A edição precisa ter as 12 cartas completas (nome, tipo, raridade, texto e arte).'
+    if (d && /^[0-9,]+$/.test(d)) return `Faltam dados nas cartas ${d.split(',').join(', ')}. Veja o aviso no topo.`
+    const m = /^cartas: (\d+) de (\d+|\?)$/.exec(d)
+    return m ? `A edição tem ${m[1]} de ${m[2]} cartas. Crie as que faltam antes de publicar.` : 'A edição precisa ter todas as cartas completas (nome, tipo, raridade, texto, arte e título da missão).'
   }
   return mapa[c] || 'Não conseguimos concluir. Tente de novo.'
 }

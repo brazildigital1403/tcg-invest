@@ -5,10 +5,11 @@
 // ("Admin Bynx"). As regras ficam no banco; aqui so a forma dos dados e as datas (o campo
 // datetime-local vem em horario de Brasilia e vira ISO).
 //
-// GET ?slug=                                              -> painel: edicoes + a escolhida com as 12 cartas
+// GET ?slug=                                              -> painel (v2): edicoes + a escolhida com as cartas e a regra de cada uma
 // POST multipart {id, numero, arte}                       -> sobe a arte da carta
 // POST {acao:'edicao', id, dados}                         -> club_colecao_salvar_interno
-// POST {acao:'estado', id, como, dados?}                  -> club_colecao_estado_interno (publicar | recolher | encerrar)
+// POST {acao:'estado', id, como, dados?}                  -> club_colecao_estado_v2_interno (publicar | recolher | encerrar)
+// POST {acao:'edicao_criar' | 'carta_criar' | 'carta_regra' | 'carta_apagar', ...} -> ver tratar.ts
 // POST {acao:'carta', id, numero, dados}                  -> club_carta_salvar_interno
 // POST {acao:'previa', id, numeros, ids}                  -> club_colecao_previa_lote_interno
 // POST {acao:'conceder', id, numeros, ids, origem, nota}  -> club_colecao_conceder_tokens_interno

@@ -55,6 +55,9 @@ export const AC_CSS = `
 .ac-tg{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13.5px;color:#f0f0f0;cursor:pointer}
 .ac-tg input{width:20px;height:20px;accent-color:#f59e0b;flex:none}
 .ac-tg.off{opacity:.5;cursor:default}
+.ac-missao{display:flex;flex-direction:column;gap:8px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;background:rgba(255,255,255,0.02)}
+.ac-missao .ac-hint b{color:rgba(255,255,255,0.75)}
+.ac-sub{display:flex;flex-direction:column;gap:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)}
 .ac-lin{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13.5px;color:#f0f0f0}
 .ac-lin:last-child{border-bottom:0}
 .ac-lin .tx{flex:1;min-width:0}
