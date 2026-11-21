@@ -6,15 +6,20 @@
 // @ passa pelo mesmo caminho, sem trocar a origem. O @ e o WhatsApp também ficam no
 // perfil, como no cadastro do Amigo Secreto.
 //
-// A carta 01 do mockup entra junto com o álbum: aqui o "pronto" ainda não mostra carta.
+// O "pronto" de quem acabou de entrar mostra a carta 01 (mockup de 18/11/2026): logo depois do
+// club_entrar o álbum é lido (ele confere as missões e entrega a carta), e a carta chega fechada,
+// para virar ali mesmo. Sem edição aberta, ou se a leitura falhar, o "pronto" segue sem carta. Quem
+// só completa o cadastro (já era membro) também fica como era.
 
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { INSTAGRAM_RE, limparInstagram, primeiroNomeBonito } from '@/lib/amigoSecreto'
+import { carregarAlbum, type AlbumMinha } from '@/lib/pcc/album'
 import { erroEntrarClub, instagramJaUsado, type CadastroClub } from '@/lib/pcc/membro'
 import { Folha } from './_comum/calendario'
 import { Ico } from './amigo-secreto/estilo'
+import CartaDeEntrada from './album/CartaDeEntrada'
 
 const ERRO_ARROBA = 'Confira o seu @: só letras, números, ponto e sublinhado, sem espaço.'
 const ERRO_ZAP = 'Confira o WhatsApp: só números, com DDD.'
@@ -47,6 +52,8 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou }: {
   const [bloqueado, setBloqueado] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [resultado, setResultado] = useState<CadastroClub | null>(null)
+  // O álbum lido logo depois de entrar, só quando há carta nova para mostrar no "pronto".
+  const [albumNovo, setAlbumNovo] = useState<AlbumMinha | null>(null)
 
   const igLimpo = limparInstagram(ig)
   const igOk = INSTAGRAM_RE.test(igLimpo)
@@ -66,8 +73,8 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou }: {
     setErro('')
     setBloqueado(false)
     const { data, error } = await supabase.rpc('club_entrar', { p: { instagram: arroba, whatsapp: (confirmando ? zapDoPerfil : whats).trim() } })
-    setOcupado(false)
     if (error) {
+      setOcupado(false)
       // Na tela de confirmação o erro aparece no campo do @, que vira editável.
       setConfirmando(false)
       setErro(erroEntrarClub(error.message))
@@ -75,19 +82,33 @@ export default function EntrarClub({ cadastro, nome, onFechar, onEntrou }: {
       return
     }
     const novo = data as CadastroClub
+    // Quem acabou de entrar ganha a carta 01 na hora (o álbum entrega ao ser lido). Quem só completa o
+    // cadastro não passa por aqui. A leitura nunca lança: sem edição aberta ou com falha, vem sem álbum.
+    const lido = eraMembro ? null : (await carregarAlbum()).album
+    setOcupado(false)
+    setAlbumNovo(lido && lido.cartas.some(c => c.estado === 'nova') ? lido : null)
     setResultado(novo)
     onEntrou(novo)
   }
 
   // ── Pronto ────────────────────────────────────────────────────────────────
   if (resultado) {
+    const semWhats = resultado.faltam.includes('whatsapp')
     return (
       <Folha eyebrow={eraMembro ? 'Cadastro completo' : 'Você entrou no Club'} titulo={`Tudo certo${primeiroNome ? `, ${primeiroNome}` : ''}`} onFechar={onFechar}>
-        <p className="as-p">
-          {eraMembro ? 'O seu @ está no cadastro do Club.' : 'Agora você faz parte do Club.'} O @ e o WhatsApp ficam salvos no seu perfil da Bynx, e você muda os dois em Minha conta.
-        </p>
-        {resultado.faltam.includes('whatsapp') && <div className="as-note">Você pode colocar o WhatsApp depois, em Minha conta.</div>}
-        <button type="button" className="as-btn pri cta" onClick={onFechar}>Fechar</button>
+        {albumNovo ? (
+          <CartaDeEntrada album={albumNovo} onFechar={onFechar}>
+            {semWhats && <div className="as-note">Você pode colocar o WhatsApp depois, em Minha conta.</div>}
+          </CartaDeEntrada>
+        ) : (
+          <>
+            <p className="as-p">
+              {eraMembro ? 'O seu @ está no cadastro do Club.' : 'Agora você faz parte do Club.'} O @ e o WhatsApp ficam salvos no seu perfil da Bynx, e você muda os dois em Minha conta.
+            </p>
+            {semWhats && <div className="as-note">Você pode colocar o WhatsApp depois, em Minha conta.</div>}
+            <button type="button" className="as-btn pri cta" onClick={onFechar}>Fechar</button>
+          </>
+        )}
       </Folha>
     )
   }

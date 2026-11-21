@@ -229,6 +229,7 @@ export const FOLHAS_CSS = `
 .al-big:disabled{cursor:default;opacity:.8}
 .al-big:focus-visible{outline:2px solid var(--bx-text);outline-offset:4px}
 .al-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.cen{text-align:center}
 .al-t{font-size:15px;font-weight:700}
 .al-lk{background:transparent;border:0;padding:0;font:inherit;font-weight:700;color:var(--bx-text-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:44px}
 .al-lk:hover:not(:disabled){color:var(--bx-text)}
