@@ -51,8 +51,13 @@ function CardPost({ p, i, pele }: { p: TrendPost; i: number; pele: Pele | null }
   const conteudo = (
     <>
       {p.capa
-        // eslint-disable-next-line @next/next/no-img-element
-        ? <img className="tr-img" src={capaUrl(p.capa)} alt="" loading={i < 3 ? 'eager' : 'lazy'} />
+        ? <>
+            {/* Na pele GTA VI a arte aparece inteira; a mesma imagem, desfocada, preenche o que sobra do card. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {pele === 'gta' && <img className="tr-fundo" src={capaUrl(p.capa)} alt="" aria-hidden="true" loading={i < 3 ? 'eager' : 'lazy'} />}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="tr-img" src={capaUrl(p.capa)} alt="" loading={i < 3 ? 'eager' : 'lazy'} />
+          </>
         : <><span className="tr-arte" style={{ background: arte }} /><span className="tr-ini" aria-hidden="true">{p.nome.charAt(0).toUpperCase()}</span></>}
       <span className="tr-veu" />
       {pele === 'gta' && <span className="tr-top" aria-hidden="true"><i />@{p.nome.toLowerCase().replace(/\s+/g, '')}<em>No ar</em></span>}
@@ -236,9 +241,12 @@ const TR_CSS = `
 
 /* GTA VI: por do sol inteiro no fundo, card com moldura de celular. */
 .tr[data-pele="gta"]{--ac-1:#ffb347;--ac-1-rgb:255,179,71;--ac-grad:linear-gradient(160deg,#ff3c78,#ff6b35);--pl-claro:#fff;--pl-claro-2:rgba(255,255,255,.84);--pl-linha:rgba(255,255,255,.3);--pl-fundo-rgb:10,10,10;--pl-frio:#19d3c5;--pl-frio-rgb:25,211,197;background:linear-gradient(180deg,#1b1036 0%,#5a1e8c 34%,#b5179e 62%,#ff3c78 82%,#ff6b35 100%)}
-/* Card 4:5 so nesta trend (22/11/2026): os posts sao de feed, e a previa publica e quadrada. A capa vai inteira para o bucket e o corte e do object-fit. */
+/* Card 4:5 so nesta trend (22/11/2026): os posts sao de feed (3:4 e 4:5). A capa e a arte inteira do post e nunca e cortada: object-fit contain, com a propria imagem desfocada atras para o que sobrar (post quadrado, reel vertical). */
 .tr[data-pele="gta"] .tr-card{aspect-ratio:4/5;border-radius:26px;border:5px solid #0a0a0a;box-shadow:0 14px 34px rgba(27,16,54,.55)}
 .tr[data-pele="gta"] .tr-play{width:52px;height:52px;margin:-26px 0 0 -26px}
+.tr[data-pele="gta"] .tr-img{object-fit:contain}
+.tr[data-pele="gta"] .tr-card:hover .tr-img{transform:none}
+.tr[data-pele="gta"] .tr-fundo{position:absolute;inset:-12%;width:124%;height:124%;object-fit:cover;filter:blur(18px) brightness(.5) saturate(1.2)}
 .tr[data-pele="gta"] .tr-card:hover{border-color:#0a0a0a}
 .tr[data-pele="gta"] .tr-top{display:flex;position:absolute;top:0;left:0;right:0;z-index:2;align-items:center;gap:6px;padding:10px 12px;font-size:11.5px;font-weight:700;background:linear-gradient(180deg,rgba(10,10,10,.75),transparent);white-space:nowrap;overflow:hidden}
 .tr[data-pele="gta"] .tr-top i{width:18px;height:18px;border-radius:50%;background:var(--ac-grad);flex:none}
