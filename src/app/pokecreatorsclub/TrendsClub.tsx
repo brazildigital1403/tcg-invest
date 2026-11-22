@@ -236,7 +236,9 @@ const TR_CSS = `
 
 /* GTA VI: por do sol inteiro no fundo, card com moldura de celular. */
 .tr[data-pele="gta"]{--ac-1:#ffb347;--ac-1-rgb:255,179,71;--ac-grad:linear-gradient(160deg,#ff3c78,#ff6b35);--pl-claro:#fff;--pl-claro-2:rgba(255,255,255,.84);--pl-linha:rgba(255,255,255,.3);--pl-fundo-rgb:10,10,10;--pl-frio:#19d3c5;--pl-frio-rgb:25,211,197;background:linear-gradient(180deg,#1b1036 0%,#5a1e8c 34%,#b5179e 62%,#ff3c78 82%,#ff6b35 100%)}
-.tr[data-pele="gta"] .tr-card{border-radius:26px;border:5px solid #0a0a0a;box-shadow:0 14px 34px rgba(27,16,54,.55)}
+/* Card 4:5 so nesta trend (22/11/2026): os posts sao de feed, e a previa publica e quadrada. A capa vai inteira para o bucket e o corte e do object-fit. */
+.tr[data-pele="gta"] .tr-card{aspect-ratio:4/5;border-radius:26px;border:5px solid #0a0a0a;box-shadow:0 14px 34px rgba(27,16,54,.55)}
+.tr[data-pele="gta"] .tr-play{width:52px;height:52px;margin:-26px 0 0 -26px}
 .tr[data-pele="gta"] .tr-card:hover{border-color:#0a0a0a}
 .tr[data-pele="gta"] .tr-top{display:flex;position:absolute;top:0;left:0;right:0;z-index:2;align-items:center;gap:6px;padding:10px 12px;font-size:11.5px;font-weight:700;background:linear-gradient(180deg,rgba(10,10,10,.75),transparent);white-space:nowrap;overflow:hidden}
 .tr[data-pele="gta"] .tr-top i{width:18px;height:18px;border-radius:50%;background:var(--ac-grad);flex:none}
