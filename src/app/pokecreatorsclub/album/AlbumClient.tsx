@@ -9,15 +9,15 @@
 //
 // Fora do AppLayout (casca do Club): fonte e gutter declarados aqui, só tokens --bx-* / --ac-*.
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { dataCurta } from '@/lib/amigoSecreto'
 import { ALBUM, ALBUM_ORGANIZAR, ALBUM_REGRAS, CLUB } from '@/lib/pcc/rotas'
 import {
-  cartaInicial, carregarAlbum, missaoDe, nn, textoGanha, tituloDe, virarCartas,
-  type AlbumMinha, type CartaAlbum, type EdicaoAlbum, type RespostaAlbum,
+  TRILHAS_ALBUM, cartaInicial, carregarAlbum, carregarEstante, ehBase, missaoDe, nn, textoGanha, tituloDe, virarCartas,
+  type AlbumMinha, type CartaAlbum, type EdicaoAlbum, type EdicaoEstante, type Estante, type RespostaAlbum,
 } from '@/lib/pcc/album'
 import { meusPapeis } from '@/lib/pcc/albumOrg'
 import { AS_CSS, Ico, VoltarClub } from '../amigo-secreto/estilo'
@@ -46,12 +46,43 @@ export default function AlbumClient() {
     setFase('ok')
   }, [])
 
+  // O capítulo pedido vem em ?c=<slug>; sem ele abre a Base. Lido do endereço no navegador (a página é estática).
+  const [slug, setSlug] = useState<string | null | undefined>(undefined)
+  const [estante, setEstante] = useState<Estante | null>(null)
   useEffect(() => {
-    if (!uid) return
+    const c = new URLSearchParams(window.location.search).get('c')
+    Promise.resolve().then(() => setSlug(c && /^[a-z0-9-]{1,60}$/.test(c) ? c : null))
+  }, [])
+
+  useEffect(() => {
+    if (!uid || slug === undefined) return
     let vivo = true
-    carregarAlbum().then(r => { if (vivo) aplicar(r) })
+    carregarAlbum(slug).then(r => {
+      if (!vivo) return
+      // Endereço com capítulo que não existe ou ainda não abriu: cai na Base.
+      if (!r.album && !r.erro && slug) { window.history.replaceState(null, '', ALBUM); setSlug(null); return }
+      aplicar(r)
+    })
+    carregarEstante().then(e => { if (vivo) setEstante(e) })
     return () => { vivo = false }
-  }, [uid, aplicar])
+  }, [uid, slug, aplicar])
+
+  // A estante foi lida uma vez; os contadores do capítulo na tela acompanham o álbum (virar carta não relê a estante).
+  const estanteVista = useMemo<Estante | null>(() => {
+    if (!estante || !album) return estante
+    const edicoes = estante.edicoes.map(e => (e.slug === album.edicao.slug
+      ? { ...e, ganhas: album.ganhas, reveladas: album.reveladas, novas: album.ganhas - album.reveladas }
+      : e))
+    const contam = edicoes.filter(e => !e.previa)
+    return { edicoes, ciclo: { total: contam.reduce((n, e) => n + e.total, 0), ganhas: contam.reduce((n, e) => n + e.ganhas, 0), reveladas: contam.reduce((n, e) => n + e.reveladas, 0) } }
+  }, [estante, album])
+
+  const trocar = useCallback((e: EdicaoEstante) => {
+    const novo = e.papel === 'base' ? null : e.slug
+    window.history.replaceState(null, '', novo ? `${ALBUM}?c=${novo}` : ALBUM)
+    setFase('lendo')
+    setSlug(novo)
+  }, [])
 
   // Quem tem o papel "colecao" ganha o atalho para organizar em qualquer estado da página, até sem
   // ser membro do Club: a área de organização não exige. Sem resposta, nenhum atalho.
@@ -63,7 +94,7 @@ export default function AlbumClient() {
     return () => { vivo = false }
   }, [uid])
 
-  const recarregar = () => { setFase('lendo'); carregarAlbum().then(aplicar) }
+  const recarregar = () => { setFase('lendo'); carregarAlbum(slug ?? null).then(aplicar) }
 
   const entrar = () => openLogin({ next: ALBUM, cta: 'Entrar no Club' })
 
@@ -123,7 +154,7 @@ export default function AlbumClient() {
     )
   }
 
-  return <Casca logado organiza={organiza} onEntrar={() => {}}><AlbumView album={album} onAlbum={setAlbum} /></Casca>
+  return <Casca logado organiza={organiza} onEntrar={() => {}}><AlbumView key={album.edicao.slug} album={album} onAlbum={setAlbum} estante={estanteVista} onTrocar={trocar} /></Casca>
 }
 
 function Casca({ children, logado, organiza, onEntrar }: { children: ReactNode; logado: boolean; organiza?: boolean; onEntrar: () => void }) {
@@ -171,7 +202,11 @@ function rotuloDe(c: CartaAlbum, total: number): string {
   return `${base}, bloqueada, ${tituloDe(c)}`
 }
 
-export function AlbumView({ album, onAlbum }: { album: AlbumMinha; onAlbum: (a: AlbumMinha) => void }) {
+export function AlbumView({ album, onAlbum, estante, onTrocar }: {
+  album: AlbumMinha; onAlbum: (a: AlbumMinha) => void
+  /** A estante de capítulos. Sem ela (ou com uma edição só) a tela fica como na Fase 1. */
+  estante?: Estante | null; onTrocar?: (e: EdicaoEstante) => void
+}) {
   const [sel, setSel] = useState<number | null>(() => cartaInicial(album.cartas))
   // Cartas viradas nesta visita: ganham o chip "Nova no álbum" e a animação de virar.
   const [recem, setRecem] = useState<number[]>([])
@@ -204,11 +239,23 @@ export function AlbumView({ album, onAlbum }: { album: AlbumMinha; onAlbum: (a: 
 
   return (
     <>
-      <h1 className="al-sr">Álbum do Club, edição {edicao.edicao}</h1>
+      <h1 className="al-sr">{ehBase(edicao) ? `Álbum do Club, edição ${edicao.edicao}` : `Álbum do Club, ${edicao.titulo}`}</h1>
       <div className="al-corpo">
         <div className="al-cab">
+          {estante && onTrocar && estante.edicoes.length > 1 && (
+            <nav className="al-caps" aria-label="Capítulos do álbum">
+              {estante.edicoes.map(e => (
+                <button key={e.slug} type="button" className={`al-cap${e.slug === edicao.slug ? ' on' : ''}`} aria-current={e.slug === edicao.slug ? 'page' : undefined} onClick={() => { if (e.slug !== edicao.slug) onTrocar(e) }}>
+                  <b>{e.papel === 'base' ? 'Base' : e.titulo}</b>
+                  <span>{e.reveladas} de {e.total}{e.novas > 0 ? ` · ${e.novas} ${e.novas === 1 ? 'nova' : 'novas'}` : ''}{e.previa ? ' · prévia' : ''}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+          {!ehBase(edicao) && <div className="al-capt">{edicao.titulo}{edicao.trilha ? <span className="as-chip">Trilha {TRILHAS_ALBUM[edicao.trilha]}</span> : null}</div>}
           <div className="al-cnt"><b className={completo ? 'ok' : ''}>{reveladas}</b><span>de {total} cartas</span></div>
           {textoPrazo(edicao) && <p className="al-prazo">{textoPrazo(edicao)}</p>}
+          {estante && estante.edicoes.filter(e => !e.previa).length > 1 && <p className="al-prazo">{estante.ciclo.reveladas} de {estante.ciclo.total} no álbum inteiro.</p>}
         </div>
 
         {edicao.previa && <div className="as-note strong" role="status"><strong>Prévia da organização.</strong> Só quem organiza o álbum enxerga esta edição, até ela abrir para os membros.</div>}
@@ -269,7 +316,7 @@ export function AlbumView({ album, onAlbum }: { album: AlbumMinha; onAlbum: (a: 
           <Link href={ALBUM_REGRAS} className="as-btn lnk al-regra">Ler a regra completa do álbum</Link>
         </details>
 
-        {!completo && !todasNovas && (
+        {ehBase(edicao) && !completo && !todasNovas && (
           <div className="al-camis"><Ico n="sacola" s={16} /><span>Camiseta: {total} cartas juntas, após o pagamento.</span></div>
         )}
       </div>
@@ -283,6 +330,21 @@ export function AlbumView({ album, onAlbum }: { album: AlbumMinha; onAlbum: (a: 
 /** Destaque do álbum completo: a porta do set físico. */
 function FocoSet({ album, onSet }: { album: AlbumMinha; onSet: () => void }) {
   const { retirada, pode_pedir_set: pode, set_esgotado: esgotado, prazo_set_passou: prazoPassou, edicao, cartas, total } = album
+  // Capítulo é digital nesta fase: fechar não abre pedido de set (o set físico é só o da Base).
+  if (!ehBase(edicao)) {
+    return (
+      <>
+        <div className="fc glow"><Pilha cartas={cartas} total={total} fechadas={false} /></div>
+        <div className="ft">
+          <div className="tp">
+            <div className="kk">Capítulo completo</div>
+            <h2>Você fechou {edicao.titulo}</h2>
+            <p>As {total} cartas deste capítulo estão guardadas no seu álbum.</p>
+          </div>
+        </div>
+      </>
+    )
+  }
   let texto = 'Em breve você poderá pedir o seu set.'
   if (retirada) texto = 'Recebemos o seu pedido. A organização chama você para combinar o frete.'
   else if (pode) texto = `O Edu monta o set com as ${total} cartas e envia para você. Você paga só o frete.`
@@ -403,6 +465,15 @@ function FocoCarta({ album, carta, novas, ocupado, proxima, recem, completo, onV
 }
 
 const AL_CSS = `
+.al-caps{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;flex:0 0 100%;width:100%;min-width:0}
+.al-caps::-webkit-scrollbar{display:none}
+.al-cap{flex:none;min-height:52px;padding:8px 14px;border-radius:12px;border:1px solid var(--bx-border);background:var(--bx-surface);color:var(--bx-text);font:inherit;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:2px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.al-cap b{font-size:13.5px;font-weight:800;white-space:nowrap}
+.al-cap span{font-size:11.5px;color:var(--bx-text-3);white-space:nowrap}
+.al-cap:hover{background:var(--bx-surface-2);border-color:var(--bx-border-2)}
+.al-cap.on{border-color:rgba(var(--ac-1-rgb),.5);background:rgba(var(--ac-1-rgb),.08)}
+.al-cap.on span{color:var(--bx-text-2)}
+.al-capt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:17px;font-weight:800;letter-spacing:-.02em}
 .al-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .al-corpo{display:flex;flex-direction:column;gap:12px;min-width:0}
 .al-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}

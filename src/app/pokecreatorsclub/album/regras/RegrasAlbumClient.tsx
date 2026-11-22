@@ -31,6 +31,7 @@ export default function RegrasAlbumClient() {
   const regra = estado.fase === 'ok' ? estado.regra : null
   const ed = regra?.edicao ?? null
   const cartas = regra?.cartas ?? []
+  const capitulos = regra?.capitulos ?? []
   const total = ed?.total ?? 0
   const tiragem = ed?.tiragem_fisica ?? null
   const todas = total > 0 ? `as ${total} cartas` : 'todas as cartas'
@@ -59,6 +60,13 @@ export default function RegrasAlbumClient() {
             <Secao titulo="Como ganhar">
               <p>Cada carta tem uma missão. O site confere sozinho as missões automáticas quando a pessoa abre o álbum. Nas outras, a organização do Club confere e concede a carta.</p>
               {ed ? <ListaMissoes cartas={cartas} /> : <p className="rg-mut">{semDados}</p>}
+              {capitulos.map(c => (
+                <div key={c.edicao.slug} className="rg-cap">
+                  <h3>{c.edicao.titulo}</h3>
+                  <p className="rg-mut">Capítulo com {c.edicao.total} cartas. Dá para ganhar até {dataHoraBr(c.edicao.fecha_em)}.{c.edicao.status === 'encerrada' ? ' Este capítulo está encerrado.' : ''}</p>
+                  <ListaMissoes cartas={c.cartas} />
+                </div>
+              ))}
               {estado.fase === 'falhou' && <button type="button" className="as-btn" onClick={tentarDeNovo}>Tentar de novo</button>}
             </Secao>
 
@@ -83,10 +91,11 @@ export default function RegrasAlbumClient() {
                   : 'A tiragem é limitada, e os pedidos valem na ordem em que chegam.'}{' '}
                 Pedir não custa nada. O frete fica por conta de quem recebe, e a organização combina o envio com a pessoa, por e-mail ou WhatsApp.
               </p>
+              {capitulos.length > 0 && <p>O set físico é o das {total} cartas da Base. Os capítulos são digitais: as cartas deles ficam guardadas no álbum e não têm set físico.</p>}
             </Secao>
 
             <Secao titulo="Camiseta">
-              <p>Quem compra a camiseta do Club recebe {todas} digitais de uma vez, depois que a organização confirma o pagamento.</p>
+              <p>Quem compra a camiseta do Club recebe {todas} digitais {capitulos.length > 0 ? 'da Base ' : ''}de uma vez, depois que a organização confirma o pagamento.{capitulos.length > 0 ? ' As cartas dos capítulos não vêm com a camiseta.' : ''}</p>
             </Secao>
 
             <Secao titulo="Correções e dúvidas">
@@ -123,7 +132,7 @@ function ListaMissoes({ cartas }: { cartas: CartaRegra[] }) {
           <div key={c.numero} className="rg-mi">
             <span className="nr">{nn(c.numero)}</span>
             <div className="tx">
-              <b>{MISSOES[c.missao]?.titulo || `Carta ${nn(c.numero)}`}</b>
+              <b>{c.missao_titulo || MISSOES[c.missao]?.titulo || `Carta ${nn(c.numero)}`}</b>
               <small>{como}. {c.modo === 'manual' ? 'A organização confere.' : 'O site confere.'}</small>
             </div>
           </div>
@@ -134,6 +143,8 @@ function ListaMissoes({ cartas }: { cartas: CartaRegra[] }) {
 }
 
 const RG_CSS = `
+.rg-cap{display:flex;flex-direction:column;gap:6px;padding-top:12px;margin-top:4px;border-top:1px solid var(--bx-border)}
+.rg-cap h3{font-size:15px;font-weight:800;letter-spacing:-.01em}
 .rg-col{width:100%;max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:12px;min-width:0}
 .rg-sec{display:flex;flex-direction:column;gap:8px;padding-top:14px;border-top:1px solid var(--bx-border)}
 .rg-sec h2{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--bx-text)}

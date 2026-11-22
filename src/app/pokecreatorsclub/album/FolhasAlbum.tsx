@@ -12,7 +12,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { dataCurta } from '@/lib/amigoSecreto'
 import { ALBUM } from '@/lib/pcc/rotas'
-import { PASSOS_SET, missaoDe, nn, pedirSet, tituloDe, virarCartas, type AlbumMinha, type CartaAlbum } from '@/lib/pcc/album'
+import { PASSOS_SET, ehBase, missaoDe, nn, pedirSet, tituloDe, virarCartas, type AlbumMinha, type CartaAlbum } from '@/lib/pcc/album'
 import { Folha } from '../_comum/calendario'
 import { Ico } from '../amigo-secreto/estilo'
 import { CartaFrente, CartaVerso, Energia, Leque5 } from './CartaClub'
@@ -31,7 +31,7 @@ export function FichaCorpo({ carta, album }: { carta: CartaAlbum; album: AlbumMi
       <div className="al-glow"><div className="al-gc"><CartaFrente carta={carta} total={album.total} tam="f" /></div></div>
       <div className="al-chips">
         {carta.raridade && <span className="as-chip fill">{carta.raridade}</span>}
-        <span className="as-chip">Edição {album.edicao.edicao}</span>
+        <span className="as-chip">{ehBase(album.edicao) ? `Edição ${album.edicao.edicao}` : album.edicao.titulo}</span>
       </div>
       <div className="as-card al-linhas">
         {carta.tipo && <Linha k="Tipo" v={carta.tipo} />}

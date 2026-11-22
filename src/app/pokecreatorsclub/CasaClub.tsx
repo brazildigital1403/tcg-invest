@@ -16,7 +16,7 @@ import {
   AMIGO_SECRETO_SLUG, dataCurta, dataHora, type EdicaoPublica, type MinhaSala,
 } from '@/lib/amigoSecreto'
 import { instagramUrl, ordenarProximos, quandoTexto, type ListaAniversarios } from '@/lib/pcc/aniversarios'
-import { AGENDA, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, AVISOS, CLUB, agendaEvento, avisoUrl } from '@/lib/pcc/rotas'
+import { AGENDA, ALBUM, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, AVISOS, CLUB, agendaEvento, avisoUrl } from '@/lib/pcc/rotas'
 import { diaMes, diasAtePrazo, ehNovo, pedeResposta, prazoPassou, ultimaVisita, type Aviso, type ListaAvisos } from '@/lib/pcc/avisos'
 import { TIPOS, horaCurta, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
 import { hojeBrasilia } from '@/lib/pcc/datas'
@@ -27,7 +27,7 @@ import { Rosto } from './aniversariantes/AniversariantesClient'
 import EntrarClub from './EntrarClub'
 import TrendsClub from './TrendsClub'
 import type { Trend } from '@/lib/pcc/trends'
-import { carregarAlbum, missaoDe, nn, type AlbumMinha, type CartaAlbum } from '@/lib/pcc/album'
+import { carregarAlbum, carregarEstante, missaoDe, nn, type AlbumMinha, type CartaAlbum, type Estante } from '@/lib/pcc/album'
 import FaixaAlbum, { FAIXA_CSS } from './album/FaixaAlbum'
 import { CARTA_CSS, CartaVerso } from './album/CartaClub'
 import { FOLHAS_CSS, FolhaVirar } from './album/FolhasAlbum'
@@ -84,6 +84,8 @@ export default function CasaClub() {
   // Album do Club (19/11/2026): so existe para membro e so quando ha edicao aberta. Se a leitura
   // falhar (ou a funcao ainda nao existir), a casa segue sem a faixa e sem a tarefa.
   const [album, setAlbum] = useState<AlbumMinha | null>(null)
+  // A estante (Fase 2): os capitulos abertos alem da Base. Sem resposta, a casa fica como na Fase 1.
+  const [estante, setEstante] = useState<Estante | null>(null)
   const [folhaVirar, setFolhaVirar] = useState(false)
   const fecharVirar = useCallback(() => setFolhaVirar(false), [])
   // Estável de propósito: o modal de entrada agora faz a casa renderizar de novo enquanto está aberto
@@ -106,7 +108,7 @@ export default function CasaClub() {
     // sem a linha "Proximo" e a casa nao acusa falha: nao e tarefa da pessoa.
     const hoje = hojeBrasilia()
     const ate = new Date(Date.UTC(hoje.ano, hoje.mes - 1, hoje.dia + 398)).toISOString().slice(0, 10)
-    const [e, m, a, g, av, c, al] = await Promise.all([
+    const [e, m, a, g, av, c, al, est] = await Promise.all([
       supabase.rpc('amigo_secreto_edicao_publica', { p_slug: AMIGO_SECRETO_SLUG }),
       logado ? supabase.rpc('amigo_secreto_meu', { p_slug: AMIGO_SECRETO_SLUG }) : Promise.resolve({ data: null, error: null }),
       logado ? supabase.rpc('club_aniversarios_lista') : Promise.resolve({ data: null, error: null }),
@@ -116,11 +118,13 @@ export default function CasaClub() {
       logado ? supabase.rpc('club_meu_cadastro') : Promise.resolve({ data: null, error: null }),
       // A leitura do album tambem confere as missoes automaticas (grava as cartas que a pessoa ja merece).
       logado ? carregarAlbum() : Promise.resolve({ album: null, erro: null }),
+      logado ? carregarEstante() : Promise.resolve(null),
     ])
     // Cadastro no Club: como a Agenda, falha nao acusa erro na casa; sem resposta, vale o que a casa ja sabia.
     setCadastro(c.error ? null : (c.data as CadastroClub | null) ?? null)
     // Album: nao e tarefa de ninguem se falhar (membro sem edicao aberta, funcao ausente, rede): so some a faixa.
     setAlbum(al.album)
+    setEstante(est)
     setAgenda(g.error ? null : (g.data as ListaAgenda | null) ?? null)
     // Avisos: como a Agenda, falha nao acusa erro na casa; o cartao fica sem a linha.
     setAvisos(av.error ? null : (av.data as ListaAvisos | null) ?? null)
@@ -165,6 +169,15 @@ export default function CasaClub() {
   // Carta nova esperando para ser virada: logo depois da missao de entrar, antes das demais tarefas.
   const cartasNovas = (album?.cartas || []).filter(c => c.estado === 'nova')
   if (cartasNovas.length) tarefas.splice(precisaEntrar ? 1 : 0, 0, tarefaDaCarta(cartasNovas, () => setFolhaVirar(true)))
+  // Carta nova em capitulo: a folha de virar da casa e a da Base, entao aqui a tarefa leva ao capitulo.
+  else {
+    const cap = (estante?.edicoes ?? []).find(x => x.papel !== 'base' && !x.previa && x.novas > 0)
+    if (cap) tarefas.splice(precisaEntrar ? 1 : 0, 0, {
+      titulo: cap.novas === 1 ? 'Você ganhou uma carta' : `Você ganhou ${cap.novas} cartas`,
+      texto: `${cap.titulo}: ${cap.novas === 1 ? 'ela chegou fechada' : 'elas chegaram fechadas'}. Toque para virar.`,
+      botao: 'Abrir o capítulo', href: `${ALBUM}?c=${cap.slug}`,
+    })
+  }
   const tarefa = tarefas[0]
   const aniversarioHoje = proximos.filter(p => p.emDias === 0 && !p.eu)
   const proximoAniv = proximos.find(p => p.emDias > 0 && !p.eu)
@@ -281,7 +294,7 @@ export default function CasaClub() {
           )}
 
           {/* Faixa do Album (19/11/2026): entre as frentes e as Trends. So membro com edicao aberta. */}
-          {album && <FaixaAlbum album={album} />}
+          {album && <FaixaAlbum album={album} estante={estante} />}
 
           <TrendsClub trends={trends} />
 

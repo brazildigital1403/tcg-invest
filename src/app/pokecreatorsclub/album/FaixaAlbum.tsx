@@ -8,25 +8,40 @@
 
 import Link from 'next/link'
 import { ALBUM } from '@/lib/pcc/rotas'
-import type { AlbumMinha } from '@/lib/pcc/album'
+import type { AlbumMinha, Estante } from '@/lib/pcc/album'
 import { Ico } from '../amigo-secreto/estilo'
 import { Energia, Leque5 } from './CartaClub'
 
-export default function FaixaAlbum({ album }: { album: AlbumMinha }) {
+export default function FaixaAlbum({ album, estante }: { album: AlbumMinha; estante?: Estante | null }) {
   const { edicao, reveladas, total, cartas } = album
   const completo = total > 0 && reveladas === total
+  // Com capítulos abertos, o número grande é o do álbum inteiro e cada capítulo ganha a sua linha.
+  const capitulos = (estante?.edicoes ?? []).filter(e => e.papel !== 'base' && !e.previa)
+  const ciclo = capitulos.length > 0 && estante ? estante.ciclo : null
   return (
     <section className="fx" aria-label="Álbum do Club">
       <div className="as-eye">
         <Ico n="colecao" s={14} />Álbum do Club · Edição {edicao.edicao}
         {edicao.previa && <span className="as-chip wait fx-prev">Prévia</span>}
       </div>
-      <h2 className="fx-h">{reveladas} de {total} cartas no seu álbum</h2>
+      <h2 className="fx-h">{ciclo ? ciclo.reveladas : reveladas} de {ciclo ? ciclo.total : total} cartas no seu álbum</h2>
       <p className="as-meta">
-        {completo
-          ? 'Você completou o álbum. Peça o seu set em casa.'
-          : `Cada participação no Club vira uma carta. Complete as ${total} e receba o set em casa.`}
+        {ciclo
+          ? `Cada participação no Club vira uma carta. A Base tem ${total} cartas e vale o set em casa.`
+          : completo
+            ? 'Você completou o álbum. Peça o seu set em casa.'
+            : `Cada participação no Club vira uma carta. Complete as ${total} e receba o set em casa.`}
       </p>
+      {capitulos.length > 0 && (
+        <div className="fx-caps">
+          {capitulos.map(c => (
+            <Link key={c.slug} href={`${ALBUM}?c=${c.slug}`} className="fx-cap">
+              <b>{c.titulo}</b>
+              <span>{c.reveladas} de {c.total}{c.novas > 0 ? ` · ${c.novas} ${c.novas === 1 ? 'nova' : 'novas'}` : ''}</span>
+            </Link>
+          ))}
+        </div>
+      )}
       <Leque5 cartas={cartas} total={total} />
       <Energia n={reveladas} total={total} />
       <Link href={ALBUM} className="as-btn pri fx-bt">Abrir meu álbum</Link>
@@ -38,6 +53,11 @@ export const FAIXA_CSS = `
 .fx{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;border:1px solid rgba(var(--ac-1-rgb),.3);background:linear-gradient(180deg,rgba(var(--ac-1-rgb),.07),rgba(var(--ac-1-rgb),.02));min-width:0}
 .fx-h{font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
 .fx-prev{height:22px;margin-left:6px}
+.fx-caps{display:flex;gap:8px;flex-wrap:wrap}
+.fx-cap{min-height:44px;padding:6px 12px;border-radius:10px;border:1px solid var(--bx-border);background:var(--bx-surface);display:flex;flex-direction:column;justify-content:center;gap:1px;text-decoration:none;color:var(--bx-text);transition:background .15s ease}
+.fx-cap:hover{background:var(--bx-surface-2)}
+.fx-cap b{font-size:13px;font-weight:800}
+.fx-cap span{font-size:11.5px;color:var(--bx-text-3)}
 .cl-tcarta{display:flex;gap:14px;align-items:center}
 .cl-vmini{width:84px;flex:none}
 .cl-tcarta-tx{display:flex;flex-direction:column;gap:6px;min-width:0}

@@ -53,7 +53,39 @@ export type EdicaoAlbum = {
   ganhando: boolean
   /** Edição em rascunho ou agendada: só a organização enxerga. */
   previa: boolean
+  /** Fase 2: a Base (as 12 de entrada), um capítulo de 9 ou uma edição especial. */
+  papel?: 'base' | 'capitulo' | 'especial'
+  trilha?: 'creator' | 'bynx' | 'club' | null
+  ciclo?: number
+  total_previsto?: number | null
 }
+
+/** Só a Base tem set físico e camiseta nesta fase: os capítulos são digitais. */
+export const ehBase = (e: Pick<EdicaoAlbum, 'papel'>) => (e.papel ?? 'base') === 'base'
+
+/** Uma edição na estante: a Base ou um capítulo, com os contadores da pessoa. */
+export type EdicaoEstante = {
+  slug: string
+  edicao: number
+  titulo: string
+  status: 'rascunho' | 'publicada' | 'encerrada'
+  papel: 'base' | 'capitulo' | 'especial'
+  trilha: 'creator' | 'bynx' | 'club' | null
+  abre_em: string | null
+  fecha_em: string | null
+  previa: boolean
+  ganhando: boolean
+  total: number
+  ganhas: number
+  reveladas: number
+  /** Cartas que chegaram e ainda estão fechadas. */
+  novas: number
+}
+
+/** As edições que a pessoa enxerga (a Base primeiro) e a soma do ciclo, sem contar prévia. */
+export type Estante = { edicoes: EdicaoEstante[]; ciclo: { total: number; ganhas: number; reveladas: number } }
+
+export const TRILHAS_ALBUM: Record<'creator' | 'bynx' | 'club', string> = { creator: 'Creator', bynx: 'Bynx', club: 'Club' }
 
 export type StatusSet = 'solicitada' | 'combinada' | 'postada' | 'entregue'
 export type PedidoSet = { numero: number; status: StatusSet; criado_em: string }
@@ -168,9 +200,12 @@ export function erroAlbum(msg?: string | null): string {
   return 'Não conseguimos concluir. Tente de novo.'
 }
 
-/** Lê o álbum da pessoa (e confere as missões automáticas). Nunca lança: quem chama decide o que mostrar. */
-export async function carregarAlbum(): Promise<RespostaAlbum> {
-  const { data, error } = await supabase.rpc('club_colecao_minha')
+/**
+ * Lê o álbum da pessoa (e confere as missões automáticas). Sem slug vem a Base; com slug, aquela edição.
+ * Nunca lança: quem chama decide o que mostrar.
+ */
+export async function carregarAlbum(slug?: string | null): Promise<RespostaAlbum> {
+  const { data, error } = await supabase.rpc('club_colecao_minha_v2', { p_slug: slug || null })
   if (error) return { album: null, erro: (error.message || '').includes('nao_membro') ? 'nao_membro' : 'falhou' }
   const d = data as (Partial<Omit<AlbumMinha, 'edicao' | 'prazo_set_passou'>> & { edicao: EdicaoAlbum | null }) | null
   if (!d || !d.edicao) return { album: null, erro: null }
@@ -191,6 +226,14 @@ export async function carregarAlbum(): Promise<RespostaAlbum> {
   }
 }
 
+/** A estante de capítulos (confere as missões de todas as edições abertas). Nunca lança: sem resposta, nula. */
+export async function carregarEstante(): Promise<Estante | null> {
+  const { data, error } = await supabase.rpc('club_album_estante')
+  if (error || !data) return null
+  const d = data as Partial<Estante>
+  return { edicoes: d.edicoes ?? [], ciclo: d.ciclo ?? { total: 0, ganhas: 0, reveladas: 0 } }
+}
+
 type RespostaVirar = { reveladas: number; total: number; cartas: { numero: number; revelada_em: string }[] }
 
 export type ResultadoVirar =
@@ -209,7 +252,7 @@ export function aplicarViradas(album: AlbumMinha, r: RespostaVirar): AlbumMinha 
 
 /**
  * Vira cartas (as indicadas, ou todas as que chegaram fechadas) e devolve o álbum já atualizado.
- * No 12 de 12 lê o álbum de novo: o banco é quem sabe se o pedido do set já pode abrir.
+ * Com todas viradas lê o álbum de novo: o banco é quem sabe se o pedido do set já pode abrir.
  */
 export async function virarCartas(album: AlbumMinha, numeros?: number[]): Promise<ResultadoVirar> {
   const { data, error } = await supabase.rpc('club_carta_virar', { p_slug: album.edicao.slug, p_numeros: numeros ?? null })
@@ -219,7 +262,7 @@ export async function virarCartas(album: AlbumMinha, numeros?: number[]): Promis
   const viradas = r.cartas.filter(c => antes.has(c.numero)).map(c => c.numero)
   let proximo = aplicarViradas(album, r)
   if (r.total > 0 && r.reveladas >= r.total) {
-    const nova = await carregarAlbum()
+    const nova = await carregarAlbum(album.edicao.slug)
     if (nova.album) proximo = nova.album
   }
   return { ok: true, album: proximo, viradas }

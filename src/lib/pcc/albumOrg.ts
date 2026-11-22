@@ -17,7 +17,7 @@ export const MAX_NOMES_ORG = 60
 // ── Quem organiza ───────────────────────────────────────────────────────────
 
 /** Carta de missão conferida pela organização: a única que ela pode conceder. Sem rosto. */
-export type CartaManual = { numero: number; missao: MissaoId; como_ganhar: string }
+export type CartaManual = { numero: number; missao: MissaoId; como_ganhar: string; missao_titulo?: string | null }
 
 export type LoteOrg = {
   lote: string
@@ -38,9 +38,14 @@ export type EdicaoOrg = {
   abre_em: string | null
   fecha_em: string | null
   pedir_set_ate: string | null
+  papel?: 'base' | 'capitulo' | 'especial'
+  trilha?: 'creator' | 'bynx' | 'club' | null
 }
 
-export type PainelOrg = { edicao: EdicaoOrg; cartas: CartaManual[]; lotes: LoteOrg[] }
+/** Uma edição no seletor de quem organiza, com quantas cartas de missão conferida ela tem. */
+export type EdicaoSeletorOrg = { slug: string; edicao: number; titulo: string; status: string; papel: 'base' | 'capitulo' | 'especial'; trilha: string | null; manuais: number }
+
+export type PainelOrg = { edicao: EdicaoOrg; cartas: CartaManual[]; lotes: LoteOrg[]; edicoes: EdicaoSeletorOrg[] }
 
 /** "proprio" é a própria pessoa colada na lista: ela nunca recebe de si mesma. */
 export type EstadoLinhaOrg = EstadoLinha | 'proprio'
@@ -77,13 +82,13 @@ export async function meusPapeis(): Promise<string[]> {
   return !error && Array.isArray(data) ? (data as string[]) : []
 }
 
-/** A edição em vigor, as cartas que ela concede e os lotes dela. Edição nula = ainda não existe nenhuma. */
-export async function carregarPainelOrg(): Promise<RespostaOrg<PainelOrg | null>> {
-  const r = await chamar<{ edicao: EdicaoOrg | null; cartas?: CartaManual[]; lotes?: LoteOrg[] } | null>('club_colecao_organizar', { p_slug: null })
+/** A edição pedida (sem slug, a Base), as cartas que ela concede, os lotes dela e a lista de edições. Edição nula = ainda não existe nenhuma. */
+export async function carregarPainelOrg(slug?: string | null): Promise<RespostaOrg<PainelOrg | null>> {
+  const r = await chamar<{ edicao: EdicaoOrg | null; cartas?: CartaManual[]; lotes?: LoteOrg[]; edicoes?: EdicaoSeletorOrg[] } | null>('club_colecao_organizar_v2', { p_slug: slug || null })
   if (!r.ok) return r
   const d = r.d
   if (!d || !d.edicao) return { ok: true, d: null }
-  return { ok: true, d: { edicao: d.edicao, cartas: d.cartas ?? [], lotes: d.lotes ?? [] } }
+  return { ok: true, d: { edicao: d.edicao, cartas: d.cartas ?? [], lotes: d.lotes ?? [], edicoes: d.edicoes ?? [] } }
 }
 
 export const previaOrg = (slug: string, numero: number, ids: string[]) =>
@@ -97,7 +102,7 @@ export const desfazerLoteOrg = (lote: string) => chamar<DesfeitoOrg>('club_colec
 // ── Regra pública ───────────────────────────────────────────────────────────
 
 /** Uma carta na regra: só o número e o que é regra. A secreta vai só com o número. */
-export type CartaRegra = { numero: number; secreta: boolean; missao?: MissaoId; modo?: 'auto' | 'manual'; como_ganhar?: string }
+export type CartaRegra = { numero: number; secreta: boolean; missao?: MissaoId; modo?: 'auto' | 'manual'; como_ganhar?: string; missao_titulo?: string | null }
 
 export type EdicaoRegra = {
   slug: string
@@ -109,18 +114,21 @@ export type EdicaoRegra = {
   pedir_set_ate: string
   tiragem_fisica: number | null
   total: number
+  papel?: 'base' | 'capitulo' | 'especial'
+  trilha?: 'creator' | 'bynx' | 'club' | null
 }
 
-/** Nula quando nenhuma edição abriu ainda. */
-export type RegrasAlbum = { edicao: EdicaoRegra; cartas: CartaRegra[] } | null
+/** Nula quando nenhuma edição abriu ainda. `capitulos` = as outras edições já abertas, além da do topo. */
+export type RegrasAlbum = { edicao: EdicaoRegra; cartas: CartaRegra[]; capitulos: { edicao: EdicaoRegra; cartas: CartaRegra[] }[] } | null
 
 /** Lê a edição já aberta (a mesma que o membro vê), sem sessão. */
 export async function carregarRegras(): Promise<{ ok: true; d: RegrasAlbum } | { ok: false }> {
-  const { data, error } = await supabase.rpc('club_colecao_regras_publica', { p_slug: null })
+  const { data, error } = await supabase.rpc('club_colecao_regras_publica_v2', { p_slug: null })
   if (error) return { ok: false }
-  const d = data as { edicao: EdicaoRegra | null; cartas?: CartaRegra[] } | null
+  const d = data as { edicao: EdicaoRegra | null; cartas?: CartaRegra[]; edicoes?: { edicao: EdicaoRegra; cartas: CartaRegra[] }[] } | null
   if (!d || !d.edicao) return { ok: true, d: null }
-  return { ok: true, d: { edicao: d.edicao, cartas: d.cartas ?? [] } }
+  const topo = d.edicao.slug
+  return { ok: true, d: { edicao: d.edicao, cartas: d.cartas ?? [], capitulos: (d.edicoes ?? []).filter(e => e.edicao.slug !== topo) } }
 }
 
 /** 21/11/2026 às 09:00, no horário de Brasília. */

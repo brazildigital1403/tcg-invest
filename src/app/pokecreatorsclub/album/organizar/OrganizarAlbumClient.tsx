@@ -49,6 +49,8 @@ export default function OrganizarAlbumClient() {
   const { openLogin } = useAuthModal()
   const [uid, setUid] = useState<string | null | undefined>(undefined)
   const [carga, setCarga] = useState<Carga>({ fase: 'lendo' })
+  // A edição escolhida no seletor. Nula = a Base.
+  const [slug, setSlug] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUid(data.session?.user.id ?? null))
@@ -59,9 +61,9 @@ export default function OrganizarAlbumClient() {
   const ler = useCallback(async (): Promise<Carga> => {
     const papeis = await meusPapeis()
     if (!papeis.includes('colecao')) return { fase: 'sem_papel' }
-    const r = await carregarPainelOrg()
+    const r = await carregarPainelOrg(slug)
     return r.ok ? { fase: 'ok', painel: r.d } : { fase: 'falhou' }
-  }, [])
+  }, [slug])
 
   useEffect(() => {
     if (!uid) return
@@ -71,7 +73,7 @@ export default function OrganizarAlbumClient() {
   }, [uid, ler])
 
   // Depois de conceder ou desfazer: lê só o painel de novo, sem apagar a tela. Se a leitura falhar, fica o que estava.
-  const recarregar = useCallback(() => { carregarPainelOrg().then(r => { if (r.ok) setCarga({ fase: 'ok', painel: r.d }) }) }, [])
+  const recarregar = useCallback(() => { carregarPainelOrg(slug).then(r => { if (r.ok) setCarga({ fase: 'ok', painel: r.d }) }) }, [slug])
   const tentarDeNovo = () => { setCarga({ fase: 'lendo' }); ler().then(setCarga) }
 
   const entrar = () => openLogin({ next: ALBUM_ORGANIZAR, cta: 'Entrar no Club' })
@@ -113,7 +115,7 @@ export default function OrganizarAlbumClient() {
       <div className="as-note">Ainda não existe uma edição do álbum.</div>
     </>)
   }
-  return casca(<PainelOrganizar painel={carga.painel} onMudou={recarregar} />)
+  return casca(<PainelOrganizar key={carga.painel.edicao.slug} painel={carga.painel} onMudou={recarregar} onTrocar={setSlug} />)
 }
 
 /** O que a fase da edição muda para quem organiza. */
@@ -135,14 +137,22 @@ function notaDaFase(ed: EdicaoOrg): { texto: string; trava: boolean } | null {
 
 const chipDaFase = (ed: EdicaoOrg) => (ed.fase === 'aberta' ? 'ok' : ed.fase === 'encerrada' ? '' : 'wait')
 
-function PainelOrganizar({ painel, onMudou }: { painel: PainelOrg; onMudou: () => void }) {
-  const { edicao: ed, cartas, lotes } = painel
+function PainelOrganizar({ painel, onMudou, onTrocar }: { painel: PainelOrg; onMudou: () => void; onTrocar: (slug: string) => void }) {
+  const { edicao: ed, cartas, lotes, edicoes } = painel
   // Cada mensagem aparece perto do botão que a causou, e só a da ação mais recente fica na tela.
   const [ultimo, setUltimo] = useState<'conceder' | 'desfazer' | null>(null)
   const nota = notaDaFase(ed)
   return (
     <>
       <h1 className="as-h2">Organizar o álbum</h1>
+      {edicoes.length > 1 && (
+        <div className="as-f">
+          <label className="as-lb" htmlFor="oa-edicao">Edição</label>
+          <select id="oa-edicao" className="as-in" value={ed.slug} onChange={e => onTrocar(e.target.value)}>
+            {edicoes.map(e => <option key={e.slug} value={e.slug}>{e.papel === 'base' ? 'Base' : e.titulo} · {e.manuais === 0 ? 'sem carta conferida' : e.manuais === 1 ? '1 carta conferida' : `${e.manuais} cartas conferidas`}</option>)}
+          </select>
+        </div>
+      )}
       <div className="oa-ed">
         <span className={`as-chip ${chipDaFase(ed)}`}>{FASES[ed.fase]}</span>
         <span className="as-meta">Edição {ed.edicao}, {ed.titulo}</span>
@@ -207,7 +217,7 @@ function FormConceder({ ed, cartas, onMudou, mostrarResultado, onAcao }: {
       <label className="as-f">
         <span className="as-lb">Carta</span>
         <select className="as-in" value={numero} onChange={e => mudar(() => setNumero(Number(e.target.value)))}>
-          {cartas.map(c => <option key={c.numero} value={c.numero}>{nn(c.numero)} · {MISSOES[c.missao]?.titulo || 'Carta'}</option>)}
+          {cartas.map(c => <option key={c.numero} value={c.numero}>{nn(c.numero)} · {c.missao_titulo || MISSOES[c.missao]?.titulo || 'Carta'}</option>)}
         </select>
         {carta && <span className="as-meta" style={{ marginTop: 6 }}>{carta.como_ganhar}</span>}
       </label>
@@ -277,7 +287,7 @@ function tituloLote(l: LoteOrg, cartas: CartaManual[]): string {
   const nums = l.numeros ?? []
   if (nums.length === 1) {
     const c = cartas.find(x => x.numero === nums[0])
-    return `Carta ${nn(nums[0])}${c ? ` · ${MISSOES[c.missao]?.titulo ?? ''}` : ''}`.trim()
+    return `Carta ${nn(nums[0])}${c ? ` · ${c.missao_titulo || MISSOES[c.missao]?.titulo || ''}` : ''}`.trim()
   }
   return nums.length ? `Cartas ${nums.map(nn).join(', ')}` : 'Lote'
 }
