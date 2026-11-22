@@ -7,7 +7,7 @@
 // ("Sua missão agora"), na própria casa.
 
 import Link from 'next/link'
-import { ALBUM } from '@/lib/pcc/rotas'
+import { ALBUM, PORTFOLIO } from '@/lib/pcc/rotas'
 import type { AlbumMinha, Estante } from '@/lib/pcc/album'
 import { Ico } from '../amigo-secreto/estilo'
 import { Energia, Leque5 } from './CartaClub'
@@ -45,6 +45,8 @@ export default function FaixaAlbum({ album, estante }: { album: AlbumMinha; esta
       <Leque5 cartas={cartas} total={total} />
       <Energia n={reveladas} total={total} />
       <Link href={ALBUM} className="as-btn pri fx-bt">Abrir meu álbum</Link>
+      {/* O portfolio so faz sentido com capitulo de Creator aberto: ate la a entrada fica guardada. */}
+      {capitulos.some(c => c.trilha === 'creator') && <Link href={PORTFOLIO} className="as-btn lnk fx-pf">Meu portfólio de criador</Link>}
     </section>
   )
 }
@@ -53,6 +55,7 @@ export const FAIXA_CSS = `
 .fx{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;border:1px solid rgba(var(--ac-1-rgb),.3);background:linear-gradient(180deg,rgba(var(--ac-1-rgb),.07),rgba(var(--ac-1-rgb),.02));min-width:0}
 .fx-h{font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
 .fx-prev{height:22px;margin-left:6px}
+.fx-pf{width:auto;align-self:flex-start;min-height:44px;padding:0}
 .fx-caps{display:flex;gap:8px;flex-wrap:wrap}
 .fx-cap{min-height:44px;padding:6px 12px;border-radius:10px;border:1px solid var(--bx-border);background:var(--bx-surface);display:flex;flex-direction:column;justify-content:center;gap:1px;text-decoration:none;color:var(--bx-text);transition:background .15s ease}
 .fx-cap:hover{background:var(--bx-surface-2)}

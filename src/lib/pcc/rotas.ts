@@ -12,6 +12,9 @@ export const ANIVERSARIANTES_ORGANIZAR = `${ANIVERSARIANTES}/organizar`
 export const ALBUM = `${CLUB}/album`
 export const ALBUM_ORGANIZAR = `${ALBUM}/organizar`
 export const ALBUM_REGRAS = `${ALBUM}/regras`
+export const PORTFOLIO = `${CLUB}/portfolio`
+/** Página pública do criador: o @ vai na consulta para a página continuar estática (sem rota dinâmica). */
+export const criadorUrl = (arroba: string) => `${CLUB}/criador?u=${encodeURIComponent(arroba)}`
 export const AVISOS = `${CLUB}/avisos`
 export const AVISOS_ORGANIZAR = `${AVISOS}/organizar`
 export const avisoUrl = (slug: string) => `${AVISOS}/${slug}`
