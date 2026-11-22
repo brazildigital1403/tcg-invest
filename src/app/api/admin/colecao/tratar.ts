@@ -20,6 +20,9 @@
 // POST {acao:'historico', id}                             -> club_colecao_historico_interno
 // POST {acao:'pedidos', id}                               -> club_retiradas_admin_interno
 // POST {acao:'pedido', numero, status, nota?}             -> club_retirada_status_interno
+// POST {acao:'portfolio'}                                 -> club_portfolio_amostra_interno (fila + reprovados)
+// POST {acao:'conteudo_conferir', id, ok, nota?}          -> club_conteudo_conferir_interno (confere | nao confere)
+// POST {acao:'conteudo_desfazer', id}                     -> club_conteudo_desfazer_amostra_interno
 
 // A rota (route.ts) so confere o cookie do admin e entrega para ca: assim a logica da para ser exercitada
 // sem a sessao do Admin (a conferencia na prova usa uma rota temporaria).
@@ -69,7 +72,7 @@ const falha = (codigo: string, status = 400, detalhe?: string | null) =>
 
 type Corpo = {
   acao?: string; id?: unknown; numero?: unknown; numeros?: unknown; ids?: unknown; origem?: unknown
-  nota?: unknown; lote?: unknown; como?: unknown; dados?: unknown; status?: unknown
+  nota?: unknown; lote?: unknown; como?: unknown; dados?: unknown; status?: unknown; ok?: unknown
 }
 
 const ehId = (v: unknown): v is string => typeof v === 'string' && UUID.test(v)
@@ -286,6 +289,27 @@ export async function tratarPost(req: NextRequest, sb: SupabaseClient) {
     const { data, error } = await sb.rpc('club_retirada_status_interno', { p_numero: numero, p_status: body.status, p_nota: nota, p_autor: null })
     if (error) return falha(error.message, 400, error.details)
     return NextResponse.json({ pedido: data })
+  }
+
+  if (body.acao === 'portfolio') {
+    const { data, error } = await sb.rpc('club_portfolio_amostra_interno', { p_n: 30, p_fora: null })
+    if (error) return falha(error.message, 400, error.details)
+    return NextResponse.json({ amostra: data })
+  }
+
+  if (body.acao === 'conteudo_conferir') {
+    if (!ehId(body.id) || typeof body.ok !== 'boolean') return falha('dados_invalidos')
+    const nota = typeof body.nota === 'string' ? body.nota.trim().slice(0, 200) : ''
+    const { data, error } = await sb.rpc('club_conteudo_conferir_interno', { p_id: body.id, p_ok: body.ok, p_nota: nota || null, p_autor: null })
+    if (error) return falha(error.message, 400, error.details)
+    return NextResponse.json({ resultado: data })
+  }
+
+  if (body.acao === 'conteudo_desfazer') {
+    if (!ehId(body.id)) return falha('dados_invalidos')
+    const { data, error } = await sb.rpc('club_conteudo_desfazer_amostra_interno', { p_id: body.id, p_autor: null })
+    if (error) return falha(error.message, 400, error.details)
+    return NextResponse.json({ resultado: data })
   }
 
   return falha('Ação inválida')

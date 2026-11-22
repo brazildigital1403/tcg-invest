@@ -71,6 +71,11 @@ export function erroPortfolio(msg?: string | null): string {
   if (m.includes('ficha_invalida')) return `Escolha até ${MAX_FICHA} itens em cada lista.`
   if (m.includes('bio_invalida')) return 'A bio precisa ter de 10 a 120 caracteres, em uma linha.'
   if (m.includes('termo_invalido')) return 'Esse compromisso não está mais em vigor.'
+  if (m.includes('sem_papel')) return 'Só quem organiza o álbum pode conferir conteúdos.'
+  if (m.includes('proprio_conteudo')) return 'Você não confere o próprio conteúdo.'
+  if (m.includes('conteudo_ja_reprovado')) return 'Esse conteúdo já foi marcado como não confere.'
+  if (m.includes('conteudo_nao_reprovado')) return 'Esse conteúdo já voltou a valer.'
+  if (m.includes('nota_grande')) return 'O motivo cabe em até 200 caracteres.'
   return 'Não conseguimos concluir. Tente de novo.'
 }
 
@@ -90,6 +95,45 @@ export const removerConteudo = (id: string) => chamar<{ removido: string }>('clu
 export const salvarFicha = (p: Partial<Ficha>) => chamar<{ ficha: Ficha; cartas: CartaChegou[] }>('club_criador_salvar', { p })
 
 export const aceitarTermo = (termo: string) => chamar<{ termo: string; cartas: CartaChegou[] }>('club_aceite_registrar', { p_termo: termo })
+
+// ── Amostra (quem organiza o álbum e o Admin) ───────────────────────────────
+
+/** Um conteúdo na amostra: o link, o que a pessoa declarou e o @ dela. Nunca e-mail nem nome. */
+export type ConteudoAmostra = {
+  id: string; url: string; rede: Rede; formato: Formato; tema: Tema | null; publicado_em: string
+  instagram: string | null
+  created_at?: string
+  /** Só nos reprovados: quando e com que motivo. */
+  amostrado_em?: string | null
+  nota?: string | null
+}
+export type Amostra = { pendentes: ConteudoAmostra[]; total_pendentes: number; reprovados: ConteudoAmostra[] }
+export type Conferido = { id: string; status: 'ativo' | 'reprovado'; cartas_tiradas: number }
+export type AmostraDesfeita = { id: string; status: 'ativo'; cartas_devolvidas: number }
+
+/** Quantos conteúdos a organização vê por vez. */
+export const TAMANHO_AMOSTRA = 10
+
+export const carregarAmostra = () => chamar<Amostra>('club_portfolio_amostra', { p_n: TAMANHO_AMOSTRA })
+
+export const conferirConteudo = (id: string, ok: boolean, nota?: string) =>
+  chamar<Conferido>('club_conteudo_conferir', { p_id: id, p_ok: ok, p_nota: nota?.trim() || null })
+
+export const desfazerAmostra = (id: string) => chamar<AmostraDesfeita>('club_conteudo_desfazer_amostra', { p_id: id })
+
+/** "Vídeo curto no Instagram · publicado em 18/11/2026", a linha de apoio de um conteúdo na amostra. */
+export function resumoConteudo(c: Pick<ConteudoAmostra, 'rede' | 'formato' | 'tema' | 'publicado_em'>): string {
+  return [`${FORMATOS[c.formato]} no ${REDES[c.rede]}`, c.tema && c.tema !== 'outro' ? TEMAS[c.tema] : '', `publicado em ${dataBrCurta(c.publicado_em)}`].filter(Boolean).join(' · ')
+}
+
+/** O que dizer depois de marcar "não confere". */
+export function avisoReprovado(tiradas: number): string {
+  return `Conteúdo marcado como não confere.${tiradas === 0 ? ' Nenhuma carta dependia só dele.' : tiradas === 1 ? ' 1 carta voltou a ficar bloqueada.' : ` ${tiradas} cartas voltaram a ficar bloqueadas.`}`
+}
+/** O que dizer depois de desfazer. */
+export function avisoDesfeito(devolvidas: number): string {
+  return `O conteúdo voltou a valer.${devolvidas === 0 ? '' : devolvidas === 1 ? ' 1 carta foi devolvida.' : ` ${devolvidas} cartas foram devolvidas.`}`
+}
 
 /** A página pública de um criador, sem sessão. Nulo = não existe (sem conteúdo, fora do Club ou @ errado). */
 export async function carregarCriador(arroba: string): Promise<{ ok: true; d: CriadorPublico | null } | { ok: false }> {

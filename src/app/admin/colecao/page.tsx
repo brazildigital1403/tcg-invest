@@ -17,8 +17,9 @@ import EdicaoBloco from './EdicaoBloco'
 import HistoricoAdmin from './HistoricoAdmin'
 import { NovaEdicao } from './MissaoAdmin'
 import PedidosAdmin from './PedidosAdmin'
+import PortfolioAdmin from './PortfolioAdmin'
 
-type Aba = 'cartas' | 'conceder' | 'historico' | 'pedidos'
+type Aba = 'cartas' | 'conceder' | 'historico' | 'pedidos' | 'portfolio'
 
 async function lerPainel(slug: string | null): Promise<{ painel?: PainelAdmin; erro?: string }> {
   const res = await fetch(`/api/admin/colecao${slug ? `?slug=${encodeURIComponent(slug)}` : ''}`)
@@ -60,7 +61,7 @@ export default function AdminColecaoPage() {
   }, [])
 
   const ed = painel?.edicao || null
-  const abas: [Aba, string][] = [['cartas', 'Cartas'], ['conceder', 'Conceder'], ['historico', 'Histórico'], ['pedidos', `Pedidos do set${ed && ed.resumo.pedidos_ativos > 0 ? ` (${ed.resumo.pedidos_ativos})` : ''}`]]
+  const abas: [Aba, string][] = [['cartas', 'Cartas'], ['conceder', 'Conceder'], ['historico', 'Histórico'], ['pedidos', `Pedidos do set${ed && ed.resumo.pedidos_ativos > 0 ? ` (${ed.resumo.pedidos_ativos})` : ''}`], ['portfolio', 'Portfólio']]
 
   return (
     <AdminPage titulo="Álbum do Club" largura="larga"
@@ -89,6 +90,7 @@ export default function AdminColecaoPage() {
           {aba === 'conceder' && <ConcederAdmin ed={ed} onMudou={mudou} onErro={setErro} onOk={setOk} />}
           {aba === 'historico' && <HistoricoAdmin ed={ed} versao={versao} onMudou={mudou} onErro={setErro} onOk={setOk} />}
           {aba === 'pedidos' && <PedidosAdmin ed={ed} versao={versao} onMudou={mudou} onErro={setErro} onOk={setOk} />}
+          {aba === 'portfolio' && <PortfolioAdmin onErro={setErro} onOk={setOk} />}
         </>
       )}
       <style>{AC_CSS + CARTA_CSS}</style>

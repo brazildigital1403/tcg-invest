@@ -3,7 +3,8 @@
 // Área de quem organiza o álbum (fatia 4 da Fase 1, 21/11/2026). Conta normal da Bynx com o papel
 // "colecao" (a Mika): concede UMA carta de missão conferida pela organização a quem for colado,
 // vê antes o que vai acontecer com cada nome e desfaz só os lotes que ela mesma concedeu. Molde das
-// Avisos. As regras de verdade ficam no banco (club_colecao_*): esta tela só as chama.
+// Avisos. As regras de verdade ficam no banco (club_colecao_*): esta tela só as chama. No fim da
+// tela fica a amostra do portfólio (Fase 2, fatia 2b), que vale para todas as edições.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -18,6 +19,7 @@ import {
 import { ALBUM, ALBUM_ORGANIZAR } from '@/lib/pcc/rotas'
 import { Folha } from '../../_comum/calendario'
 import { Casca } from '../../agenda/comum'
+import AmostraPortfolio from './AmostraPortfolio'
 
 type Carga = { fase: 'lendo' } | { fase: 'sem_papel' } | { fase: 'falhou' } | { fase: 'ok'; painel: PainelOrg | null }
 
@@ -160,6 +162,7 @@ function PainelOrganizar({ painel, onMudou, onTrocar }: { painel: PainelOrg; onM
       {nota && <div className="as-note" role="status">{nota.texto}</div>}
       {!nota?.trava && <FormConceder ed={ed} cartas={cartas} onMudou={onMudou} mostrarResultado={ultimo === 'conceder'} onAcao={() => setUltimo('conceder')} />}
       <Lotes cartas={cartas} lotes={lotes} onMudou={onMudou} mostrarAviso={ultimo === 'desfazer'} onAcao={() => setUltimo('desfazer')} />
+      <AmostraPortfolio />
     </>
   )
 }
