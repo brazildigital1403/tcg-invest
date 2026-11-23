@@ -26,7 +26,9 @@ import { AS_CSS, Ico, LOGO_PCC, SELOS } from './amigo-secreto/estilo'
 import { Rosto } from './aniversariantes/AniversariantesClient'
 import EntrarClub from './EntrarClub'
 import TrendsClub from './TrendsClub'
+import VideosClub from './VideosClub'
 import type { Trend } from '@/lib/pcc/trends'
+import type { VideoClub } from '@/lib/pcc/videos'
 import { carregarAlbum, carregarEstante, missaoDe, nn, type AlbumMinha, type CartaAlbum, type Estante } from '@/lib/pcc/album'
 import FaixaAlbum, { FAIXA_CSS } from './album/FaixaAlbum'
 import { CARTA_CSS, CartaVerso } from './album/CartaClub'
@@ -81,6 +83,7 @@ export default function CasaClub() {
   const [falhou, setFalhou] = useState(false)
   // Trends sao publicas (a home e aberta): carregam para todo mundo, sem depender do login.
   const [trends, setTrends] = useState<Trend[] | null>(null)
+  const [videos, setVideos] = useState<VideoClub[] | null>(null)
   // Album do Club (19/11/2026): so existe para membro e so quando ha edicao aberta. Se a leitura
   // falhar (ou a funcao ainda nao existir), a casa segue sem a faixa e sem a tarefa.
   const [album, setAlbum] = useState<AlbumMinha | null>(null)
@@ -139,6 +142,7 @@ export default function CasaClub() {
   useEffect(() => {
     // Se a leitura falhar, a home segue sem a secao (nao e tarefa de ninguem).
     supabase.rpc('club_trends_lista').then(({ data, error }) => { if (!error && Array.isArray(data)) setTrends(data as Trend[]) })
+    supabase.rpc('club_videos_lista').then(({ data, error }) => { if (!error && Array.isArray(data)) setVideos(data as VideoClub[]) })
   }, [])
 
   const inscrito = !!sala?.inscrito
@@ -297,6 +301,8 @@ export default function CasaClub() {
           {album && <FaixaAlbum album={album} estante={estante} />}
 
           <TrendsClub trends={trends} />
+
+          <VideosClub videos={videos} />
 
           <footer className="as-foot">
             <span>Poké Creators Club</span>
