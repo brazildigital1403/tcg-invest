@@ -132,7 +132,7 @@ export function avisoReprovado(tiradas: number): string {
 }
 /** O que dizer depois de desfazer. */
 export function avisoDesfeito(devolvidas: number): string {
-  return `O conteúdo voltou a valer.${devolvidas === 0 ? '' : devolvidas === 1 ? ' 1 carta foi devolvida.' : ` ${devolvidas} cartas foram devolvidas.`}`
+  return `O conteúdo voltou a valer e entrou de novo na fila de conferência.${devolvidas === 0 ? '' : devolvidas === 1 ? ' 1 carta foi devolvida.' : ` ${devolvidas} cartas foram devolvidas.`}`
 }
 
 /** A página pública de um criador, sem sessão. Nulo = não existe (sem conteúdo, fora do Club ou @ errado). */
