@@ -51,7 +51,7 @@
   ],
   "functions": {
     "src/app/api/cron-regua/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "src/app/api/admin/regua/disparo/route.ts": {
       "maxDuration": 60

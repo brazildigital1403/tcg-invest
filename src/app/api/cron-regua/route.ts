@@ -3,7 +3,7 @@ import { criarContexto, rodarEventos } from '@/lib/regua/motor'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 120
 
 /**
  * GET /api/cron-regua -- os gatilhos de EVENTO da regua de e-mail
@@ -16,8 +16,8 @@ export const maxDuration = 60
  * ★ CHAVE GERAL: REGUA_ATIVA. Diferente de '1' = SIMULACAO: calcula tudo,
  * grava em email_envios com status 'simulado' e nao chama o Resend.
  *
- * ★ ORCAMENTO: para de comecar trabalho novo aos ~42s; o que sobrou aparece
- * como `incompleto` e fica para o proximo tick.
+ * ★ ORCAMENTO: para de comecar trabalho novo aos ~90s (maxDuration 120s); o que
+ * sobrou aparece como `incompleto` e fica para o proximo tick.
  *
  * Auth: Bearer ${CRON_SECRET}.
  * Parametros (para rodar a simulacao na mao):

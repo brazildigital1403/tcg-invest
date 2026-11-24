@@ -119,8 +119,8 @@ export const LOJAS_TESTE_NOME = ['vulcano cards']
 // ─── Orcamento de tempo ─────────────────────────────────────────────────────
 
 /** maxDuration das rotas do motor (vercel.json + export da rota). */
-export const MAX_DURACAO_S = 60
+export const MAX_DURACAO_S = 120
 /** Para de COMECAR trabalho novo depois disto; o resto fica para o proximo tick. */
-export const ORCAMENTO_MS = 42_000
+export const ORCAMENTO_MS = 90_000
 /** Resend: ate 100 e-mails por chamada de batch. */
 export const LOTE_RESEND = 100
