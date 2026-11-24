@@ -52,6 +52,19 @@ function descrever(i: ItemHistorico, ed: EdicaoAdmin): { titulo: string; detalhe
     case 'colecao_salvar': return { titulo: 'Alterou a edição', detalhe: campos(d, CAMPOS_EDICAO) }
     case 'carta_salvar': return { titulo: `Alterou a carta ${nn(num(d, 'numero'))}`, detalhe: campos(d, CAMPOS_CARTA) }
     case 'retirada_status': return { titulo: `Pedido do set nº ${i.alvo}`, detalhe: `${STATUS[txt(d, 'de')] || txt(d, 'de')} → ${STATUS[txt(d, 'para')] || txt(d, 'para')}` }
+    case 'conteudo_conferir': return { titulo: 'Conferiu um conteúdo do portfólio', detalhe: 'Confere: continua valendo.' }
+    case 'conteudo_reprovar': {
+      const t = num(d, 'cartas_tiradas')
+      const nota = txt(d, 'nota')
+      return {
+        titulo: 'Marcou um conteúdo como não confere',
+        detalhe: [t > 0 ? `${t} ${t === 1 ? 'carta voltou' : 'cartas voltaram'} a ficar bloqueada${t === 1 ? '' : 's'}` : 'nenhuma carta dependia só dele', nota ? `"${nota}"` : ''].filter(Boolean).join(' · '),
+      }
+    }
+    case 'conteudo_desfazer': {
+      const dv = num(d, 'cartas_devolvidas')
+      return { titulo: 'Desfez um "não confere"', detalhe: `O conteúdo voltou à fila de conferência${dv > 0 ? ` · ${dv} ${dv === 1 ? 'carta devolvida' : 'cartas devolvidas'}` : ''}` }
+    }
     default: return { titulo: i.acao, detalhe: '' }
   }
 }
