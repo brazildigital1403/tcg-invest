@@ -11,7 +11,7 @@ import BandeirasCartao from '@/components/ui/BandeirasCartao'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { vendedoresNoCarrinho, itensDoVendedor, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
-import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled, IconBolt, IconCard } from '@/components/ui/Icons'
+import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled, IconBolt, IconCard, IconCheck } from '@/components/ui/Icons'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import type { Identificacao } from '@/lib/vendedorIdentificado'
 
@@ -97,7 +97,11 @@ function CarrinhoInner() {
   const [resumos, setResumos] = useState<Record<string, Resumo>>({})
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
-  const cancelado = useSearchParams().get('cancelado') === '1'
+  const sp = useSearchParams()
+  const cancelado = sp.get('cancelado') === '1'
+  // `?novo=<id>` vem do "Juntar e ir para o carrinho" do checkout direto: marca
+  // a carta que acabou de entrar, para a pessoa ver que o juntar funcionou.
+  const novo = sp.get('novo')
 
   // Total de TUDO, somando as lojas.
   //
@@ -385,6 +389,12 @@ function CarrinhoInner() {
                     <p style={{ ...S.itNome, ...(it.disponivel ? {} : S.riscado) }}>{it.nome}</p>
                     {it.disponivel ? (
                       <>
+                        {it.id === novo && (
+                          <p style={S.itNovo}>
+                            <IconCheck size={13} color="var(--bx-green)" />
+                            Acabou de entrar
+                          </p>
+                        )}
                         <p style={S.itPreco}>
                           {fmtBRL(it.preco_cents * it.qtd)}
                           {it.qtd > 1 && <span style={S.itUnit}> · {it.qtd}x {fmtBRL(it.preco_cents)}</span>}
@@ -664,6 +674,7 @@ const S: Record<string, CSSProperties> = {
   },
   itNome: { fontSize: 13.5, fontWeight: 700, margin: 0, lineHeight: 1.3 },
   riscado: { textDecoration: 'line-through', color: 'var(--bx-text-3)' },
+  itNovo: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, color: 'var(--bx-text-2)', margin: '3px 0 0' },
   itPreco: { fontSize: 13, color: 'var(--ac-1)', fontWeight: 800, margin: '3px 0 0' },
   itUnit: { fontSize: 11.5, color: 'var(--bx-text-3)', fontWeight: 600 },
   itAviso: { fontSize: 11, color: '#fbbf24', margin: '5px 0 0', lineHeight: 1.4 },

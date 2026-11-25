@@ -29,6 +29,16 @@ import { IconPlus, IconMinus, IconCheck, IconTrash, IconArrowRight } from '@/com
  * /carrinho -- o inverso do padrao: quantidade e decisao da pagina do
  * produto, nao do carrinho. Na CARTA nao existe: peca unica e sempre 1, e
  * ali o mesmo espaco mostra so a lixeira. E uma prop, nao um componente novo.
+ *
+ * ★ `destaque` (25/11/2026): QUANDO JUNTAR E O CAMINHO, O CARRINHO E O BOTAO
+ * PRINCIPAL. No anuncio de quem tem mais cartas, o "Comprar agora" com
+ * gradiente fechava ESTA carta sozinha, com frete proprio -- e duas cartas da
+ * mesma loja viravam duas compras e dois fretes, logo abaixo da faixa que diz
+ * "o envio e um so". Com `destaque`, o "Adicionar ao carrinho" leva o
+ * gradiente do comprador, a compra direta vira o secundario (`compraDireta`)
+ * e, depois de adicionar, o "Ver carrinho" e quem fica em destaque. A compra
+ * direta SOME quando a carta ja esta na sacola: compra-la por fora deixaria
+ * uma copia esquecida no carrinho.
  */
 export default function BotaoCarrinho({
   id,
@@ -36,6 +46,8 @@ export default function BotaoCarrinho({
   vendedorId,
   lojaId = null,
   estoque = 1,
+  destaque = false,
+  compraDireta = null,
 }: {
   id: string
   tipo: TipoItem
@@ -49,6 +61,10 @@ export default function BotaoCarrinho({
   lojaId?: string | null
   /** Teto do "+". A carta ignora (sempre 1). O servidor revalida no checkout. */
   estoque?: number
+  /** Carrinho como acao principal da tela (gradiente do comprador). */
+  destaque?: boolean
+  /** Com `destaque`: a compra so deste item, como botao secundario. */
+  compraDireta?: { href: string; rotulo: string } | null
 }) {
   // Estado EXTERNO (localStorage + evento): `useSyncExternalStore` le sem
   // efeito e sem setState em cascata. O snapshot e NUMBER (0 = fora) e nao
@@ -65,6 +81,26 @@ export default function BotaoCarrinho({
   const noTeto = qtd >= Math.max(1, estoque)
 
   if (qtd === 0) {
+    if (destaque) {
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => { alternar({ id, tipo, vendedorId, lojaId }) }}
+            className="bx-ctx-comprador bx-compra-cta"
+            style={S.btnDestaque}
+          >
+            <IconPlus size={18} color="currentColor" />
+            Adicionar ao carrinho
+          </button>
+          {compraDireta && (
+            <Link href={compraDireta.href} className="bx-compra-ghost" style={S.direta}>
+              {compraDireta.rotulo}
+            </Link>
+          )}
+        </>
+      )
+    }
     return (
       <button
         type="button"
@@ -83,7 +119,7 @@ export default function BotaoCarrinho({
     // app e brigava com o gradiente roxo-rosa do "Comprar agora" logo acima --
     // dois acentos a 9px de distancia. A /produto ja tinha corrigido isso no
     // preco; este componente ficou de fora.
-    <div className="bx-ctx-comprador bx-cart-box" style={S.box}>
+    <div className="bx-ctx-comprador bx-cart-box" style={destaque ? { ...S.box, marginTop: 0 } : S.box}>
       <div style={S.faixa1}>
         <span style={S.ok}>
           <IconCheck size={16} color="var(--bx-green)" />
@@ -124,18 +160,43 @@ export default function BotaoCarrinho({
         </div>
       </div>
 
-      <Link href="/carrinho" className="bx-cart-ver" style={S.faixa2}>
-        <span style={S.verTxt}>
+      {/* Com `destaque` o "Ver carrinho" e o proximo passo da tela, entao
+          leva o gradiente -- e classe propria, porque o hover da
+          `.bx-cart-ver` pinta o fundo de cinza e apagaria o gradiente. */}
+      <Link
+        href="/carrinho"
+        className={destaque ? 'bx-cart-ver-cta' : 'bx-cart-ver'}
+        style={destaque ? { ...S.faixa2, ...S.faixa2Destaque } : S.faixa2}
+      >
+        <span style={destaque ? { ...S.verTxt, color: 'var(--bx-brand-ink)' } : S.verTxt}>
           Ver carrinho
-          <span style={S.contagem}>{total} {total === 1 ? 'item' : 'itens'}</span>
+          <span style={destaque ? { ...S.contagem, color: 'var(--bx-brand-ink)', opacity: 0.7 } : S.contagem}>
+            {total} {total === 1 ? 'item' : 'itens'}
+          </span>
         </span>
-        <IconArrowRight size={16} color="var(--ac-1)" />
+        <IconArrowRight size={16} color={destaque ? 'var(--bx-brand-ink)' : 'var(--ac-1)'} />
       </Link>
     </div>
   )
 }
 
 const S: Record<string, CSSProperties> = {
+  // Mesma medida do "Comprar agora" do anuncio (`S.cta` la): quando o carrinho
+  // vira o principal, ele ocupa exatamente o lugar e o peso que aquele tinha.
+  btnDestaque: {
+    width: '100%', minHeight: 48, boxSizing: 'border-box', padding: '12px 20px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', border: 'none',
+    fontWeight: 800, fontSize: 15, borderRadius: 12,
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+  direta: {
+    width: '100%', minHeight: 46, marginTop: 9, borderRadius: 11, boxSizing: 'border-box',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)',
+    color: 'var(--bx-text)', fontWeight: 600, fontSize: 13.5, textDecoration: 'none',
+  },
+  faixa2Destaque: { background: 'var(--ac-grad)', borderTop: '1px solid transparent' },
   btn: {
     width: '100%', minHeight: 46, marginTop: 9, borderRadius: 11,
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,

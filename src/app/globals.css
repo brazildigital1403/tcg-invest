@@ -417,6 +417,32 @@ body {
 .bx-cart-ver:focus-visible,
 .bx-cart-step:focus-visible { outline: 2px solid var(--ac-1); outline-offset: -2px; }
 
+/* "Ver carrinho" quando ele e o proximo passo da tela (anuncio de quem tem
+   mais cartas, 25/11/2026): a faixa leva o gradiente, entao o hover nao pode
+   trocar o fundo como a `.bx-cart-ver`. O foco usa a cor do texto, porque o
+   `--ac-1` some sobre o proprio gradiente. */
+.bx-cart-ver-cta { transition: filter 0.15s ease; }
+.bx-cart-ver-cta:hover { filter: brightness(1.08); }
+.bx-cart-ver-cta:focus-visible { outline: 2px solid var(--bx-text); outline-offset: -2px; }
+
 @media (prefers-reduced-motion: reduce) {
-  .bx-cart-add, .bx-cart-ver, .bx-cart-step { transition: none; }
+  .bx-cart-add, .bx-cart-ver, .bx-cart-ver-cta, .bx-cart-step { transition: none; }
+}
+
+/* ─── Aviso "ja tem item deste vendedor no carrinho" (checkout direto) ──────
+   Uma coluna no celular (texto, itens, botoes empilhados); no desktop vira
+   uma faixa unica em cima das duas colunas do checkout, com os botoes na
+   mesma linha. `row-reverse` deixa o botao principal PRIMEIRO no DOM (e o
+   primeiro no celular, onde empilha) e a direita no desktop. */
+.bx-junto { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.bx-junto-acoes { display: flex; flex-direction: column; gap: 2px; }
+@media (min-width: 881px) {
+  .bx-junto { grid-template-columns: minmax(0, 1fr) minmax(0, 240px) auto; align-items: center; gap: 16px; }
+  .bx-junto-acoes { flex-direction: row-reverse; align-items: center; gap: 10px; }
+}
+.bx-junto-so { transition: color 0.15s ease; }
+.bx-junto-so:hover { color: var(--bx-text); }
+.bx-junto-so:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .bx-junto-so { transition: none; }
 }

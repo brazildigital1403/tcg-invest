@@ -65,6 +65,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         estoque: p.estoque,
         disponivel: !!p.ativo && p.estoque > 0,
         vendedor_user_id: loja?.owner_user_id || null,
+        // O carrinho guarda produto SEMPRE com a loja (`ler()` descarta sem
+        // ela). O aviso "juntar com o que ja esta na sacola" do checkout
+        // precisa disto para colocar o produto no carrinho.
+        loja_id: p.loja_id,
       },
       loja: loja
         ? {

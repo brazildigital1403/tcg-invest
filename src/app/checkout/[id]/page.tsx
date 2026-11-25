@@ -14,6 +14,7 @@ import VendidoPor from '@/components/ui/VendidoPor'
 import type { Identificacao } from '@/lib/vendedorIdentificado'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
+import AvisoMesmoVendedor from '@/components/lojas/AvisoMesmoVendedor'
 
 /**
  * /checkout/[id] — tela de compra de um anuncio (Opcao A do epico de vendas).
@@ -57,6 +58,8 @@ interface ItemInfo {
   vendedor_user_id: string
   /** So produto: quantas unidades a loja tem. Carta e sempre 1. */
   estoque?: number | null
+  /** So produto: a loja dele. O carrinho nao aceita produto sem loja. */
+  loja_id?: string | null
 }
 interface LojaInfo {
   /** Ausente na rota de produto, que e sempre loja. */
@@ -318,6 +321,21 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
       />
 
       {erro && <div style={S.erro}>{erro}</div>}
+
+      {/* ★ A SACOLA ENTRA AQUI (25/11/2026): antes do frete, que e quando a
+          pessoa ainda nao pagou nada. So aparece se o carrinho ja tem item
+          deste mesmo vendedor -- ver AvisoMesmoVendedor. */}
+      {!bloqueado && item.vendedor_user_id && (
+        <AvisoMesmoVendedor
+          itemId={item.id}
+          tipo={ehProduto ? 'produto' : 'carta'}
+          vendedorId={item.vendedor_user_id}
+          lojaId={item.loja_id ?? null}
+          qtd={qtd}
+          nomeVendedor={loja.nome}
+          ehPessoa={ehPessoa}
+        />
+      )}
 
       <div style={S.cols}>
 

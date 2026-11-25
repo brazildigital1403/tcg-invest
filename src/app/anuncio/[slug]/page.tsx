@@ -136,6 +136,10 @@ export default async function AnuncioPage({
     identificarVendedor(a.lojaId, a.vendedorId),
   ])
 
+  // A mesma condicao que liga a faixa "o envio e um so": ha o que juntar E a
+  // compra fecha. Decide a ordem dos botoes de compra mais abaixo.
+  const juntar = a.disponivel && a.podeComprar && outros.total > 0
+
   const trilha = [
     { name: 'Início', href: '/' },
     { name: 'Mercado', href: '/marketplace' },
@@ -214,14 +218,24 @@ export default async function AnuncioPage({
                 mesma frase seca -- "nao esta mais disponivel" -- e quem chegava
                 por link compartilhado ia embora achando que a carta acabou.
                 Uma volta em ate 72h; a outra nao volta. */}
+            {/* ★ QUANDO HA O QUE JUNTAR, O CARRINHO VEM PRIMEIRO (25/11/2026).
+                O "Comprar agora" com gradiente fecha SO esta carta, com frete
+                proprio. Em quem tem mais cartas a venda, isso transformava
+                duas cartas da mesma loja em duas compras e dois fretes -- logo
+                abaixo da faixa que promete "o envio e um so". Na mesma
+                condicao da faixa, o "Adicionar ao carrinho" vira o principal e
+                a compra direta vira "Comprar so esta carta", secundaria (ver
+                `destaque` em BotaoCarrinho). Vendedor com uma carta so nao muda. */}
             {a.travado && a.liberaEm ? (
               <CronometroLiberacao liberaEm={a.liberaEm} variante="painel" />
             ) : !a.disponivel ? (
               <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
             ) : a.podeComprar ? (
-              <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-compra-cta" style={S.cta}>
-                <IconCarrinho size={18} /> Comprar agora
-              </Link>
+              juntar ? null : (
+                <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-compra-cta" style={S.cta}>
+                  <IconCarrinho size={18} /> Comprar agora
+                </Link>
+              )
             ) : (
               <div className="bx-ctx-comprador">
                 <BotaoInteresse anuncioId={a.id} nomeCarta={a.nome} preco={fmtBRL(a.preco)} />
@@ -242,8 +256,15 @@ export default async function AnuncioPage({
                 comprar. `lojaId` segue indo quando existe, porque produto
                 precisa dela. */}
             {a.disponivel && a.podeComprar && (
-              <div style={S.carrinhoLinha}>
-                <BotaoCarrinho id={a.id} tipo="carta" vendedorId={a.vendedorId} lojaId={a.lojaId} />
+              <div style={juntar ? undefined : S.carrinhoLinha}>
+                <BotaoCarrinho
+                  id={a.id}
+                  tipo="carta"
+                  vendedorId={a.vendedorId}
+                  lojaId={a.lojaId}
+                  destaque={juntar}
+                  compraDireta={juntar ? { href: `/checkout/${a.id}`, rotulo: 'Comprar só esta carta' } : null}
+                />
               </div>
             )}
 
