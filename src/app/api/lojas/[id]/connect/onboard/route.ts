@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 import { normalizarPrazo } from '@/lib/comissao'
+import { ehColecionador } from '@/lib/naturezaLoja'
 
 /**
  * POST /api/lojas/[id]/connect/onboard
@@ -18,7 +19,7 @@ import { normalizarPrazo } from '@/lib/comissao'
  * Resposta: { url } -> o client redireciona.
  */
 
-const SELECT = 'id, owner_user_id, nome, slug, email, status, stripe_connect_account_id, repasse_prazo'
+const SELECT = 'id, owner_user_id, nome, slug, email, status, stripe_connect_account_id, repasse_prazo, natureza'
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -51,6 +52,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         type: 'express',
         country: 'BR',
         default_currency: 'brl',
+        // ★ COLECIONADOR ENTRA COMO PESSOA FISICA (25/11/2026). Sem
+        //   `business_type`, a Stripe pergunta "empresa ou pessoa fisica" --
+        //   e em outubro duas de duas pessoas sem CNPJ escolheram empresa e
+        //   ficaram restritas com as 40 exigencias de empresa, sem volta: a
+        //   conta Express nao deixa trocar o tipo depois (ver o cabecalho de
+        //   /api/recebimentos/onboard, que ja crava `individual`). Pagina de
+        //   colecionador e uma pessoa vendendo a propria colecao, entao o tipo
+        //   ja vai definido. LOJA continua escolhendo: la o CNPJ e legitimo, e
+        //   ha MEI e empresario individual que entram de um jeito ou de outro.
+        ...(ehColecionador(loja.natureza) ? { business_type: 'individual' as const } : {}),
         email: loja.email || undefined,
         capabilities: {
           card_payments: { requested: true },
