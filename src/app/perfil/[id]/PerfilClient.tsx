@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
-import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield, IconCarrinho } from '@/components/ui/Icons'
+import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import MinhasLojasBox from '@/components/perfil/MinhasLojasBox'
@@ -14,6 +14,8 @@ import { setLabel } from '@/lib/setLabel'
 import { calcPatrimonio, valorCarta, acharPreco } from '@/lib/calcPatrimonio'
 import type { PerfilPublico } from '@/lib/perfilPublico'
 import { ehVerificada } from '@/lib/origemCarta'
+import BotaoMais from '@/components/lojas/BotaoMais'
+import BarraSacola from '@/components/lojas/BarraSacola'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -597,18 +599,15 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                       <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{card.condicao || 'NM'}</span>
                     </div>
                     <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
-                    {viewerId !== user?.id && (podeComprar ? (
-                      /* ★ COMPRAR NAO EXIGE LOGIN, e de proposito: o checkout
-                         atende quem nao tem conta (o `AppLayout` nao bloqueia
-                         deslogado) e o Mercado ja mostra "Comprar" assim. Exigir
-                         conta aqui deixaria o visitante deslogado olhando um
-                         anuncio comprável sem botao nenhum -- e faria esta tela
-                         discordar da vitrine de novo. "Tenho interesse" segue
-                         pedindo login, porque abre conversa. */
-                      <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 12, textDecoration: 'none' }}>
-                        <IconCarrinho size={14} /> Comprar
-                      </Link>
+                    {viewerId !== user?.id && (podeComprar && user?.id ? (
+                      /* ★ ADICIONAR, NAO COMPRAR (25/11/2026). O "Comprar" ia
+                         ao checkout de UMA carta, com frete proprio -- quem
+                         queria tres pagava tres fretes pelo mesmo envelope. Agora
+                         poe na sacola deste vendedor e a barra embaixo leva ao
+                         carrinho. Segue sem exigir login, como antes: o carrinho
+                         nao exige conta. "Tenho interesse" continua pedindo,
+                         porque abre conversa. */
+                      <BotaoMais id={card.id} tipo="carta" vendedorId={user.id} nome={card.card_name || 'esta carta'} forma="largo" />
                     ) : logado ? (
                       <button type="button" disabled={interesseEnviando === card.id}
                         onClick={async () => {
@@ -719,6 +718,10 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         </div>
 
       </main>
+      {/* A sacola deste vendedor, presa embaixo, enquanto houver item dele. */}
+      {podeComprar && user?.id && viewerId !== user.id && (
+        <BarraSacola vendedorId={user.id} nomeVendedor={user.name || null} />
+      )}
     </div>
   )
 }

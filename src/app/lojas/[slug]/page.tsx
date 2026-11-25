@@ -13,6 +13,7 @@ import GaleriaFotos from '@/components/lojas/GaleriaFotos'
 import TrackedLink from '@/components/lojas/TrackedLink'
 import TrackViewLoja from '@/components/lojas/TrackViewLoja'
 import AnunciosLoja from '@/components/lojas/AnunciosLoja'
+import BarraSacola from '@/components/lojas/BarraSacola'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { buscarItensDaVitrine } from '@/lib/vitrineLoja'
 import ReputacaoCard from '@/components/ui/ReputacaoCard'
@@ -637,7 +638,7 @@ export default async function LojaPage(
         )}
 
         {/* Anuncios do dono (marketplace) */}
-        <AnunciosLoja ownerUserId={loja.owner_user_id} itens={itensVitrine} podeVender={!!loja.connect_charges_enabled} />
+        <AnunciosLoja ownerUserId={loja.owner_user_id} lojaId={loja.id} itens={itensVitrine} podeVender={!!loja.connect_charges_enabled} />
 
         {/* Quem vende (#470): razao social e CNPJ, ou nome e CPF mascarado. */}
         <VendidoPor ident={vendedor} style={{ marginTop: 16 }} />
@@ -684,6 +685,11 @@ export default async function LojaPage(
       </main>
 
       <PublicFooter />
+      {/* A sacola desta loja, presa embaixo: o "Adicionar" da vitrine junta
+          sem sair da pagina, e a barra leva ao carrinho uma vez so. */}
+      {loja.connect_charges_enabled && loja.owner_user_id && !preview && (
+        <BarraSacola vendedorId={loja.owner_user_id} nomeVendedor={loja.nome} />
+      )}
     </div>
   )
 }

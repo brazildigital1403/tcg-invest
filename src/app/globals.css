@@ -440,6 +440,59 @@ body {
   .bx-junto { grid-template-columns: minmax(0, 1fr) minmax(0, 240px) auto; align-items: center; gap: 16px; }
   .bx-junto-acoes { flex-direction: row-reverse; align-items: center; gap: 10px; }
 }
+/* ─── Juntar itens do vendedor sem sair da tela (25/11/2026) ──────────────
+   Folha "todas as cartas" (FolhaVendedor), barra da sacola (BarraSacola) e o
+   "+" (BotaoMais). Wireframe aprovado pelo Du em 25/11. */
+
+/* Folha: de baixo para cima no celular; painel de 440 a direita a partir de
+   881 -- o mesmo corte em que a coluna de compra do anuncio vira lateral. */
+.bx-folha-vela { position: fixed; inset: 0; z-index: 9000; background: var(--bx-scrim); }
+.bx-folha {
+  position: fixed; left: 0; right: 0; bottom: 0; top: 64px; z-index: 9001;
+  display: flex; flex-direction: column; overflow: hidden; outline: none;
+  background: var(--bx-bg-elev); border: 1px solid var(--bx-border-2);
+  border-radius: 20px 20px 0 0;
+  animation: bx-folha-sobe 0.2s ease;
+}
+.bx-folha-alca { width: 40px; height: 4px; border-radius: 999px; background: var(--bx-border-2); margin: 8px auto 4px; flex: none; }
+@keyframes bx-folha-sobe { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bx-folha-entra { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (min-width: 881px) {
+  .bx-folha {
+    top: 0; left: auto; width: 440px; border-radius: 0; border-width: 0 0 0 1px;
+    box-shadow: -30px 0 60px -20px rgba(0,0,0,0.7);
+    animation-name: bx-folha-entra;
+    padding-top: 10px;
+  }
+  .bx-folha-alca { display: none; }
+}
+.bx-folha-x { transition: background 0.15s ease, color 0.15s ease; }
+.bx-folha-x:hover { background: var(--bx-surface-3); color: var(--bx-text); }
+.bx-folha-x:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+
+/* "+" da grade e da folha */
+.bx-mais > span { transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
+.bx-mais:hover > span { transform: scale(1.06); }
+.bx-mais:focus-visible { outline: none; }
+.bx-mais:focus-visible > span { outline: 2px solid var(--bx-text); outline-offset: 2px; }
+.bx-mais-largo { transition: filter 0.15s ease, background 0.15s ease; }
+.bx-mais-largo:hover { filter: brightness(1.08); }
+.bx-mais-largo:focus-visible { outline: 2px solid var(--bx-text); outline-offset: 2px; }
+
+/* Barra fixa da sacola na tela: folga no fim da pagina para ela nao cobrir o
+   rodape, e o botao do chat sobe para ficar acima dela no desktop. No celular
+   o botao ja mora a 84 px do chao, acima da barra (~68 px). */
+body.bx-com-sacola { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 769px) {
+  body.bx-com-sacola .bynx-chatfab { bottom: 94px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bx-folha { animation: none; }
+  .bx-mais > span, .bx-mais-largo, .bx-folha-x { transition: none; }
+  .bx-mais:hover > span { transform: none; }
+}
+
 .bx-junto-so { transition: color 0.15s ease; }
 .bx-junto-so:hover { color: var(--bx-text); }
 .bx-junto-so:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; border-radius: 8px; }

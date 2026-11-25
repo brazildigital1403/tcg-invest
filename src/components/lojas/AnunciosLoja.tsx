@@ -12,6 +12,7 @@ import type { ItemVitrine } from '@/lib/vitrineLoja'
 import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 import MarketplaceFotosGaleria from '@/components/marketplace/MarketplaceFotosGaleria'
 import SelosPagamento from '@/components/ui/SelosPagamento'
+import BotaoMais from '@/components/lojas/BotaoMais'
 
 const BRAND = '#f59e0b'
 
@@ -177,10 +178,13 @@ const S = {
  */
 export default function AnunciosLoja({
   ownerUserId,
+  lojaId = null,
   itens,
   podeVender = false,
 }: {
   ownerUserId: string | null
+  /** A sacola guarda produto sempre com a loja. */
+  lojaId?: string | null
   /** Vem do servidor, ja montado — ver `src/lib/vitrineLoja.ts`. */
   itens: Item[]
   podeVender?: boolean
@@ -244,7 +248,9 @@ export default function AnunciosLoja({
     <section style={S.card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
         <h2 style={S.sectionTitle}>À venda nesta loja ({todos.length})</h2>
-        {logado === false && (
+        {/* So em loja SEM recebimento: la o gesto e "Tenho interesse", que
+            pede conta. Com recebimento, o "Adicionar" funciona sem login. */}
+        {logado === false && !podeVender && (
           <button type="button" onClick={() => openSignup()} style={S.ctaPill}>
             Cadastre-se para comprar &rarr;
           </button>
@@ -268,7 +274,18 @@ export default function AnunciosLoja({
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 12 }}>
-        {visiveis.map(item => (
+        {visiveis.map(item => {
+          // ★ "ADICIONAR" NO LUGAR DO "COMPRAR" (25/11/2026). O "Comprar" do
+          //   produto ia direto ao checkout DELE, sozinho -- o caminho de
+          //   compras e fretes separados que o anuncio ja tinha deixado -- e o
+          //   da carta abria o anuncio, mais um salto. Agora o card poe na
+          //   sacola deste vendedor ali mesmo, e a barra embaixo leva ao
+          //   carrinho. Comprar um item sozinho continua na pagina dele.
+          //   Nao exige login (o carrinho nao exige); espera so saber quem
+          //   esta vendo, para nao oferecer ao dono a propria vitrine.
+          const podeAdicionar = podeVender && !!ownerUserId && logado !== null && !ehDono && !item.travada
+          const temAcao = podeAdicionar || (logado === true && !ehDono)
+          return (
           <div key={item.id} style={S.surface}>
             <Capa item={item} />
             <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -281,7 +298,7 @@ export default function AnunciosLoja({
                 {!item.ehCarta && <span style={{ ...S.badge, color: BRAND, display: 'inline-flex', alignItems: 'center', gap: 4 }}><TipoIcone tipo={item.tipo} size={12} /> {TIPO_LABEL[item.tipo]?.replace(/s$/, '')}</span>}
                 {item.badges.map((b, i) => <span key={i} style={S.badge}>{b}</span>)}
               </div>
-              <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: (logado && !ehDono) ? 10 : 2, marginTop: 'auto' }}>
+              <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: temAcao ? 10 : 2, marginTop: 'auto' }}>
                 {fmt(item.preco)}
               </p>
               {/* Travada: nem Comprar nem Tenho interesse. Os dois gestos
@@ -291,10 +308,18 @@ export default function AnunciosLoja({
               {logado && !ehDono && item.travada && item.detalhe && (
                 <Link href={item.detalhe} style={{ ...S.btn, ...S.btnVer, textDecoration: 'none' }}>Ver anúncio</Link>
               )}
-              {logado && !ehDono && !item.travada && (
-                podeVender ? (
-                  <a href={item.href} className="bx-ctx-comprador" style={{ ...S.btn, ...S.btnComprar, textDecoration: 'none' }}>Comprar</a>
-                ) : item.ehCarta ? (
+              {podeAdicionar && (
+                <BotaoMais
+                  id={item.id}
+                  tipo={item.ehCarta ? 'carta' : 'produto'}
+                  vendedorId={ownerUserId!}
+                  lojaId={lojaId}
+                  nome={item.nome}
+                  forma="largo"
+                />
+              )}
+              {logado && !ehDono && !item.travada && !podeVender && (
+                item.ehCarta ? (
                   <button type="button" disabled={enviando === item.id} onClick={() => clicarInteresse(item)} style={{ ...S.btn, opacity: enviando === item.id ? 0.6 : 1 }}>
                     {enviando === item.id ? 'Abrindo...' : 'Tenho interesse'}
                   </button>
@@ -304,7 +329,8 @@ export default function AnunciosLoja({
               )}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ★ SELOS SO QUANDO A LOJA VENDE DE VERDADE (12/09/2026). `podeVender`

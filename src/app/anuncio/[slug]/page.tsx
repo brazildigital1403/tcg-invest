@@ -9,6 +9,9 @@ import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
+import BotaoMais from '@/components/lojas/BotaoMais'
+import BarraSacola from '@/components/lojas/BarraSacola'
+import FolhaVendedor, { BotaoAbrirFolha } from '@/components/lojas/FolhaVendedor'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import BotaoInteresse from './BotaoInteresse'
 import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
@@ -202,9 +205,10 @@ export default async function AnuncioPage({
                   {outros.total === 1 ? 'carta' : 'cartas'}, e o envio é um só para
                   tudo que você levar junto.
                 </p>
-                <Link href="#mais-do-vendedor" style={S.faixaLink}>
-                  Ver as {outros.total} {outros.total === 1 ? 'carta' : 'cartas'}
-                </Link>
+                {/* Abre a folha com todas, em vez de rolar ate a grade de 6. */}
+                <BotaoAbrirFolha className="bx-compra-ghost" style={S.faixaLink}>
+                  Ver {outros.total === 1 ? 'a outra carta' : `as ${outros.total} cartas`}
+                </BotaoAbrirFolha>
               </div>
             )}
 
@@ -364,33 +368,41 @@ export default async function AnuncioPage({
                 <h2 style={S.h2}>Mais deste vendedor</h2>
                 <div style={{ ...S.grade, gridTemplateColumns: 'repeat(auto-fill, minmax(118px, 1fr))' }}>
                   {outros.itens.map((o: OutroDoVendedor) => (
-                    <Link key={o.id} href={`/anuncio/${o.slug || o.id}`} style={S.mini}>
-                      <span style={S.miniFoto}>
-                        {o.imagem && (
-                          <Image
-                            src={o.imagem}
-                            alt={o.nome}
-                            fill
-                            sizes="(max-width: 880px) 45vw, 130px"
-                            style={{ objectFit: 'cover' }}
-                          />
-                        )}
-                      </span>
-                      <span style={S.miniCorpo}>
-                        <span style={S.miniNome}>{o.nome}</span>
-                        <span style={S.miniPreco}>{fmtBRL(o.precoCents / 100)}</span>
-                        {o.condicao && <span style={S.miniCond}>{o.condicao}</span>}
-                      </span>
-                    </Link>
+                    // ★ O "+" mora FORA do <Link> (25/11/2026): botao dentro de
+                    //   link e HTML invalido, e o toque abriria o anuncio junto.
+                    //   O card segue levando ao anuncio; o "+" so poe na sacola.
+                    <div key={o.id} style={S.miniCaixa}>
+                      <Link href={`/anuncio/${o.slug || o.id}`} style={S.mini}>
+                        <span style={S.miniFoto}>
+                          {o.imagem && (
+                            <Image
+                              src={o.imagem}
+                              alt={o.nome}
+                              fill
+                              sizes="(max-width: 880px) 45vw, 130px"
+                              style={{ objectFit: 'cover' }}
+                            />
+                          )}
+                        </span>
+                        <span style={S.miniCorpo}>
+                          <span style={S.miniNome}>{o.nome}</span>
+                          <span style={S.miniPreco}>{fmtBRL(o.precoCents / 100)}</span>
+                          {o.condicao && <span style={S.miniCond}>{o.condicao}</span>}
+                        </span>
+                      </Link>
+                      {a.podeComprar && (
+                        <BotaoMais id={o.id} tipo="carta" vendedorId={a.vendedorId} lojaId={a.lojaId} nome={o.nome} forma="mini" style={S.miniMais} />
+                      )}
+                    </div>
                   ))}
                 </div>
+                {/* ★ "Ver todas" ABRE A FOLHA (25/11/2026). Ia ao PERFIL da
+                    pessoa mesmo quando ela tem loja, e la o botao principal
+                    fechava uma carta por vez. */}
                 {outros.total > outros.itens.length && (
-                  <Link
-                    href={a.vendedorUsername ? `/perfil/${a.vendedorUsername}` : `/perfil/${a.vendedorId}`}
-                    style={S.verTodas}
-                  >
+                  <BotaoAbrirFolha className="bx-compra-ghost" style={S.verTodas}>
                     Ver todas as {outros.total}
-                  </Link>
+                  </BotaoAbrirFolha>
                 )}
               </section>
             )}
@@ -408,6 +420,23 @@ export default async function AnuncioPage({
         </div>
       </main>
       <PublicFooter />
+      {/* A folha "todas as cartas" e a barra da sacola deste vendedor. A folha
+          existe sempre que ha outra carta; sem recebimento ela lista sem "+",
+          e a barra nem aparece -- nao ha sacola que feche. */}
+      {outros.total > 0 && (
+        <FolhaVendedor
+          vendedorId={a.vendedorId}
+          nomeVendedor={a.lojaNome || a.vendedorNome || 'Este vendedor'}
+          podeComprar={a.podeComprar}
+          excetoId={a.id}
+          pagina={a.lojaSlug
+            ? { href: `/lojas/${a.lojaSlug}`, rotulo: 'Abrir a página da loja' }
+            : a.vendedorUsername
+              ? { href: `/perfil/${a.vendedorUsername}`, rotulo: 'Ver o perfil' }
+              : null}
+        />
+      )}
+      {a.podeComprar && <BarraSacola vendedorId={a.vendedorId} nomeVendedor={a.lojaNome || a.vendedorNome} />}
       {/* A conversa abre NESTA tela: o BotaoInteresse poe `?conversa=ID` na
           URL atual e o ChatDock (que le a query) assume. Sem isto a pessoa
           seria mandada pro /marketplace e perderia o anuncio de vista. */}
@@ -498,6 +527,11 @@ const S: Record<string, React.CSSProperties> = {
     color: 'var(--bx-text)', fontSize: 13, fontWeight: 700,
   },
   grade: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(0, 1fr))', gap: 9 },
+  // Caixa do card da grade: posiciona o "+" sobre a foto sem por o botao
+  // dentro do <Link>.
+  miniCaixa: { position: 'relative', minWidth: 0 },
+  // O alvo e 44x44 (o circulo visivel tem 32) colado no canto da foto.
+  miniMais: { position: 'absolute', top: 0, right: 0 },
   mini: {
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
     borderRadius: 11, overflow: 'hidden', textDecoration: 'none', display: 'block',
