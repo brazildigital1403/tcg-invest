@@ -6,7 +6,7 @@ import type { MissaoId } from '@/lib/pcc/album'
 
 export type FaseEdicao = 'rascunho' | 'agendada' | 'aberta' | 'so_pedidos' | 'prazo_encerrado' | 'encerrada'
 
-export type RegraTipo = 'manual' | 'sinal' | 'cartas_da_edicao' | 'conteudos' | 'conteudos_sequencia'
+export type RegraTipo = 'manual' | 'sinal' | 'cartas_da_edicao' | 'conteudos' | 'conteudos_sequencia' | 'capitulos'
 export type PapelEdicao = 'base' | 'capitulo' | 'especial'
 export type TrilhaEdicao = 'creator' | 'bynx' | 'club'
 
@@ -119,6 +119,7 @@ export const REGRAS: Record<RegraTipo, string> = {
   cartas_da_edicao: 'Cartas da edição: deriva de outras cartas',
   conteudos: 'Conteúdos do portfólio',
   conteudos_sequencia: 'Semanas seguidas com conteúdo',
+  capitulos: 'Capítulos fechados: deriva do álbum inteiro',
 }
 
 /**
@@ -171,6 +172,10 @@ export function resumoRegra(c: Pick<CartaAdmin, 'regra_tipo' | 'regra_param' | '
   if (c.regra_tipo === 'conteudos') {
     const filtros = (['formato', 'tema', 'rede'] as const).filter(k => p[k]).map(k => `${k} ${p[k]}`).join(', ')
     return `${p.minimo} conteúdo(s) no portfólio${filtros ? ` (${filtros})` : ''}${depois}`
+  }
+  if (c.regra_tipo === 'capitulos') {
+    const trilha = typeof p.trilha === 'string' ? TRILHAS[p.trilha as TrilhaEdicao] : null
+    return `Ter ${p.minimo} capítulos fechados${trilha ? ` da trilha ${trilha}` : ''}`
   }
   return `${p.semanas} semanas seguidas com conteúdo${depois}`
 }

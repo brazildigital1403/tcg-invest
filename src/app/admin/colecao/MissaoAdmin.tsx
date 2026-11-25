@@ -23,6 +23,7 @@ type Regra = {
   todas: boolean; chaves: string
   formato: string; tema: string; rede: string
   semanas: string
+  trilha: string
   desde: boolean
   titulo: string; icone: string; botao: string; href: string
   como: string
@@ -38,6 +39,7 @@ function regraDaCarta(c?: CartaAdmin): Regra {
     todas: p.todas === true || !Array.isArray(p.chaves), chaves: Array.isArray(p.chaves) ? p.chaves.join(', ') : '',
     formato: txt(p.formato), tema: txt(p.tema), rede: txt(p.rede),
     semanas: txt(p.semanas) || '4',
+    trilha: txt(p.trilha),
     desde: !!c?.regra_desde_abertura,
     titulo: c?.missao_titulo || '', icone: c?.missao_icone || 'star', botao: c?.missao_botao || '', href: c?.missao_href || '',
     como: c?.como_ganhar || '',
@@ -67,10 +69,14 @@ function corpoDaRegra(r: Regra): Record<string, unknown> | null {
     const s = num(r.semanas)
     if (s === null) return null
     param = { semanas: s }
+  } else if (r.tipo === 'capitulos') {
+    if (minimo === null) return null
+    param = { minimo }
+    if (r.trilha.trim()) param.trilha = r.trilha.trim()
   }
   return {
     regra_tipo: r.tipo, regra_param: param,
-    regra_desde_abertura: r.tipo === 'manual' || r.tipo === 'cartas_da_edicao' ? false : r.desde,
+    regra_desde_abertura: r.tipo === 'manual' || r.tipo === 'cartas_da_edicao' || r.tipo === 'capitulos' ? false : r.desde,
     missao_titulo: r.titulo, missao_icone: r.icone, missao_botao: r.botao, missao_href: r.href,
     como_ganhar: r.como,
   }
@@ -158,6 +164,25 @@ function RegraCampos({ id, r, set, travado }: { id: string; r: Regra; set: (p: P
           <input id={`${id}-sem`} className="ac-in" inputMode="numeric" value={r.semanas} disabled={travado} onChange={e => set({ semanas: e.target.value })} />
           <span className="ac-hint">Só começa a conferir quando o portfólio entrar.</span>
         </div>
+      )}
+
+      {r.tipo === 'capitulos' && (
+        <>
+        <div className="ac-2">
+          <div className="ac-f">
+            <label className="ac-lb" htmlFor={`${id}-min`}>Capítulos fechados</label>
+            <input id={`${id}-min`} className="ac-in" inputMode="numeric" value={r.minimo} disabled={travado} onChange={e => set({ minimo: e.target.value })} />
+          </div>
+          <div className="ac-f">
+            <label className="ac-lb" htmlFor={`${id}-trilha`}>Trilha</label>
+            <select id={`${id}-trilha`} className="ac-in" value={r.trilha} disabled={travado} onChange={e => set({ trilha: e.target.value })}>
+              <option value="">Todas (a Base conta)</option>
+              {(Object.keys(TRILHAS) as TrilhaEdicao[]).map(t => <option key={t} value={t}>{TRILHAS[t]}</option>)}
+            </select>
+          </div>
+        </div>
+        <span className="ac-hint">Capítulo fechado é o que tem todas as cartas na mão do membro. Rascunho e Especiais não entram na conta.</span>
+        </>
       )}
 
       {comData && (
