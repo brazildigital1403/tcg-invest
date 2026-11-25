@@ -117,13 +117,41 @@ export async function GET(req: NextRequest) {
     }
 
     // ─── Alertas (sempre "agora", nao segue o periodo) ──────────────────
-    const [ticketsResp, lojasPend, lojasConnect, cardReqPend, despRec] = await Promise.all([
+    const [ticketsResp, lojasPend, lojasConnect, cardReqPend, despRec, semRecebimento] = await Promise.all([
       ticketsPrecisandoResposta(sb),
       sb.from('lojas').select('id', { count: 'exact', head: true }).eq('status', 'pendente'),
       sb.from('lojas').select('id', { count: 'exact', head: true }).in('stripe_connect_status', ['pendente', 'restrito']),
       sb.from('card_requests').select('id', { count: 'exact', head: true }).eq('status', 'pendente'),
       sb.from('despesas_recorrentes').select('id, dia_vencimento').eq('ativa', true),
+      // ★ QUEM NUNCA COMECOU O CONNECT (25/11/2026). O alerta acima so conta
+      //   `pendente`/`restrito`, entao a loja que nunca abriu o recebimento --
+      //   13 das ativas hoje -- nao aparecia em lugar nenhum do painel. Sem
+      //   status conta como nao iniciado: e o default de quem nunca clicou.
+      sb.from('lojas').select('id, owner_user_id')
+        .eq('status', 'ativa')
+        .or('stripe_connect_status.is.null,stripe_connect_status.eq.nao_iniciado'),
     ])
+
+    // Das que nunca ativaram, quais tem item a venda: essas aparecem no
+    // mercado SEM botao de comprar, e a venda escorre pro chat ou se perde.
+    // Carta casa pelo dono e produto pela loja -- o mesmo recorte do carrinho.
+    const lojasSem = semRecebimento.data || []
+    let lojasSemRecebimentoComItem = 0
+    if (lojasSem.length) {
+      const [cartasSem, produtosSem] = await Promise.all([
+        sb.from('marketplace').select('user_id')
+          .in('user_id', lojasSem.map(l => l.owner_user_id).filter(Boolean))
+          .eq('status', 'disponivel').is('removido_em', null),
+        sb.from('loja_produtos').select('loja_id')
+          .in('loja_id', lojasSem.map(l => l.id))
+          .eq('ativo', true).gt('estoque', 0),
+      ])
+      const donosComCarta = new Set((cartasSem.data || []).map(c => c.user_id))
+      const lojasComProduto = new Set((produtosSem.data || []).map(p => p.loja_id))
+      lojasSemRecebimentoComItem = lojasSem
+        .filter(l => donosComCarta.has(l.owner_user_id) || lojasComProduto.has(l.id))
+        .length
+    }
 
     const hoje = now.getDate()
     const ultimoDiaMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
@@ -167,6 +195,8 @@ export async function GET(req: NextRequest) {
         contasAVencer,
         lojasPendentes: lojasPend.count || 0,
         lojasConnectPendente: lojasConnect.count || 0,
+        lojasSemRecebimento: lojasSem.length,
+        lojasSemRecebimentoComItem,
         cardRequestsPendentes: cardReqPend.count || 0,
       },
       receitaDespesa6m,

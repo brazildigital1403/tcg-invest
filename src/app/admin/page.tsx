@@ -27,6 +27,10 @@ type Dashboard = {
     contasAVencer: number
     lojasPendentes: number
     lojasConnectPendente: number
+    /** Ativas que nunca abriram o Connect (nao iniciado ou sem status). */
+    lojasSemRecebimento: number
+    /** Dessas, quantas tem item a venda -- aparecem sem botao de comprar. */
+    lojasSemRecebimentoComItem: number
     cardRequestsPendentes: number
   }
   receitaDespesa6m: { mes: string; receita: number; despesa: number }[]
@@ -422,12 +426,24 @@ function AlertBox({ alertas }: { alertas?: Dashboard['alertas'] }) {
       </div>
     )
   }
-  const itens = [
-    { n: alertas.ticketsPrecisandoResposta, txt: 'tickets aguardando sua resposta', href: '/admin/tickets' },
-    { n: alertas.contasAVencer, txt: 'contas a vencer nos próximos 3 dias', href: '/admin/financeiro' },
-    { n: alertas.lojasPendentes, txt: 'lojas aguardando aprovação', href: '/admin/lojas?status=pendente' },
-    { n: alertas.lojasConnectPendente, txt: 'lojas com Connect pendente ou restrito', href: '/admin/lojas' },
-    { n: alertas.cardRequestsPendentes, txt: 'pedidos de carta ainda sem resposta', href: '/admin/card-requests' },
+  // ★ Singular e plural por linha (25/11/2026). O texto era fixo no plural e
+  //   o card escrevia "1 lojas com Connect pendente", "1 tickets" etc.
+  const comItem = alertas.lojasSemRecebimentoComItem ?? 0
+  const itens: { n: number; um: string; varios: string; sub?: string | null; href: string }[] = [
+    { n: alertas.ticketsPrecisandoResposta, um: 'ticket aguardando sua resposta', varios: 'tickets aguardando sua resposta', href: '/admin/tickets' },
+    { n: alertas.contasAVencer, um: 'conta a vencer nos próximos 3 dias', varios: 'contas a vencer nos próximos 3 dias', href: '/admin/financeiro' },
+    { n: alertas.lojasPendentes, um: 'loja aguardando aprovação', varios: 'lojas aguardando aprovação', href: '/admin/lojas?status=pendente' },
+    { n: alertas.lojasConnectPendente, um: 'loja com Connect pendente ou restrito', varios: 'lojas com Connect pendente ou restrito', href: '/admin/lojas' },
+    // Quem nunca abriu o recebimento nao aparecia em lugar nenhum. O recorte
+    // de quem tem item a venda vai junto: e a parte que perde venda hoje.
+    {
+      n: alertas.lojasSemRecebimento ?? 0,
+      um: 'loja ativa que nunca ativou o recebimento',
+      varios: 'lojas ativas que nunca ativaram o recebimento',
+      sub: comItem > 0 ? `${comItem} com item à venda, sem botão de comprar` : null,
+      href: '/admin/lojas',
+    },
+    { n: alertas.cardRequestsPendentes, um: 'pedido de carta ainda sem resposta', varios: 'pedidos de carta ainda sem resposta', href: '/admin/card-requests' },
   ].filter(i => i.n > 0)
 
   return (
@@ -440,7 +456,10 @@ function AlertBox({ alertas }: { alertas?: Dashboard['alertas'] }) {
       ) : (
         itens.map((i, idx) => (
           <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderTop: idx === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)', fontSize: 13 }}>
-            <span style={{ color: 'rgba(255,255,255,0.7)' }}>{i.n} {i.txt}</span>
+            <span style={{ color: 'rgba(255,255,255,0.7)' }}>
+              {i.n} {i.n === 1 ? i.um : i.varios}
+              {i.sub && <span style={{ display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{i.sub}</span>}
+            </span>
             <Link href={i.href} style={{ color: '#f59e0b', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>ver →</Link>
           </div>
         ))
