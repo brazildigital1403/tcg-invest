@@ -2126,7 +2126,7 @@ export async function POST(req: NextRequest) {
 
         const { data: lojas, error: selErr } = await supabase
           .from('lojas')
-          .select('id, nome, owner_user_id, stripe_connect_status')
+          .select('id, nome, owner_user_id, stripe_connect_status, natureza')
           .eq('stripe_connect_account_id', acc.id)
           .limit(1)
 
@@ -2247,14 +2247,20 @@ export async function POST(req: NextRequest) {
         const virouRestrito = c.status === 'restrito' && loja.stripe_connect_status !== 'restrito'
 
         if ((virouAtivo || virouRestrito) && loja.owner_user_id) {
+          // Pagina de colecionador nao e loja: o sino e o e-mail trocam o
+          // vocabulario (ver `voc()` em lib/email). Sem isto, o primeiro aviso
+          // de quem acabou de ativar diria "a loja joao guilherme kindel".
+          const ehCol = ehColecionador((loja as { natureza?: string | null }).natureza)
+          const oQue = ehCol ? 'A página' : 'A loja'
+          const daQual = ehCol ? 'da página' : 'da loja'
           const sino = virouAtivo
             ? {
                 title: 'Recebimentos ativos!',
-                message: `A loja ${loja.nome} está pronta para vender na Bynx. O dinheiro das suas vendas cai direto na sua conta.`,
+                message: `${oQue} ${loja.nome} está pronta para vender na Bynx. O dinheiro das suas vendas cai direto na sua conta.`,
               }
             : {
                 title: 'Falta pouco para vender na Bynx',
-                message: `A Stripe precisa de mais ${c.pendencias.length} informação(ões) para liberar os recebimentos da loja ${loja.nome}.`,
+                message: `A Stripe precisa de mais ${c.pendencias.length} informação(ões) para liberar os recebimentos ${daQual} ${loja.nome}.`,
               }
 
           try {
@@ -2284,6 +2290,7 @@ export async function POST(req: NextRequest) {
                   nomeUser: dono.name || '',
                   nomeLoja: loja.nome,
                   lojaId: loja.id,
+                  colecionador: ehCol,
                 })
               } else {
                 await sendConnectPendenciaEmail({
@@ -2292,6 +2299,7 @@ export async function POST(req: NextRequest) {
                   nomeLoja: loja.nome,
                   lojaId: loja.id,
                   qtdPendencias: c.pendencias.length,
+                  colecionador: ehCol,
                 })
               }
               console.log(`[webhook] account.updated: email de ${virouAtivo ? 'ativo' : 'pendencia'} enviado pra loja ${loja.nome}`)

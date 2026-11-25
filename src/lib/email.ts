@@ -2784,11 +2784,21 @@ export async function sendRecebimentosParadosEmail(args: {
   /** Qual aviso e este (1 = primeiro). A regua repete a cada 30 dias. */
   vez?: number
   to: string; nome: string; loja: string; lojaId: string
+  /** true = pessoa fisica vendendo da propria colecao. Default: loja. */
+  colecionador?: boolean
 }) {
+  // ★ O 13o e-mail da familia (25/11/2026). Ficou de fora da varredura de
+  //   vocabulario de 06/11 porque o nome da funcao nao tem "Loja" -- e e
+  //   justamente o que um colecionador com carta parada recebe.
+  const ehCol = !!args.colecionador
+  const V = voc(ehCol)
   const um = args.total === 1
-  const first = primeiroNome(args.nome, 'lojista')
-  const loja = escapeHtml(args.loja || 'sua loja')
+  const first = primeiroNome(args.nome, V.tratamento)
+  const loja = escapeHtml(args.loja || V.semNome)
   const quantos = escapeHtml(args.quantos)
+  // Colecionador nao tem CNPJ: oferecer "CNPJ ou CPF" e a mesma porta errada
+  // que o onboarding fechou em afd87dbe.
+  const documento = ehCol ? 'o seu CPF' : 'CNPJ ou CPF'
 
   // ★ Do segundo aviso em diante o texto MUDA (decisao do Du, 12/09). O mesmo
   // email todo mes ensina a pessoa a ignorar -- e o caminho mais curto pro
@@ -2797,16 +2807,16 @@ export async function sendRecebimentosParadosEmail(args: {
   if ((args.vez ?? 1) >= 2) {
     const urlLembrete = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/pagamentos`, 'loja_connect_lembrete', 'cta-button')
     const montarLembrete = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
-    ${h1('Falta um passo para a sua loja vender 🔌')}
+    ${badge(V.badge, '#f59e0b', '')}
+    ${h1(`Falta um passo para a sua ${V.substantivo} vender 🔌`)}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`Voltamos a escrever porque a <b style="color:#f0f0f0;">${loja}</b> continua do mesmo jeito: <b style="color:#f0f0f0;">${quantos}</b> à venda e nenhuma forma de o cliente comprar pela Bynx.`)}
     ${checklist([
       { feito: true, texto: `${quantos} ${um ? 'publicado' : 'publicados'}` },
-      { feito: true, texto: 'Página no Guia de Lojas' },
+      { feito: true, texto: ehCol ? 'Página no Guia, na aba de Colecionadores' : 'Página no Guia de Lojas' },
       { feito: false, texto: 'Recebimentos ativados' },
     ])}
-    ${p('É o único item que falta. São uns 3 minutos: CNPJ ou CPF e a conta bancária, preenchidos direto na Stripe. Não custa nada, e a Bynx nunca vê esses dados.')}
+    ${p(`É o único item que falta. São uns 3 minutos: ${documento} e a conta bancária, preenchidos direto na Stripe. Não custa nada, e a Bynx nunca vê esses dados.`)}
     ${btn('Ativar recebimentos →', urlLembrete)}${rodape}
   `, `${args.loja}: falta só ativar os recebimentos`)
     return enviarNurture({ template: 'recebimentos-parados',
@@ -2825,12 +2835,12 @@ export async function sendRecebimentosParadosEmail(args: {
   // um remetente que insiste sem saida -- o oposto do que a infra de
   // descadastro desta casa foi construida pra garantir.
   const montarHtml = (rodape: string) => baseLayout(`
-    ${badge('Sua loja', '#f59e0b', '')}
+    ${badge(V.badge, '#f59e0b', '')}
     ${h1('Ninguém consegue comprar de você 🔌')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`A <b style="color:#f0f0f0;">${loja}</b> tem <b style="color:#f0f0f0;">${quantos}</b> à venda na Bynx. ${um ? 'Ele aparece' : 'Eles aparecem'} normalmente para quem visita — mas é este o botão que o cliente encontra:`)}
     ${comparativoBotao(args.exemplo || 'Carta à venda', args.exemploPreco || 'R$ 00,00')}
-    ${p('Ativar não custa nada: você preenche CNPJ ou CPF e a conta bancária direto na Stripe, em uns 3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.')}
+    ${p(`Ativar não custa nada: você preenche ${documento} e a conta bancária direto na Stripe, em uns 3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.`)}
     ${btn('Ativar recebimentos →', url)}${rodape}
   `, `${args.loja}: ${args.quantos} à venda sem botão de comprar`)
   return enviarNurture({ template: 'recebimentos-parados',
@@ -3137,30 +3147,36 @@ export async function sendConnectAtivoEmail(args: {
   /** Ausente quem recebe SEM loja: a conta Connect vive na pessoa. */
   nomeLoja?: string | null
   lojaId?: string | null
+  /** true = pagina de colecionador (tem `nomeLoja`, mas nao e loja). */
+  colecionador?: boolean
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   // ★ PESSOA FISICA NAO TEM /minha-loja (24/09/2026, Quadro #389). Sem o
   // fallback, o e-mail mais comemorativo do fluxo levaria a um link morto.
   const url = args.lojaId ? `${APP_URL}/minha-loja/${args.lojaId}/pagamentos` : `${APP_URL}/recebimentos`
   const quem = args.nomeLoja?.trim() || null
+  // ★ Tres casos, nao dois (25/11/2026): pessoa sem pagina, LOJA, e PAGINA DE
+  //   COLECIONADOR -- que tem `nomeLoja` mas nao tem vitrine de selado e
+  //   acessorio. Ate aqui ela caia no texto de loja.
+  const ehLoja = !!quem && !args.colecionador
 
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:48px;line-height:1;">🎉</div>
     </div>
     ${h1('Seus recebimentos estão ativos!')}
-    ${p(quem
-      ? `${escapeHtml(firstName)}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(quem)}</strong>. Sua loja já pode vender direto na Bynx — cartas, selados, acessórios e o que mais você tiver na vitrine.`
+    ${p(ehLoja
+      ? `${escapeHtml(firstName)}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(quem!)}</strong>. Sua loja já pode vender direto na Bynx — cartas, selados, acessórios e o que mais você tiver na vitrine.`
       : `${escapeHtml(firstName)}, a Stripe aprovou o seu cadastro. Os seus anúncios já podem ser comprados direto na Bynx, com pagamento, frete e rastreio por aqui.`)}
     ${p('O dinheiro das suas vendas cai na conta bancária que você cadastrou. A gente nunca toca nele — quem cuida disso é a Stripe.')}
     ${divider()}
     ${p('<strong style="color:#f0f0f0;">Como funciona:</strong>')}
-    ${p(quem ? '• O colecionador compra direto na sua vitrine, com Pix ou cartão' : '• O colecionador compra direto no seu anúncio, com Pix ou cartão')}
+    ${p(ehLoja ? '• O colecionador compra direto na sua vitrine, com Pix ou cartão' : '• O colecionador compra direto no seu anúncio, com Pix ou cartão')}
     ${p('• Você recebe o aviso do pedido e envia o produto')}
     ${p('• O valor cai na sua conta no prazo de repasse que você escolheu')}
     ${divider()}
     ${btnB2B(quem ? 'Ver meus pagamentos' : 'Ver meus recebimentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}
-  `, quem ? 'Sua loja já pode vender na Bynx' : 'Você já pode vender na Bynx')
+  `, ehLoja ? 'Sua loja já pode vender na Bynx' : 'Você já pode vender na Bynx')
 
   return enviar({ template: 'connect-ativo',
     from: FROM,
@@ -3183,6 +3199,8 @@ export async function sendConnectPendenciaEmail(args: {
   nomeLoja?: string | null
   lojaId?: string | null
   qtdPendencias: number
+  /** true = pagina de colecionador (tem `nomeLoja`, mas nao e loja). */
+  colecionador?: boolean
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = args.lojaId ? `${APP_URL}/minha-loja/${args.lojaId}/pagamentos` : `${APP_URL}/recebimentos`
@@ -3198,7 +3216,7 @@ export async function sendConnectPendenciaEmail(args: {
       ? `${escapeHtml(firstName)}, a Stripe precisa de ${plural} a mais para liberar os recebimentos de <strong style="color:#f0f0f0;">${escapeHtml(quem)}</strong>.`
       : `${escapeHtml(firstName)}, a Stripe precisa de ${plural} a mais para liberar os seus recebimentos.`)}
     ${p(quem
-      ? 'É rapidinho e você continua exatamente de onde parou. Enquanto isso, sua loja segue no ar normalmente — só as vendas com pagamento pela Bynx que ficam esperando.'
+      ? `É rapidinho e você continua exatamente de onde parou. Enquanto isso, sua ${args.colecionador ? 'página' : 'loja'} segue no ar normalmente — só as vendas com pagamento pela Bynx que ficam esperando.`
       : 'É rapidinho e você continua exatamente de onde parou. Enquanto isso, seus anúncios seguem no ar normalmente — só a compra pela Bynx que fica esperando.')}
     ${divider()}
     ${btnB2B('Resolver agora', addUtm(url, 'connect_pendencia'), B2B_GRADIENT_PRO, '#8b5cf6')}

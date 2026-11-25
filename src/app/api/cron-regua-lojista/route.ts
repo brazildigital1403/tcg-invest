@@ -190,6 +190,7 @@ export async function GET(req: NextRequest) {
             exemplo: exemplo?.card_name || null,
             exemploPreco: typeof exemplo?.price === 'number'
               ? `R$ ${exemplo.price.toFixed(2).replace('.', ',')}` : null,
+            colecionador: ehCol,
           }),
         } : null,
 
