@@ -69,6 +69,13 @@ type Passo = {
   repete?: number
   /** Sino do 2o aviso em diante. Sem isso, o passo que repete mostra sempre o mesmo. */
   lembrete?: { titulo: string; mensagem: string }
+  /**
+   * true = passo que VENDE (assinatura, upgrade): o e-mail so sai para quem
+   * marcou "quero receber novidades" no cadastro (`marketing_aceito`).
+   * Nenhum passo da fila usa hoje -- o "perdeu o Pro", unico com esse perfil,
+   * esta escrito em lib/email mas nunca foi ligado. Fica pronto para ele.
+   */
+  exigeAceite?: boolean
 }
 
 function sb() {
@@ -312,21 +319,47 @@ export async function GET(req: NextRequest) {
       const u = pessoa.get(l.owner_user_id)
       if (!u?.email) continue
 
-      // ★ CONSENTIMENTO. `marketing_aceito` e o checkbox do cadastro -- "quero
-      //   receber novidades e dicas de TCG da Bynx", opcional e DESMARCADO por
-      //   padrao. A coluna existia desde sempre, era escrita em 3 lugares e
-      //   NUNCA lida antes de enviar: 206 dos 401 usuarios dizem nao e a Bynx
-      //   nao tinha como saber. Achado em 12/09 por outra sessao, conferido
-      //   aqui antes de aplicar.
+      // ★ CONSENTIMENTO: SO PASSO QUE VENDE EXIGE O ACEITE (25/11/2026,
+      //   decisao do Du). `marketing_aceito` e o checkbox "quero receber
+      //   novidades e dicas de TCG da Bynx" do cadastro. Desde 12/09 este cron
+      //   o exigia para QUALQUER e-mail da regua -- e com isso 7 das 19 lojas
+      //   ativas nunca recebiam nada sobre a propria loja. A Creminin ficou
+      //   dois meses com 6 cartas sem botao de comprar e so recebeu sino,
+      //   que nunca foi lido; no mesmo periodo a regua de COLECAO mandava
+      //   e-mail para o mesmo dono sem problema.
       //
-      //   O SINO ja foi gravado acima de proposito: ele e comunicacao dentro
-      //   do produto sobre a propria loja da pessoa, nao mala direta. Quem
-      //   recusou novidades continua vendo o estado da sua loja no painel --
-      //   o que ele nao recebe e o email.
-      if (u.marketing_aceito !== true) { continue }
+      //   O modelo de lib/email (posterior a esta trava) ja separa as coisas:
+      //   e-mail sobre o que e DA PESSOA (categoria `colecao`) respeita o
+      //   descadastro e a preferencia da categoria, e so marketing de verdade
+      //   exige o aceite. Os e-mails desta regua ja passam pelo `enviarNurture`
+      //   -- descadastro, preferencia e rodape -- entao a trava extra so
+      //   servia para bloquear. Fica so para passo que vende (`exigeAceite`).
+      if (passo.exigeAceite && u.marketing_aceito !== true) { continue }
+
+      // ★ O NUMERO DO E-MAIL CONTA E-MAILS, NAO SINOS. O `vez` acima conta os
+      //   sinos -- e e ele que deve decidir o texto do SINO. Mas usado no
+      //   e-mail, quem so tinha recebido sino (os 7 de cima) ganharia como
+      //   primeiro e-mail o lembrete "Voltamos a escrever...". Conta so as
+      //   linhas marcadas com `regua_email`, que agora so recebem a marca
+      //   quando o e-mail sai de fato (ver abaixo).
+      const { count: emailsAntes } = await db
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', l.owner_user_id)
+        .eq('data->>regua_email', passo.chave)
+      const vezEmail = (emailsAntes || 0) + 1
 
       try {
-        await passo.email({ email: u.email, name: u.name }, vez)
+        const r = (await passo.email({ email: u.email, name: u.name }, vezEmail)) as
+          { error?: unknown; puloMotivo?: string | null } | null | undefined
+        // ★ PULADO NAO E ENVIADO. Descadastro ou preferencia desligada voltam
+        //   sem erro e com `puloMotivo` -- e a marca `regua_email` alimenta o
+        //   teto semanal e o numero do proximo e-mail. Marcar um envio que nao
+        //   aconteceu travaria o teto e faria o proximo sair como lembrete.
+        if (r?.error || r?.puloMotivo) {
+          if (r?.error) console.error('[regua] email falhou', l.slug, passo.chave)
+          continue
+        }
         // O teto mora na PROPRIA notificacao do passo: nada novo aparece no
         // sino, e a consulta do teto le exatamente as linhas que geraram email.
         const id = sino?.[0]?.id
