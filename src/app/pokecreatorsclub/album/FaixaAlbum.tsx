@@ -7,7 +7,7 @@
 // ("Sua missão agora"), na própria casa.
 
 import Link from 'next/link'
-import { ALBUM, PORTFOLIO } from '@/lib/pcc/rotas'
+import { ALBUM, MEU_LINK, PORTFOLIO } from '@/lib/pcc/rotas'
 import type { AlbumMinha, Estante } from '@/lib/pcc/album'
 import { Ico } from '../amigo-secreto/estilo'
 import { Energia, Leque5 } from './CartaClub'
@@ -47,6 +47,8 @@ export default function FaixaAlbum({ album, estante }: { album: AlbumMinha; esta
       <Link href={ALBUM} className="as-btn pri fx-bt">Abrir meu álbum</Link>
       {/* O portfolio so faz sentido com capitulo de Creator aberto: ate la a entrada fica guardada. */}
       {capitulos.some(c => c.trilha === 'creator') && <Link href={PORTFOLIO} className="as-btn lnk fx-pf">Meu portfólio de criador</Link>}
+      {/* O link so aparece com capitulo da trilha Bynx aberto, como o portfolio com o de Creator. */}
+      {capitulos.some(c => c.trilha === 'bynx') && <Link href={MEU_LINK} className="as-btn lnk fx-pf">Meu link do Club</Link>}
     </section>
   )
 }
