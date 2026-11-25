@@ -9,7 +9,10 @@
  */
 
 const REF_STORAGE_KEY = 'bynx_ref'
-const REF_TTL_DAYS = 7
+// Quanto tempo o codigo fica guardado no navegador ate o cadastro (era 7; 30 desde 25/11/2026, Meu link do
+// Club: o criador posta hoje e o seguidor se cadastra dias depois). Vale para todo link de indicacao.
+// NAO mexe no intervalo de 7 dias entre cadastro e ativacao: esse e antifraude, em qualify_referral.
+const REF_TTL_DAYS = 30
 
 interface StoredRef {
   code: string
