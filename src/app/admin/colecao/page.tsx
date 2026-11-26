@@ -30,7 +30,14 @@ async function lerPainel(slug: string | null): Promise<{ painel?: PainelAdmin; e
 
 export default function AdminColecaoPage() {
   const [painel, setPainel] = useState<PainelAdmin | null>(null)
-  const [slug, setSlug] = useState<string | null>(null)
+  // Lembra a edicao aberta: sem isso, todo F5 voltava para a ultima edicao e a ordem das abas perdia o sentido.
+  const [slug, setSlugEstado] = useState<string | null>(() => {
+    try { return typeof window === 'undefined' ? null : window.localStorage.getItem('admin-colecao-edicao') } catch { return null }
+  })
+  const setSlug = useCallback((s: string | null) => {
+    setSlugEstado(s)
+    try { if (s) window.localStorage.setItem('admin-colecao-edicao', s) } catch { /* sem armazenamento: segue sem lembrar */ }
+  }, [])
   const [aba, setAba] = useState<Aba>('cartas')
   const [versao, setVersao] = useState(0)
   const [falhou, setFalhou] = useState('')
@@ -45,7 +52,11 @@ export default function AdminColecaoPage() {
     let vivo = true
     lerPainel(slug).then(r => {
       if (!vivo) return
-      if (r.erro || !r.painel) { setFalhou(r.erro || 'Erro ao carregar'); return }
+      if (r.erro || !r.painel) {
+        // A edicao lembrada pode nao existir mais: volta para a padrao em vez de travar a tela.
+        if (slug) { try { window.localStorage.removeItem('admin-colecao-edicao') } catch { /* ok */ } setSlugEstado(null); return }
+        setFalhou(r.erro || 'Erro ao carregar'); return
+      }
       setPainel(r.painel)
       setFalhou('')
     })
