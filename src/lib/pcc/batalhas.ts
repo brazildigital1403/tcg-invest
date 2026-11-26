@@ -2,7 +2,8 @@
 // Carrossel unico na casa do Club, na ordem do torneio: batalhas, repescagens, semifinais e final.
 // Cada card abre o reel no Instagram em outra aba; nada do Instagram carrega na home.
 // Capas e logo vivem no bucket club-fotos, em batalhas/ilustracao-2026/ (capas 540x960,
-// tiradas da previa publica de cada reel em 26/11/2026). Os @ vem da legenda de cada reel.
+// tiradas da previa publica de cada reel em 26/11/2026). Os @ vem da legenda de cada reel,
+// com uma correcao do Du: a legenda da Batalha 03 diz @pokehelotcg, o certo e @pokehelo.
 // Campeonato fechado: a lista e fixa, por isso mora aqui e nao numa tabela.
 
 export type Duelo = {
@@ -30,7 +31,7 @@ const d = (n: number, fase: string, reel: string, quem: string[], final = false)
 export const DUELOS: Duelo[] = [
   d(1, 'Batalha 01', 'DduK9xcxLqk', ['tocadozard', 'minadosloots']),
   d(2, 'Batalha 02', 'Dd7As2IhgwQ', ['minadosloots', 'hitcoupletcg']),
-  d(3, 'Batalha 03', 'DeANOTLh42c', ['pokehelotcg', 'helotcg']),
+  d(3, 'Batalha 03', 'DeANOTLh42c', ['pokehelo', 'helotcg']),
   d(4, 'Batalha 04', 'DeNDr24hsRf', ['meilipkm', 'casaltcg']),
   d(5, 'Batalha 05', 'DeSOARRAkr5', ['zozo.deck', 'poke.cesar']),
   d(6, 'Batalha 06', 'DefGZNJue71', ['hachitcg', 'chinaritcg']),
