@@ -38,7 +38,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { track, trackFirstCardAdded } from '@/lib/analytics'
 import { checkCardLimit, limiteCartasDoErro } from '@/lib/checkCardLimit'
-import { adicionar as adicionarAoCarrinho, estaNoCarrinho } from '@/lib/carrinho'
+import { adicionar as adicionarAoCarrinho, estaNoCarrinho, registrarEntrada } from '@/lib/carrinho'
 import { lerParametro, limparParametros } from '@/lib/deepLink'
 import {
   IDIOMAS_META, brl, buscarOfertasDaMeta, carregarMeta, criarMeta, fraseLeitura, pct, rotuloIdioma, tituloMeta,
@@ -204,7 +204,11 @@ export default function MetaPage() {
     // ★ O guard passou a ser `vendedorId`, nao `lojaId` (02/10/2026): a sacola
     //   agrupa por vendedor, e quem vende sem loja tambem entra.
     if (!g.vendedorId) return
-    for (const i of g.itens) if (!estaNoCarrinho(i.oferta.id)) adicionarAoCarrinho({ id: i.oferta.id, tipo: 'carta', vendedorId: g.vendedorId, lojaId: g.lojaId })
+    for (const i of g.itens) {
+      if (estaNoCarrinho(i.oferta.id)) continue
+      adicionarAoCarrinho({ id: i.oferta.id, tipo: 'carta', vendedorId: g.vendedorId, lojaId: g.lojaId })
+      registrarEntrada('meta', 'carta', g.vendedorId)
+    }
     setNoCarrinho(prev => new Set([...prev, ...g.itens.map(i => i.oferta.id)]))
   }
 

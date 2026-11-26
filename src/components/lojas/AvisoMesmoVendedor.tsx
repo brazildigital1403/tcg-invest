@@ -1,9 +1,10 @@
 'use client'
 
-import { CSSProperties, useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { CSSProperties, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { itensDoVendedor, estaNoCarrinho, adicionar, assinarCarrinho, type TipoItem } from '@/lib/carrinho'
+import { itensDoVendedor, estaNoCarrinho, adicionar, assinarCarrinho, registrarEntrada, type TipoItem } from '@/lib/carrinho'
+import { track } from '@/lib/analytics'
 import { fmtBRL } from '@/lib/comissao'
 import { IconTruck, IconCarrinho, IconPokeball } from '@/components/ui/Icons'
 
@@ -114,6 +115,16 @@ export default function AvisoMesmoVendedor({
     return () => { vivo = false }
   }, [chave, vendedorId])
 
+  // `visto` uma vez por sacola exibida (a chave muda quando a sacola muda).
+  // Mesma condicao do render abaixo: so conta o aviso que apareceu de fato.
+  const nVisivel = !chave || fechado || !res || res.chave !== chave ? 0 : res.itens.length
+  const vistoEm = useRef('')
+  useEffect(() => {
+    if (nVisivel === 0 || vistoEm.current === chave) return
+    vistoEm.current = chave
+    track({ name: 'aviso_mesmo_vendedor', properties: { acao: 'visto', itens_na_sacola: nVisivel } })
+  }, [nVisivel, chave])
+
   if (!chave || fechado) return null
   // Resposta de outra sacola (ou nenhuma ainda): espera, sem piscar.
   if (!res || res.chave !== chave) return null
@@ -133,11 +144,13 @@ export default function AvisoMesmoVendedor({
   const resto = res.semDetalhe ? 0 : n - visiveis.length
 
   function juntar() {
+    track({ name: 'aviso_mesmo_vendedor', properties: { acao: 'juntar', itens_na_sacola: n } })
     if (!estaNoCarrinho(itemId)) {
       // Produto sem loja o carrinho descarta na leitura -- melhor so levar a
       // pessoa ao carrinho do que gravar um item que some.
       if (tipo === 'produto' && !lojaId) { router.push('/carrinho'); return }
       adicionar({ id: itemId, tipo, vendedorId, lojaId: lojaId ?? null, qtd: tipo === 'produto' ? qtd : 1 })
+      registrarEntrada('aviso_checkout', tipo, vendedorId)
     }
     router.push(`/carrinho?novo=${encodeURIComponent(itemId)}`)
   }
@@ -179,7 +192,10 @@ export default function AvisoMesmoVendedor({
           <IconCarrinho size={17} />
           Juntar e ir para o carrinho
         </button>
-        <button type="button" onClick={() => setFechado(true)} className="bx-junto-so" style={S.so}>
+        <button type="button" onClick={() => {
+          track({ name: 'aviso_mesmo_vendedor', properties: { acao: 'seguir_sozinho', itens_na_sacola: n } })
+          setFechado(true)
+        }} className="bx-junto-so" style={S.so}>
           Continuar só com {tipo === 'carta' ? 'esta carta' : 'este produto'}
         </button>
       </div>

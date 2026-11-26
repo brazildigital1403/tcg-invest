@@ -172,6 +172,19 @@ export function trackLojaClique(lojaId: string, tipo: string): void {
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * De onde veio a entrada na sacola (comprar junto, 26/11/2026):
+ *   anuncio        BotaoCarrinho no anuncio de carta
+ *   produto        BotaoCarrinho na /produto/[id]
+ *   grade_anuncio  BotaoMais `mini` na grade "Mais deste vendedor"
+ *   folha          BotaoMais `linha` na FolhaVendedor ("Ver todas")
+ *   vitrine        BotaoMais `largo` nos cards da loja e do perfil
+ *   aviso_checkout "Juntar e ir para o carrinho" no checkout direto
+ *   meta           "Colocar no carrinho" da pagina da meta
+ */
+export type OrigemSacola =
+  | 'anuncio' | 'produto' | 'grade_anuncio' | 'folha' | 'vitrine' | 'aviso_checkout' | 'meta'
+
+/**
  * Catálogo de eventos da Bynx pro PostHog.
  *
  * Discriminated union: TypeScript valida que `properties` bate com `name`.
@@ -304,6 +317,27 @@ export type BynxEvent =
   | {
       name: 'marketplace_listing_clicked'
       properties: { listing_id: string; price_brl: number }
+    }
+
+  // Comprar junto (26/11/2026). Mede o caminho da sacola, que ate aqui nao
+  // tinha evento nenhum: sem pedido real de comprador de fora, era o unico jeito
+  // de saber onde a pessoa para. Amostra (so quem aceitou cookies): serve para a
+  // PROPORCAO entre etapas; a contagem de verdade e `pedido_itens`.
+  | {
+      // Toda entrada na sacola, de qualquer botao. `itens_do_vendedor` e a
+      // contagem de linhas daquele vendedor DEPOIS de adicionar: 2+ = juntou.
+      name: 'sacola_adicionar'
+      properties: { origem: OrigemSacola; tipo: 'carta' | 'produto'; itens_do_vendedor: number }
+    }
+  | {
+      // O aviso do checkout direto. `visto` dispara uma vez por sacola exibida.
+      name: 'aviso_mesmo_vendedor'
+      properties: { acao: 'visto' | 'juntar' | 'seguir_sozinho'; itens_na_sacola: number }
+    }
+  | {
+      // Saida do /carrinho para a Stripe (ja logado), um evento por vendedor.
+      name: 'carrinho_checkout'
+      properties: { itens: number; unidades: number }
     }
 
   // Monetização (4)

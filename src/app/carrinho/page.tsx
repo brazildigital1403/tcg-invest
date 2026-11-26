@@ -9,6 +9,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import BandeirasCartao from '@/components/ui/BandeirasCartao'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
+import { track } from '@/lib/analytics'
 import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { vendedoresNoCarrinho, itensDoVendedor, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
 import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled, IconBolt, IconCard, IconCheck } from '@/components/ui/Icons'
@@ -237,6 +238,10 @@ function CarrinhoInner() {
   async function finalizar(vendedorId: string) {
     if (!uid) { openSignup(); return }
     setIndo(vendedorId); setErro(null)
+    // Antes do fetch, nao depois: o `location.href` da Stripe pode levar a
+    // pagina embora antes de o PostHog mandar o evento.
+    const linhas = itensPorVendedor[vendedorId] || []
+    track({ name: 'carrinho_checkout', properties: { itens: linhas.length, unidades: linhas.reduce((s, i) => s + i.qtd, 0) } })
     try {
       const { data } = await supabase.auth.getSession()
       const cd = (cep[vendedorId] || '').replace(/\D/g, '')

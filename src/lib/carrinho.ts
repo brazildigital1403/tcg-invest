@@ -32,6 +32,8 @@
  * Nome e imagem sao relidos junto — o anuncio pode ter sido editado ou vendido.
  */
 
+import { track, type OrigemSacola } from '@/lib/analytics'
+
 // ★ v2: o formato do item mudou (`lojaId` obrigatorio -> `vendedorId`), e o
 // navegador nao sabe resolver loja -> dono sozinho. Carrinho gravado na v1 e
 // descartado em vez de migrado pela metade: ficar com item sem vendedor seria
@@ -165,6 +167,20 @@ export function definirQtd(id: string, qtd: number): void {
 
 export function remover(id: string): void {
   gravar(ler().filter(i => i.id !== id))
+}
+
+/**
+ * Evento `sacola_adicionar` (comprar junto, 26/11/2026). Chamar DEPOIS de
+ * gravar: `itens_do_vendedor` e a contagem com o item novo, entao 2+ quer dizer
+ * que a pessoa esta juntando. Fica fora de `adicionar` de proposito: so quem
+ * chama sabe de qual botao veio, e um evento sem origem nao responde nada.
+ */
+export function registrarEntrada(origem: OrigemSacola, tipo: TipoItem, vendedorId: string): void {
+  try {
+    track({ name: 'sacola_adicionar', properties: { origem, tipo, itens_do_vendedor: itensDoVendedor(vendedorId).length } })
+  } catch {
+    // Tracking nunca quebra a sacola.
+  }
 }
 
 /** Alterna e devolve o estado novo (pro botao da vitrine). */

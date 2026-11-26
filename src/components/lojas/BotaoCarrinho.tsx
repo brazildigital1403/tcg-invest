@@ -2,7 +2,7 @@
 
 import { CSSProperties, useCallback, useSyncExternalStore } from 'react'
 import Link from 'next/link'
-import { alternar, definirQtd, qtdNoCarrinho, contarItens, assinarCarrinho, type TipoItem } from '@/lib/carrinho'
+import { alternar, definirQtd, qtdNoCarrinho, contarItens, assinarCarrinho, registrarEntrada, type TipoItem } from '@/lib/carrinho'
 import { IconPlus, IconMinus, IconCheck, IconTrash, IconArrowRight } from '@/components/ui/Icons'
 
 /**
@@ -78,6 +78,11 @@ export default function BotaoCarrinho({
   const total = useSyncExternalStore(assinarCarrinho, snapTotal, () => 0)
 
   const podeQtd = tipo !== 'carta'
+
+  // Os dois botoes de "Adicionar" (com e sem `destaque`) passam por aqui.
+  const entrar = () => {
+    if (alternar({ id, tipo, vendedorId, lojaId })) registrarEntrada(tipo === 'produto' ? 'produto' : 'anuncio', tipo, vendedorId)
+  }
   const noTeto = qtd >= Math.max(1, estoque)
 
   if (qtd === 0) {
@@ -86,7 +91,7 @@ export default function BotaoCarrinho({
         <>
           <button
             type="button"
-            onClick={() => { alternar({ id, tipo, vendedorId, lojaId }) }}
+            onClick={entrar}
             className="bx-ctx-comprador bx-compra-cta"
             style={S.btnDestaque}
           >
@@ -104,7 +109,7 @@ export default function BotaoCarrinho({
     return (
       <button
         type="button"
-        onClick={() => { alternar({ id, tipo, vendedorId, lojaId }) }}
+        onClick={entrar}
         className="bx-cart-add"
         style={S.btn}
       >

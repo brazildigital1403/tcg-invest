@@ -1,7 +1,7 @@
 'use client'
 
 import { CSSProperties, useCallback, useSyncExternalStore } from 'react'
-import { alternar, qtdNoCarrinho, assinarCarrinho, type TipoItem } from '@/lib/carrinho'
+import { alternar, qtdNoCarrinho, assinarCarrinho, registrarEntrada, type TipoItem } from '@/lib/carrinho'
 import { IconPlus, IconCheck } from '@/components/ui/Icons'
 
 /**
@@ -57,7 +57,11 @@ export default function BotaoMais({
     // toque no "+" tambem abriria o anuncio.
     e.preventDefault()
     e.stopPropagation()
-    alternar({ id, tipo, vendedorId, lojaId })
+    // A forma diz o lugar: mini = grade do anuncio, linha = folha, largo =
+    // vitrine da loja e do perfil. So a ENTRADA conta; tirar nao e evento.
+    if (alternar({ id, tipo, vendedorId, lojaId })) {
+      registrarEntrada(forma === 'mini' ? 'grade_anuncio' : forma === 'linha' ? 'folha' : 'vitrine', tipo, vendedorId)
+    }
   }
 
   if (forma === 'largo') {
