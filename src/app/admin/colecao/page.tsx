@@ -74,7 +74,7 @@ export default function AdminColecaoPage() {
 
       {painel && (
         <div className="ac-tabs">
-          {painel.edicoes.map(e => <button key={e.slug} type="button" title={e.titulo} className={`ac-tab${ed?.slug === e.slug ? ' on' : ''}`} onClick={() => { setSlug(e.slug); setErro(''); setOk('') }}>{e.edicao} · {e.titulo}</button>)}
+          {[...painel.edicoes].reverse().map(e => <button key={e.slug} type="button" title={e.titulo} className={`ac-tab${ed?.slug === e.slug ? ' on' : ''}`} onClick={() => { setSlug(e.slug); setErro(''); setOk('') }}>{e.edicao} · {e.titulo}</button>)}
           {!novaEdicao && <button type="button" className="ac-tab" onClick={() => { setNovaEdicao(true); setErro(''); setOk('') }}>Nova edição</button>}
         </div>
       )}
