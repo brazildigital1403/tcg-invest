@@ -26,6 +26,7 @@ import { AS_CSS, Ico, LOGO_PCC, SELOS } from './amigo-secreto/estilo'
 import { Rosto } from './aniversariantes/AniversariantesClient'
 import EntrarClub from './EntrarClub'
 import TrendsClub from './TrendsClub'
+import BatalhaClub from './BatalhaClub'
 import VideosClub from './VideosClub'
 import type { Trend } from '@/lib/pcc/trends'
 import type { VideoClub } from '@/lib/pcc/videos'
@@ -299,6 +300,8 @@ export default function CasaClub() {
 
           {/* Faixa do Album (19/11/2026): entre as frentes e as Trends. So membro com edicao aberta. */}
           {album && <FaixaAlbum album={album} estante={estante} />}
+
+          <BatalhaClub />
 
           <TrendsClub trends={trends} />
 
