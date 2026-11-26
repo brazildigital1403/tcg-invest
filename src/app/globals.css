@@ -433,12 +433,33 @@ body {
    Uma coluna no celular (texto, itens, botoes empilhados); no desktop vira
    uma faixa unica em cima das duas colunas do checkout, com os botoes na
    mesma linha. `row-reverse` deixa o botao principal PRIMEIRO no DOM (e o
-   primeiro no celular, onde empilha) e a direita no desktop. */
+   primeiro no celular, onde empilha) e a direita no desktop.
+   ★ 26/11: o desktop decide pela LARGURA DA CAIXA (container query), nao
+   da janela. Com a barra lateral do app, em 1024 px a caixa tinha ~700 px e
+   a faixa unica deixava 7 px para o texto (os botoes lado a lado ocupam
+   449). Caixa media: botoes empilhados a direita, itens embaixo do texto. */
+.bx-junto-caixa { container-type: inline-size; }
 .bx-junto { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .bx-junto-acoes { display: flex; flex-direction: column; gap: 2px; }
 @media (min-width: 881px) {
-  .bx-junto { grid-template-columns: minmax(0, 1fr) minmax(0, 240px) auto; align-items: center; gap: 16px; }
-  .bx-junto-acoes { flex-direction: row-reverse; align-items: center; gap: 10px; }
+  @container (min-width: 560px) {
+    .bx-junto {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "texto acoes" "lista acoes";
+      column-gap: 20px; row-gap: 10px; align-items: center;
+    }
+    .bx-junto-texto { grid-area: texto; }
+    .bx-junto-lista { grid-area: lista; }
+    .bx-junto-acoes { grid-area: acoes; }
+  }
+  @container (min-width: 960px) {
+    .bx-junto {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 240px) auto;
+      grid-template-areas: "texto lista acoes";
+      gap: 16px;
+    }
+    .bx-junto-acoes { flex-direction: row-reverse; align-items: center; gap: 10px; }
+  }
 }
 /* ─── Juntar itens do vendedor sem sair da tela (25/11/2026) ──────────────
    Folha "todas as cartas" (FolhaVendedor), barra da sacola (BarraSacola) e o

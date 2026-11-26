@@ -156,8 +156,11 @@ export default function AvisoMesmoVendedor({
   }
 
   return (
-    <div className="bx-ctx-comprador bx-junto" style={S.caixa} role="region" aria-label="Itens deste vendedor no carrinho">
-      <div style={{ minWidth: 0 }}>
+    // Duas camadas: a de fora e o container da query (`.bx-junto-caixa`), a de
+    // dentro e a grade -- um elemento nao consulta a propria largura.
+    <div className="bx-ctx-comprador bx-junto-caixa" style={S.caixa} role="region" aria-label="Itens deste vendedor no carrinho">
+    <div className="bx-junto">
+      <div className="bx-junto-texto" style={{ minWidth: 0 }}>
         <p style={S.titulo}>
           <IconTruck size={16} color="var(--ac-1)" style={S.tituloIcone} />
           <span>Você já tem {n} {oQue} {deQuem} no carrinho</span>
@@ -165,9 +168,8 @@ export default function AvisoMesmoVendedor({
         <p style={S.sub}>Juntando tudo, vai no mesmo envio e você paga um frete só.</p>
       </div>
 
-      {/* Sempre presente, mesmo vazio: no desktop e a coluna do meio da grade,
-          e sem ela os botoes cairiam na coluna de 240px. */}
-      <div style={S.lista}>
+      {/* Sempre presente, mesmo vazio: e a area `lista` da grade do desktop. */}
+      <div className="bx-junto-lista" style={S.lista}>
         {visiveis.map(o => (
           <div key={o.id} style={S.outra}>
             <span style={S.thumb}>
@@ -199,6 +201,7 @@ export default function AvisoMesmoVendedor({
           Continuar só com {tipo === 'carta' ? 'esta carta' : 'este produto'}
         </button>
       </div>
+    </div>
     </div>
   )
 }
