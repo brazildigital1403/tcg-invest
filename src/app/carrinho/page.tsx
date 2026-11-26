@@ -236,12 +236,13 @@ function CarrinhoInner() {
   }
 
   async function finalizar(vendedorId: string) {
+    // Antes do fetch, nao depois: o `location.href` da Stripe pode levar a
+    // pagina embora antes de o PostHog mandar o evento. E antes do check de
+    // login: quem nao tem conta tambem clicou em Finalizar.
+    const linhas = itensPorVendedor[vendedorId] || []
+    track({ name: 'carrinho_checkout', properties: { itens: linhas.length, unidades: linhas.reduce((s, i) => s + i.qtd, 0), logado: !!uid } })
     if (!uid) { openSignup(); return }
     setIndo(vendedorId); setErro(null)
-    // Antes do fetch, nao depois: o `location.href` da Stripe pode levar a
-    // pagina embora antes de o PostHog mandar o evento.
-    const linhas = itensPorVendedor[vendedorId] || []
-    track({ name: 'carrinho_checkout', properties: { itens: linhas.length, unidades: linhas.reduce((s, i) => s + i.qtd, 0) } })
     try {
       const { data } = await supabase.auth.getSession()
       const cd = (cep[vendedorId] || '').replace(/\D/g, '')

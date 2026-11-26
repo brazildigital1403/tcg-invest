@@ -335,9 +335,11 @@ export type BynxEvent =
       properties: { acao: 'visto' | 'juntar' | 'seguir_sozinho'; itens_na_sacola: number }
     }
   | {
-      // Saida do /carrinho para a Stripe (ja logado), um evento por vendedor.
+      // Clique em "Finalizar" no /carrinho, um evento por vendedor.
+      // `logado: false` = parou na exigencia de conta (abre o cadastro, nao vai
+      // a Stripe). E o numero que decide a compra sem login (Quadro #2).
       name: 'carrinho_checkout'
-      properties: { itens: number; unidades: number }
+      properties: { itens: number; unidades: number; logado: boolean }
     }
 
   // Monetização (4)
