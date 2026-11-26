@@ -147,6 +147,14 @@ export const FONTES: { id: string; nome: string; n?: string; semData?: boolean; 
   { id: 'ficha_criador', nome: 'Ficha de criador', fatia2: true },
   { id: 'bio_criador', nome: 'Bio de uma linha', fatia2: true },
   { id: 'aceite', nome: 'Aceite de um termo', fatia2: true },
+  { id: 'link_visitas', nome: 'Visitas no Meu link' },
+  { id: 'indicacao_cadastro', nome: 'Cadastros pelo Meu link' },
+  { id: 'indicado_cartas', nome: 'Convidado ativado com cartas', n: 'Cartas do convidado' },
+  { id: 'colecao_idiomas', nome: 'Idiomas diferentes na coleção' },
+  { id: 'colecao_brilho', nome: 'Carta foil ou reverse' },
+  { id: 'anuncio_24h', nome: 'Anúncio com foto no ar há 24 horas' },
+  { id: 'leilao_seguindo', nome: 'Lote de leilão seguido' },
+  { id: 'colecao_scan', nome: 'Carta adicionada pelo Scan' },
 ]
 
 /** Os ícones que o álbum sabe desenhar (amigo-secreto/estilo.tsx). Ícone novo é código. */
