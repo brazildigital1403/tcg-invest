@@ -115,12 +115,13 @@ export function CartaPost({ p, modo, agora, visto, ligando, onAbrir, onApoiar, o
         ? <a className="fd-cx" href={href} target="_blank" rel="noopener noreferrer" onClick={e => onAbrir(p, e)}
             aria-label={`Abrir o post de @${p.arroba} no ${rede}, em outra aba`}>{miolo}</a>
         : <span className="fd-cx" aria-label={`Post de @${p.arroba}: link indisponível`}>{miolo}</span>}
-      {p.pergunta && (
+      {/* Sem login, a carta e so a vitrine do post: pergunta e Apoiar so fazem sentido para quem esta logado (pedido do Du, 28/11). */}
+      {p.pergunta && modo !== 'visitante' && (
         p.pergunta === 'so_ver'
           ? <p className="fd-bal so">@{p.arroba} só quer que vejam.</p>
           : <p className="fd-bal"><span className="q">@{p.arroba} pergunta:</span><b>{PERGUNTAS[p.pergunta]}</b></p>
       )}
-      <div className="fd-ac">
+      {modo !== 'visitante' && <div className="fd-ac">
         {p.meu
           ? (
             <button type="button" className="fd-meus-ap" onClick={() => onQuemApoiou?.(p)}>
@@ -137,7 +138,7 @@ export function CartaPost({ p, modo, agora, visto, ligando, onAbrir, onApoiar, o
         {onMenu && !p.meu && (
           <button type="button" className="as-ib" aria-label={`Mais opções do post de @${p.arroba}`} onClick={() => onMenu(p)}><Ico n="pontos" s={20} /></button>
         )}
-      </div>
+      </div>}
     </article>
   )
 }

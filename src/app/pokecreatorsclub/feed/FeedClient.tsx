@@ -535,15 +535,8 @@ export default function FeedClient({ inicial, destaquesIniciais }: { inicial: Li
 
   const lateral = (
     <>
-      {modo !== 'membro'
-        ? (
-          <div className="as-mis">
-            <div className="as-h3">Poste e apoie com o Club</div>
-            <p className="as-p" style={{ margin: 0 }}>Os posts dos creators do Club, para descobrir e apoiar. Para postar e apoiar, entre no Club.</p>
-            <button type="button" className="as-btn pri" onClick={entrar}>Entrar no Club</button>
-          </div>
-        )
-        : <button type="button" className="as-btn pri cta" onClick={abrirPostar}><Ico n="plus" s={18} />Postar no feed</button>}
+      {/* Fora do Club o convite do topo ja chama para entrar; a lateral nao repete (pedido do Du, 28/11). */}
+      {modo === 'membro' && <button type="button" className="as-btn pri cta" onClick={abrirPostar}><Ico n="plus" s={18} />Postar no feed</button>}
       {cartaEscolha}
       {chegaram.length > 0 && (
         <div className="as-card" style={{ gap: 6 }}>
