@@ -215,7 +215,7 @@ begin
       'id', p.id, 'rede', p.rede, 'formato', p.formato, 'tema', p.tema, 'pergunta', p.feed_pergunta,
       'url', p.url, 'arroba', p.arroba, 'feed_em', p.feed_em, 'retorno', p.feed_retorno,
       'primeiro', not exists (select 1 from public.club_conteudos o
-                              where o.user_id = p.user_id and o.feed_em is not null and o.feed_em < p.feed_em),
+                              where o.user_id = p.user_id and o.feed_em is not null and (o.feed_em, o.id) < (p.feed_em, p.id)),
       'tema_semana', p.feed_semana = v_semana,
       'escolha', exists (select 1 from public.club_feed_semanas s where s.escolha = p.id),
       'meu', v_uid is not null and p.user_id = v_uid,
@@ -704,7 +704,7 @@ begin
              order by c.feed_em)
       from public.club_conteudos c join public.users u on u.id = c.user_id
       where c.feed_em > now() - interval '72 hours' and c.feed_oculto_em is null and c.status = 'ativo'
-        and not exists (select 1 from public.club_conteudos o where o.user_id = c.user_id and o.feed_em is not null and o.feed_em < c.feed_em)
+        and not exists (select 1 from public.club_conteudos o where o.user_id = c.user_id and o.feed_em is not null and (o.feed_em, o.id) < (c.feed_em, c.id))
     ), '[]'::jsonb),
     'denunciados', coalesce((
       select jsonb_agg(x order by x->>'ultima' desc) from (

@@ -339,7 +339,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
             )}
 
             {(aba === 'para_ver' || aba === 'recentes') && conteudoLista}
-            {aba === 'meus' && <MeusPosts posts={meus} apoio={meuApoio} agora={agora} onPostar={abrirPostar} onMudou={carregarMeus}
+            {aba === 'meus' && <MeusPosts posts={meus} apoio={meuApoio} arroba={cadastro?.instagram ?? ''} agora={agora} onPostar={abrirPostar} onMudou={carregarMeus}
               onQuemApoiou={p => abrirQuem(p.id, p.rede, tituloPost(p))} />}
             {aba === 'organizar' && organizador && <Organizar agora={agora} onMudou={() => carregar()} />}
             <div className="fd-espaco fd-so-cel" />

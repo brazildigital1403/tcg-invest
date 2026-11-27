@@ -10,7 +10,8 @@ import { Ico } from '../amigo-secreto/estilo'
 import { Capa, tituloPost } from './comum'
 import { PERGUNTAS, REDES, erroFeed, haQuanto, linkFeed, motivoFora, type MeuApoio, type MeuPost } from '@/lib/pcc/feed'
 
-export default function MeusPosts({ posts, apoio, agora, onQuemApoiou, onMudou, onPostar }: {
+export default function MeusPosts({ posts, apoio, arroba, agora, onQuemApoiou, onMudou, onPostar }: {
+  arroba: string
   posts: MeuPost[] | null
   apoio: MeuApoio | null
   agora: number
@@ -65,7 +66,7 @@ export default function MeusPosts({ posts, apoio, agora, onQuemApoiou, onMudou, 
         return (
           <article key={p.id} className="fd-post meu">
             <div className="fd-h">
-              <Capa id={p.id} rede={p.rede} formato={p.formato} arroba="" />
+              <Capa id={p.id} rede={p.rede} formato={p.formato} arroba={arroba} />
               <div className="fd-tx">
                 <span className="fd-who">{REDES[p.rede].nome}<span className="tm">{haQuanto(p.feed_em, agora)}</span></span>
                 <h3 className="fd-tt">{tituloPost(p)}</h3>
