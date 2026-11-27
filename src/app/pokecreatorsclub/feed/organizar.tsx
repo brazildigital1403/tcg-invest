@@ -159,8 +159,9 @@ export default function Organizar({ agora, onMudou }: { agora: number; onMudou: 
   )
 }
 
-function FolhaTirar({ arroba, onFechar, onTirar }: { arroba: string; onFechar: () => void; onTirar: (m: MotivoTirar, nota: string) => void }) {
+function FolhaTirar({ arroba, onFechar, onTirar }: { arroba: string; onFechar: () => void; onTirar: (m: MotivoTirar, nota: string) => Promise<void> }) {
   const [motivo, setMotivo] = useState<MotivoTirar | null>(null)
+  const [ocupado, setOcupado] = useState(false)
   const [nota, setNota] = useState('')
   return (
     <Folha titulo="Tirar do feed" eyebrow={`Post de @${arroba}`} onFechar={onFechar}>
@@ -175,7 +176,7 @@ function FolhaTirar({ arroba, onFechar, onTirar }: { arroba: string; onFechar: (
       <label className="as-k" htmlFor="fd-nota">Nota interna (opcional)</label>
       <textarea id="fd-nota" className="as-in ta" maxLength={300} value={nota} onChange={e => setNota(e.target.value)} placeholder="Só a organização lê." />
       <p className="as-hint">O post sai só do feed. Continua no portfólio da pessoa e não mexe no Álbum. Dá para devolver em &quot;Fora do feed&quot;.</p>
-      <button type="button" className="as-btn pri cta" disabled={!motivo} onClick={() => motivo && onTirar(motivo, nota)}>Tirar do feed</button>
+      <button type="button" className="as-btn pri cta" disabled={!motivo || ocupado} onClick={async () => { if (!motivo) return; setOcupado(true); await onTirar(motivo, nota); setOcupado(false) }}>{ocupado ? 'Tirando...' : 'Tirar do feed'}</button>
     </Folha>
   )
 }

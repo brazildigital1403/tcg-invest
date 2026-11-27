@@ -41,13 +41,12 @@ export function FolhaIdeias({ p, onFechar, onAbrir }: { p: PostFeed; onFechar: (
 
 // ── 06 e 07: "Fez alguma coisa por lá?" ─────────────────────────────────────
 
-export function FolhaApoio({ p, voltando, onFechar, onMarcou, onRetorno, onIdeias }: {
+export function FolhaApoio({ p, voltando, onFechar, onMarcou, onIdeias }: {
   p: PostFeed
   /** A folha abriu sozinha porque a pessoa voltou do post. */
   voltando: boolean
   onFechar: () => void
-  onMarcou: (p: PostFeed, gestos: Gesto[] | null) => void
-  onRetorno: (p: PostFeed) => void
+  onMarcou: (p: PostFeed, gestos: Gesto[] | null, depois?: 'retorno') => void
   onIdeias: (p: PostFeed) => void
 }) {
   const opcoes = GESTOS_POR_REDE[p.rede].filter(o => o.g !== 'segui' || !p.ja_sigo || (p.minha_marca ?? []).includes('segui'))
@@ -56,14 +55,14 @@ export function FolhaApoio({ p, voltando, onFechar, onMarcou, onRetorno, onIdeia
   const [erro, setErro] = useState('')
   const alternar = (g: Gesto) => setMarcados(m => (m.includes(g) ? m.filter(x => x !== g) : [...m, g]))
 
-  async function salvar(gestos: Gesto[] | null) {
+  async function salvar(gestos: Gesto[] | null, depois?: 'retorno') {
     setOcupado(true); setErro('')
     const { error } = gestos === null
       ? await supabase.rpc('club_feed_desmarcar', { p_id: p.id })
       : await supabase.rpc('club_feed_marcar', { p_id: p.id, p_gestos: gestos })
     setOcupado(false)
     if (error) { setErro(erroFeed(error.message)); return }
-    onMarcou(p, gestos)
+    onMarcou(p, gestos, depois)
   }
 
   return (
@@ -86,7 +85,7 @@ export function FolhaApoio({ p, voltando, onFechar, onMarcou, onRetorno, onIdeia
         {ocupado ? 'Salvando...' : 'Marcar apoio'}
       </button>
       {p.retorno && marcados.length > 0 && (
-        <button type="button" className="as-btn" disabled={ocupado} onClick={async () => { await salvar(marcados); onRetorno(p) }}>Marcar e deixar retorno privado</button>
+        <button type="button" className="as-btn" disabled={ocupado} onClick={() => salvar(marcados, 'retorno')}>Marcar e deixar retorno privado</button>
       )}
       <div className="fd-two" style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="as-btn" disabled={ocupado} onClick={() => salvar([])}>Só vi</button>

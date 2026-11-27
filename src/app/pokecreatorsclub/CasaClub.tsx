@@ -276,7 +276,7 @@ export default function CasaClub() {
             <div className="cl-frentes">
               <CartaoAmigoSecreto edicao={edicao} inscrito={inscrito} aberta={aberta} destaque={!tarefa} destino={destino} sala={sala} logado={!!logado} />
               <CartaoAvisos logado={!!logado} lista={avisos?.avisos || null} visto={vistoAvisos} />
-              <CartaoFeed logado={!!logado} membro={!!cadastro?.membro} />
+              <CartaoFeed logado={!!logado} membro={!!cadastro?.membro && !!cadastro.instagram} />
               <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
               <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
             </div>
@@ -286,7 +286,7 @@ export default function CasaClub() {
             <>
               <div className="cl-frentes">
                 <CartaoAvisos logado={!!logado} lista={avisos?.avisos || null} visto={vistoAvisos} />
-                <CartaoFeed logado={!!logado} membro={!!cadastro?.membro} />
+                <CartaoFeed logado={!!logado} membro={!!cadastro?.membro && !!cadastro.instagram} />
                 <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
                 <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
               </div>

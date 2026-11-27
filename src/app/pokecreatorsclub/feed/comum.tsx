@@ -26,6 +26,9 @@ export function Capa({ id, rede, formato, arroba, pequena = false }: { id: strin
   )
 }
 
+/** "Comecei a seguir" na propria marca (o autor nunca ve; aqui so a pessoa ve o que marcou). */
+const rotuloGestoSeguir = (p: PostFeed) => (p.minha_marca?.includes('segui') ? rotuloGesto(p.rede, 'segui') : null)
+
 /** Titulo do card: tema quando tem, senao o formato. */
 export const tituloPost = (p: Pick<PostFeed, 'tema' | 'formato'>) => (p.tema && p.tema !== 'outro' ? TEMAS[p.tema] : FORMATOS[p.formato])
 
@@ -44,6 +47,7 @@ export function CardPost({ p, modo, onAbrir, onApoiar, onRetorno, onMenu, onQuem
   const rede = REDES[p.rede].nome
   const marcou = p.minha_marca !== null
   const apoiou = !!p.minha_marca && p.minha_marca.length > 0
+  const seguiu = rotuloGestoSeguir(p)
   return (
     <article className={`fd-post${p.primeiro && !p.meu ? ' novato' : ''}${p.meu ? ' meu' : ''}`}>
       {(p.primeiro || p.escolha || p.tema_semana) && (
@@ -59,7 +63,7 @@ export function CardPost({ p, modo, onAbrir, onApoiar, onRetorno, onMenu, onQuem
       <div className="fd-h">
         <Capa id={p.id} rede={p.rede} formato={p.formato} arroba={p.arroba} />
         <div className="fd-tx">
-          <span className="fd-who">@{p.arroba}<span className="tm">{rede} · {haQuanto(p.feed_em, agora)}</span></span>
+          <span className="fd-who">@{p.arroba}<span className="tm">{rede}{agora ? ` · ${haQuanto(p.feed_em, agora)}` : ''}</span></span>
           <h3 className="fd-tt">{tituloPost(p)}</h3>
           {p.pergunta && (
             p.pergunta === 'so_ver'
@@ -73,7 +77,7 @@ export function CardPost({ p, modo, onAbrir, onApoiar, onRetorno, onMenu, onQuem
             </button>
           )}
           {apoiou && p.minha_marca && (
-            <span className="fd-gs">{p.minha_marca.filter(g => g !== 'segui').map(g => <span key={g}><Ico n="check" s={12} />{rotuloGesto(p.rede, g)}</span>)}</span>
+            <span className="fd-gs">{p.minha_marca.filter(g => g !== 'segui').map(g => <span key={g}><Ico n="check" s={12} />{rotuloGesto(p.rede, g)}</span>)}{seguiu && <span><Ico n="check" s={12} />{seguiu}</span>}</span>
           )}
         </div>
       </div>
@@ -109,7 +113,7 @@ export const FD_CSS = `
 .fd .as-in::placeholder{color:var(--bx-text-3)}
 .fd-cab{display:flex;flex-direction:column;gap:6px}
 .fd-cab .as-p{font-size:14px}
-.fd-cab .lnk{color:var(--bx-text);text-decoration:underline;text-underline-offset:3px;background:none;border:0;font:inherit;padding:12px 0;margin:-12px 0;cursor:pointer}
+.fd-cab .lnk{color:var(--bx-text);text-decoration:underline;text-underline-offset:3px;background:none;border:0;font:inherit;padding:12px 4px;margin:-12px -4px;cursor:pointer;display:inline-block;min-width:44px;line-height:20px}
 .fd .fd-tema{flex-direction:row;align-items:center;gap:12px;padding:10px 12px}
 .fd .fd-tema .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .fd .fd-tema .tx b{font-size:15.5px;font-weight:800;letter-spacing:-.01em}

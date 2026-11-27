@@ -46,16 +46,19 @@ type Folhas =
 
 const CHAVE_PENDENTE = 'bynx.feed.abriu'
 
-function lerPendente(): { id: string; em: number } | null {
-  try { const v = sessionStorage.getItem(CHAVE_PENDENTE); return v ? JSON.parse(v) as { id: string; em: number } : null } catch { return null }
+// A marca vence em 2 horas: quem volta no dia seguinte nao e perguntado sobre um post de ontem.
+const PENDENTE_VALE_MS = 2 * 60 * 60 * 1000
+function lerPendente(): { p: PostFeed; em: number } | null {
+  try { const v = sessionStorage.getItem(CHAVE_PENDENTE); return v ? JSON.parse(v) as { p: PostFeed; em: number } : null } catch { return null }
 }
-function gravarPendente(id: string | null) {
-  try { if (id) sessionStorage.setItem(CHAVE_PENDENTE, JSON.stringify({ id, em: Date.now() })); else sessionStorage.removeItem(CHAVE_PENDENTE) } catch { /* sem armazenamento: a folha so nao abre sozinha */ }
+function gravarPendente(p: PostFeed | null) {
+  try { if (p) sessionStorage.setItem(CHAVE_PENDENTE, JSON.stringify({ p, em: Date.now() })); else sessionStorage.removeItem(CHAVE_PENDENTE) } catch { /* sem armazenamento: a folha so nao abre sozinha */ }
 }
 
 export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   const { openLogin } = useAuthModal()
-  const [agora, setAgora] = useState(() => Date.now())
+  // 0 no servidor e na hidratacao: o "ha X min" so aparece depois de montar, para o HTML nao divergir.
+  const [agora, setAgora] = useState(0)
   const [logado, setLogado] = useState<boolean | undefined>(undefined)
   const [nome, setNome] = useState('')
   const [cadastro, setCadastro] = useState<CadastroClub | null | undefined>(undefined)
@@ -73,13 +76,20 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   const [temNovo, setTemNovo] = useState(false)
   const pedido = useRef(0)
   const cadastroNovo = useRef<CadastroClub | null>(null)
+  const abaInicial = useRef(false)
+  const quemId = useRef<string | null>(null)
+  const folhaAberta = useRef(false)
 
   const membro = !!cadastro?.membro && !!cadastro.instagram && !cadastro.faltam.includes('instagram')
   const modo: 'visitante' | 'conta' | 'membro' = !logado ? 'visitante' : membro ? 'membro' : 'conta'
   const temaSemana = lista?.semana?.tema ?? null
 
   // Relogio do "ha 12 min".
-  useEffect(() => { const t = setInterval(() => setAgora(Date.now()), 60000); return () => clearInterval(t) }, [])
+  useEffect(() => {
+    setAgora(Date.now())
+    const t = setInterval(() => setAgora(Date.now()), 60000)
+    return () => clearInterval(t)
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setLogado(!!data.session); setNome(String(data.session?.user.user_metadata?.name || '')) })
@@ -90,7 +100,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   // Cadastro do Club e papeis: so com sessao.
   useEffect(() => {
     if (logado === undefined) return
-    if (!logado) { setCadastro(null); setOrganizador(false); return }
+    if (!logado) { setCadastro(null); setOrganizador(false); setAba('recentes'); setMeus(null); setMeuApoio(null); abaInicial.current = false; return }
     let vivo = true
     Promise.all([supabase.rpc('club_meu_cadastro'), supabase.rpc('club_meus_papeis')]).then(([c, p]) => {
       if (!vivo) return
@@ -102,7 +112,8 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
 
   // Aba inicial: membro abre em "Para ver"; os avisos do sino trazem ?aba=meus ou ?organizar=1.
   useEffect(() => {
-    if (cadastro === undefined) return
+    if (cadastro === undefined || abaInicial.current) return
+    abaInicial.current = true
     const q = new URLSearchParams(window.location.search)
     if (q.get('organizar') === '1' && organizador) setAba('organizar')
     else if ((q.get('aba') === 'meus' || q.get('apoio') === '1') && membro) setAba('meus')
@@ -138,7 +149,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     if (logado === undefined || cadastro === undefined) return
     if (aba === 'meus') { carregarMeus(); return }
     if (aba === 'organizar') return
-    if (!logado && aba === 'recentes' && !filtro.rede && !filtro.tema && inicial) { setLista(inicial); return }
+    if (!logado && aba === 'recentes' && !filtro.rede && !filtro.tema && inicial) { pedido.current++; setCarregando(false); setFalhou(false); setLista(inicial); return }
     carregar()
   }, [aba, filtro, logado, cadastro, carregar, carregarMeus, inicial])
 
@@ -157,9 +168,13 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     if (!membro || document.visibilityState !== 'visible') return
     const pend = lerPendente()
     if (!pend || Date.now() - pend.em < 3000) return
-    const p = lista?.itens.find(x => x.id === pend.id)
+    if (Date.now() - pend.em > PENDENTE_VALE_MS) { gravarPendente(null); return }
+    // Outra folha aberta: espera ela fechar (a marca fica guardada).
+    if (folhaAberta.current) return
     gravarPendente(null)
-    if (p && !p.meu) setFolha(f => (f ? f : { t: 'apoio', p, voltando: true }))
+    // O post da lista, se estiver nela (marca atualizada); senao o que foi guardado ao abrir.
+    const p = lista?.itens.find(x => x.id === pend.p.id) ?? pend.p
+    if (!p.meu) setFolha({ t: 'apoio', p, voltando: true })
   }, [membro, lista])
   useEffect(() => {
     verVolta()
@@ -167,6 +182,8 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     window.addEventListener('focus', verVolta)
     return () => { document.removeEventListener('visibilitychange', verVolta); window.removeEventListener('focus', verVolta) }
   }, [verVolta])
+
+  useEffect(() => { folhaAberta.current = folha !== null; if (folha === null) verVolta() }, [folha, verVolta])
 
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t) }, [toast])
 
@@ -186,14 +203,14 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   function aoAbrir(p: PostFeed, e?: { preventDefault: () => void }) {
     if (modo !== 'membro' || p.meu) return
     if (!lerMarca(CHAVE_IDEIAS) && e) { e.preventDefault(); setFolha({ t: 'ideias', p, abrir: true }); return }
-    gravarPendente(p.id)
+    gravarPendente(p)
   }
 
   function abrirPeloBotao(p: PostFeed) {
     const href = linkFeed(p.url)
     setFolha(null)
     if (!href) return
-    gravarPendente(p.id)
+    gravarPendente(p)
     window.open(href, '_blank', 'noopener,noreferrer')
   }
 
@@ -203,7 +220,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     setFolha({ t: 'apoio', p, voltando: false })
   }
 
-  function aoMarcar(p: PostFeed, gestos: Gesto[] | null) {
+  function aoMarcar(p: PostFeed, gestos: Gesto[] | null, depois?: 'retorno') {
     setLista(l => {
       if (!l) return l
       if (aba === 'para_ver' && gestos !== null) return { ...l, itens: l.itens.filter(x => x.id !== p.id) }
@@ -211,20 +228,24 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     })
     if (gestos === null) { setToast({ texto: 'Marca desfeita. O post voltou para Para ver.' }); setFolha(null); if (aba === 'para_ver') carregar(); return }
     if (gestos.length === 0) { setToast({ texto: 'Ok, só vi. O post saiu da sua fila.' }); setFolha(null); return }
+    if (depois === 'retorno') { setFolha({ t: 'retorno', p }); return }
     const proximo = (lista?.itens ?? []).find(x => x.id !== p.id && !x.meu && x.minha_marca === null) ?? null
     setFolha({ t: 'proximo', p: proximo })
   }
 
   async function abrirQuem(id: string, rede: PostFeed['rede'], titulo: string) {
+    quemId.current = id
     setQuem({ dados: null, falhou: false })
     setFolha({ t: 'quem', id, rede, titulo })
     const { data, error } = await supabase.rpc('club_feed_quem_apoiou', { p_id: id })
+    if (quemId.current !== id) return
     setQuem({ dados: error ? null : (data as QuemApoiou), falhou: !!error })
   }
 
   async function confirmar(id: string, arroba: string): Promise<string | null> {
     const { error } = await supabase.rpc('club_feed_confirmar_comentario', { p_id: id, p_arroba: arroba })
     if (error) return erroFeed(error.message)
+    if (quemId.current !== id) return null
     setQuem(q => (q.dados ? { ...q, dados: { ...q.dados, apoios: q.dados.apoios.map(a => (a.arroba === arroba ? { ...a, confirmado_em: new Date().toISOString() } : a)) } } : q))
     carregarMeus()
     return null
@@ -369,7 +390,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
 
       {folha?.t === 'ideias' && <FolhaIdeias p={folha.p} onFechar={() => setFolha(null)} onAbrir={folha.abrir ? () => abrirPeloBotao(folha.p) : undefined} />}
       {folha?.t === 'apoio' && <FolhaApoio p={folha.p} voltando={folha.voltando} onFechar={() => setFolha(null)} onMarcou={aoMarcar}
-        onRetorno={p => setFolha({ t: 'retorno', p })} onIdeias={p => setFolha({ t: 'ideias', p, abrir: false })} />}
+        onIdeias={p => setFolha({ t: 'ideias', p, abrir: false })} />}
       {folha?.t === 'proximo' && <FolhaProximo proximo={folha.p} onFechar={() => setFolha(null)} onAbrir={abrirPeloBotao} />}
       {folha?.t === 'retorno' && <FolhaRetorno p={folha.p} onFechar={() => setFolha(null)} onEnviou={p => {
         setLista(l => (l ? { ...l, itens: l.itens.map(x => (x.id === p.id ? { ...x, meu_retorno: true } : x)) } : l))

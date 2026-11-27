@@ -77,15 +77,19 @@ export function BlocoData({ dia, mes }: { dia: string; mes: string }) {
 /** Folha de baixo para cima no celular; janela centralizada no computador. */
 export function Folha({ titulo, eyebrow, onFechar, children }: { titulo: string; eyebrow?: string; onFechar: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null)
+  // O pai pode passar onFechar novo a cada render (ex.: um relogio na pagina). Se o efeito dependesse
+  // dele, o foco voltaria para a folha a cada render e o teclado do celular fecharia no meio da digitacao.
+  const fecharRef = useRef(onFechar)
+  useEffect(() => { fecharRef.current = onFechar }, [onFechar])
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') fecharRef.current() }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const antes = document.activeElement as HTMLElement | null
     ref.current?.focus()
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; antes?.focus() }
-  }, [onFechar])
+  }, [])
   return (
     <div className="as-sheet-bg" onClick={onFechar}>
       <div ref={ref} tabIndex={-1} className="as-sheet" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>

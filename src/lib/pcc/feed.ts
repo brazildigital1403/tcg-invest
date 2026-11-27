@@ -144,7 +144,7 @@ export function motivoFora(m: string | null): string {
  * id do post; aqui é a segunda trava, para nada fora disso virar href.
  */
 export function linkFeed(url: string): string | null {
-  return /^https:\/\/(www\.instagram\.com\/(p|reel|tv)\/|www\.tiktok\.com\/@[A-Za-z0-9._]{1,30}\/video\/|www\.youtube\.com\/(watch\?v=|shorts\/|live\/)|www\.twitch\.tv\/videos\/)[A-Za-z0-9_-]+/.test(url) ? url : null
+  return /^https:\/\/(www\.instagram\.com\/(p|reel|tv)\/|www\.tiktok\.com\/@[A-Za-z0-9._]{1,30}\/video\/|www\.youtube\.com\/(watch\?v=|shorts\/|live\/)|www\.twitch\.tv\/videos\/)[A-Za-z0-9_-]+\/?$/.test(url) ? url : null
 }
 
 /** Lê o link colado e adivinha rede e formato, igual ao que o banco aceita. Nulo = não é post das quatro redes. */
