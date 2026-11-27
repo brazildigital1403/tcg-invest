@@ -100,6 +100,7 @@ export const SELOS = {
   aniversariantes: '/pokecreatorsclub/selo-aniversariantes.webp',
   agenda: '/pokecreatorsclub/selo-agenda.webp',
   avisos: '/pokecreatorsclub/selo-avisos.webp',
+  feed: '/pokecreatorsclub/selo-feed.webp',
 } as const satisfies Record<string, string | null>
 
 export function SeloFrente({ frente, className = '' }: { frente: keyof typeof SELOS; className?: string }) {

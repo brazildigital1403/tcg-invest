@@ -346,6 +346,7 @@ const SELO_AMIGO_SECRETO = SELOS['amigo-secreto']
 const SELO_ANIVERSARIANTES = SELOS.aniversariantes
 const SELO_AGENDA = SELOS.agenda
 const SELO_AVISOS = SELOS.avisos
+const SELO_FEED = SELOS.feed
 // Cartas ilustradas do leque do hero (06/11), proporcao 2:3.
 const CARTA_AMIGO_SECRETO = '/pokecreatorsclub/carta-amigo-secreto.webp'
 const CARTA_ANIVERSARIANTES = '/pokecreatorsclub/carta-aniversariantes.webp'
@@ -407,8 +408,7 @@ function CartaoAvisos({ logado, lista, visto }: { logado: boolean; lista: Aviso[
   )
 }
 
-// Feed do Club (26/11/2026, wireframe v3 quadro 01). Sem selo ilustrado ainda: o quadrado com icone
-// da casa. A linha nunca vira numero de pendencia: so diz se tem post novo para a pessoa.
+// Feed do Club (26/11/2026, wireframe v3 quadro 01; selo ilustrado do Du em 27/11). A linha nunca vira numero de pendencia: so diz se tem post novo para a pessoa.
 function CartaoFeed({ logado, membro }: { logado: boolean; membro: boolean }) {
   const [novo, setNovo] = useState<boolean | null>(null)
   useEffect(() => {
@@ -425,7 +425,7 @@ function CartaoFeed({ logado, membro }: { logado: boolean; membro: boolean }) {
   return (
     <section className="as-card cl-frente">
       <div className="cl-frente-g">
-        <span className="cl-selo as-selo-ico" aria-hidden="true"><Ico n="trend" s={40} /></span>
+        <Selo src={SELO_FEED} />
         <div className="cl-frente-tx">
           <h2 className="as-h3">Feed do Club</h2>
           <p className="as-meta">{linha}</p>
