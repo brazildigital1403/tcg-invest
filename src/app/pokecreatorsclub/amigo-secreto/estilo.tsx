@@ -66,6 +66,7 @@ const PATHS: Record<string, React.ReactNode> = {
   youtube: <><rect x="2.5" y="5.5" width="19" height="13" rx="4" /><path d="M10 9.5v5l4.5-2.5z" /></>,
   twitch: <path d="M5 3.5h15v10l-4 4h-4l-3 3v-3H5zM11 7.5v4M15.5 7.5v4" />,
   pontos: <path d="M12 6v.5M12 12v.5M12 18v.5" />,
+  energia: <><circle cx="12" cy="12" r="9" /><path d="M13.2 6.5L8.6 13h3.3l-1.1 4.5 4.6-6.5h-3.3z" /></>,
 }
 
 export function Ico({ n, s = 18, className = '' }: { n: keyof typeof PATHS | string; s?: number; className?: string }) {

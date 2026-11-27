@@ -213,6 +213,53 @@ export function haQuanto(iso: string, agora = Date.now()): string {
   return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' }).format(new Date(iso))
 }
 
+/** Dia do calendario de Brasilia (AAAA-MM-DD) de um instante. */
+const diaBrasilia = (t: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(t))
+
+export type GrupoDia = 'hoje' | 'ontem' | 'semana' | 'antes'
+export const ROTULO_DIA: Record<GrupoDia, string> = { hoje: 'Hoje', ontem: 'Ontem', semana: 'Esta semana', antes: 'Mais antigos' }
+
+/** Hoje / Ontem / Esta semana (ate 7 dias) / Mais antigos, no relogio de Brasilia. Mantem a ordem da lista. */
+export function agruparPorDia<T extends { feed_em: string }>(itens: T[], agora: number): { g: GrupoDia; itens: T[] }[] {
+  const hoje = diaBrasilia(agora)
+  const ontem = diaBrasilia(agora - 86400000)
+  const grupos: { g: GrupoDia; itens: T[] }[] = []
+  for (const p of itens) {
+    const t = new Date(p.feed_em).getTime()
+    const d = diaBrasilia(t)
+    const g: GrupoDia = d === hoje ? 'hoje' : d === ontem ? 'ontem' : agora - t < 7 * 86400000 ? 'semana' : 'antes'
+    const ult = grupos[grupos.length - 1]
+    if (ult && ult.g === g) ult.itens.push(p)
+    else grupos.push({ g, itens: [p] })
+  }
+  return grupos
+}
+
+/** Post das ultimas 24 horas. */
+export const ehNovo = (iso: string, agora: number) => agora > 0 && agora - new Date(iso).getTime() < 86400000
+
+/** "@a, @b e mais gente postaram hoje" sem repetir pessoa. Devolve os @ unicos e a frase. */
+export function linhaViva(arrobas: string[], g: GrupoDia): { unicos: string[]; partes: { a: string[]; resto: string } } {
+  const unicos = Array.from(new Set(arrobas))
+  const quando = g === 'hoje' ? ' hoje' : g === 'ontem' ? ' ontem' : ''
+  const verbo = unicos.length === 1 ? 'postou' : 'postaram'
+  if (unicos.length <= 2) return { unicos, partes: { a: unicos, resto: `${verbo}${quando}` } }
+  return { unicos, partes: { a: unicos.slice(0, 2), resto: `e mais gente postaram${quando}` } }
+}
+
+/** Posts que a pessoa ja abriu, guardados no navegador para o anel de "nao visto". */
+const CHAVE_VISTOS = 'bynx.feed.vistos'
+export function lerVistos(): Set<string> {
+  try { const v = localStorage.getItem(CHAVE_VISTOS); return new Set(v ? (JSON.parse(v) as string[]) : []) } catch { return new Set() }
+}
+export function gravarVisto(id: string) {
+  try {
+    const v = Array.from(lerVistos()).filter(x => x !== id)
+    v.push(id)
+    localStorage.setItem(CHAVE_VISTOS, JSON.stringify(v.slice(-400)))
+  } catch { /* sem armazenamento: o anel so fica aceso */ }
+}
+
 /** Marca guardada no navegador: as ideias de comentar aparecem uma vez; as regras, antes do primeiro post. */
 export const CHAVE_IDEIAS = 'bynx.feed.ideias-vistas'
 export const CHAVE_REGRAS = 'bynx.feed.regras-vistas'

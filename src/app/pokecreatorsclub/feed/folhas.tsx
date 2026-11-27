@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Folha } from '../_comum/calendario'
 import { Ico } from '../amigo-secreto/estilo'
-import { Capa, tituloPost } from './comum'
+import { Capa, JanelaCarta, tituloPost } from './comum'
 import {
   CHAVE_IDEIAS, FORMATOS, GESTOS_POR_REDE, MOTIVOS_DENUNCIA, PERGUNTAS, REDES, RESPOSTAS_BOAS, RESPOSTAS_MELHORAR, TEMAS,
   erroFeed, gravarMarca, lerLinkColado, motivoLinkRecusado, rotuloGesto, rotuloResposta,
@@ -67,6 +67,10 @@ export function FolhaApoio({ p, voltando, onFechar, onMarcou, onIdeias }: {
 
   return (
     <Folha titulo="Fez alguma coisa por lá?" eyebrow={voltando ? `Você voltou do ${REDES[p.rede].nome} de @${p.arroba}` : `Post de @${p.arroba}`} onFechar={onFechar}>
+      <div className="fd-minicarta">
+        <span className="fd-cx"><span className="fd-jan"><JanelaCarta p={p} /></span></span>
+        <span className="tx"><b>@{p.arroba}</b>{tituloPost(p)} · {REDES[p.rede].nome}</span>
+      </div>
       <p className="as-p" style={{ margin: 0 }}>Marque só o que fez. É uma declaração sua, sem print e sem prova. Não ter feito nada também está certo.</p>
       <div className="fd-cks" role="group" aria-label="O que você fez no post">
         {opcoes.map(o => {
@@ -82,7 +86,7 @@ export function FolhaApoio({ p, voltando, onFechar, onMarcou, onIdeias }: {
       </div>
       {erro && <div className="fd-falha vermelho" role="alert"><Ico n="alert" s={16} />{erro}</div>}
       <button type="button" className="as-btn pri cta" disabled={ocupado || marcados.length === 0} onClick={() => salvar(marcados)}>
-        {ocupado ? 'Salvando...' : 'Marcar apoio'}
+        {ocupado ? 'Salvando...' : <><Ico n="energia" s={20} />Marcar apoio</>}
       </button>
       {p.retorno && marcados.length > 0 && (
         <button type="button" className="as-btn" disabled={ocupado} onClick={() => salvar(marcados, 'retorno')}>Marcar e deixar retorno privado</button>

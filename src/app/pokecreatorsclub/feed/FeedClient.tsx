@@ -1,7 +1,7 @@
 'use client'
 
-// Feed do Club (wireframe v3 e UI v3 aprovados pelo Du em 26/11/2026). Uma URL, um painel; o que
-// muda e quem esta olhando:
+// Feed do Club (wireframe v3 e UI v3 aprovados pelo Du em 26/11/2026; versao C da tela, "a sala da B
+// com as cartas da A", aprovada em 27/11/2026). Uma URL, um painel; o que muda e quem esta olhando:
 //   visitante: le "Recentes" (vem renderizado do servidor) e ve o convite na barra fixa;
 //   conta da Bynx sem Club: le e denuncia; postar e apoiar abrem o EntrarClub;
 //   membro: "Para ver" (o que ainda nao marcou), "Recentes", "Meus posts"; postar e apoiar;
@@ -9,21 +9,21 @@
 // O gesto: abrir o post na rede (outra aba) e, na volta, a folha pergunta o que a pessoa fez.
 // A volta e lembrada no navegador (sessionStorage), porque o iPhone costuma recarregar a aba.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import type { CadastroClub } from '@/lib/pcc/membro'
 import { CLUB, FEED } from '@/lib/pcc/rotas'
 import {
-  CHAVE_IDEIAS, CHAVE_REGRAS, REDES, TEMAS, erroFeed, gravarMarca, lerMarca, linkFeed,
-  type Gesto, type ListaFeed, type MeuApoio, type MeuPost, type PostFeed, type QuemApoiou,
+  CHAVE_IDEIAS, CHAVE_REGRAS, REDES, ROTULO_DIA, TEMAS, agruparPorDia, erroFeed, gravarMarca, gravarVisto, lerMarca, lerVistos, linhaViva, linkFeed,
+  type Gesto, type GrupoDia, type ListaFeed, type MeuApoio, type MeuPost, type PostFeed, type QuemApoiou, type Rede,
 } from '@/lib/pcc/feed'
-import { Ico } from '../amigo-secreto/estilo'
+import { Ico, LOGO_PCC } from '../amigo-secreto/estilo'
 import { Casca } from '../agenda/comum'
 import EntrarClub from '../EntrarClub'
-import { CardPost, FD_CSS, tituloPost } from './comum'
+import { Avatar, CartaEsqueleto, CartaPost, FD_CSS, JanelaCarta, tituloPost } from './comum'
 import {
-  FolhaApoio, FolhaDenunciar, FolhaFiltro, FolhaIdeias, FolhaPostado, FolhaPostar, FolhaProximo, FolhaQuemApoiou, FolhaRegras, FolhaRetorno,
+  FolhaApoio, FolhaDenunciar, FolhaFiltro, FolhaIdeias, FolhaPostado, FolhaPostar, FolhaQuemApoiou, FolhaRegras, FolhaRetorno,
   type Filtro,
 } from './folhas'
 import MeusPosts from './meus'
@@ -34,7 +34,6 @@ type Folhas =
   | { t: 'apoio'; p: PostFeed; voltando: boolean }
   | { t: 'ideias'; p: PostFeed; abrir: boolean }
   | { t: 'retorno'; p: PostFeed }
-  | { t: 'proximo'; p: PostFeed | null }
   | { t: 'postar' }
   | { t: 'postado'; primeiro: boolean }
   | { t: 'regras'; depois?: 'postar' }
@@ -69,7 +68,11 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   const [falhou, setFalhou] = useState(false)
   const [filtro, setFiltro] = useState<Filtro>({ rede: null, tema: null })
   const [folha, setFolha] = useState<Folhas>(null)
-  const [toast, setToast] = useState<{ texto: string; erro?: boolean } | null>(null)
+  const [toast, setToast] = useState<{ texto: string; erro?: boolean; apoio?: true; proximo?: PostFeed | null } | null>(null)
+  // Posts ja abertos (anel de "nao visto"), a carta que acabou de ligar a energia e o Postar flutuante.
+  const [vistos, setVistos] = useState<Set<string>>(() => new Set())
+  const [ligando, setLigando] = useState<string | null>(null)
+  const [fabFora, setFabFora] = useState(false)
   const [meus, setMeus] = useState<MeuPost[] | null>(null)
   const [meuApoio, setMeuApoio] = useState<MeuApoio | null>(null)
   const [quem, setQuem] = useState<{ dados: QuemApoiou | null; falhou: boolean }>({ dados: null, falhou: false })
@@ -185,7 +188,26 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
 
   useEffect(() => { folhaAberta.current = folha !== null; if (folha === null) verVolta() }, [folha, verVolta])
 
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t) }, [toast])
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), toast.apoio ? 6500 : 4000); return () => clearTimeout(t) }, [toast])
+
+  // Vistos guardados no navegador; so depois de montar, para o HTML do servidor nao divergir.
+  useEffect(() => { setVistos(lerVistos()) }, [])
+  function marcarVisto(id: string) { gravarVisto(id); setVistos(v => (v.has(id) ? v : new Set(v).add(id))) }
+
+  // O Postar flutuante some ao rolar para baixo e volta ao subir.
+  useEffect(() => {
+    let ultimo = window.scrollY
+    const aoRolar = () => {
+      const y = window.scrollY
+      if (Math.abs(y - ultimo) < 8) return
+      setFabFora(y > ultimo && y > 120)
+      ultimo = y
+    }
+    window.addEventListener('scroll', aoRolar, { passive: true })
+    return () => window.removeEventListener('scroll', aoRolar)
+  }, [])
+
+  useEffect(() => { if (!ligando) return; const t = setTimeout(() => setLigando(null), 900); return () => clearTimeout(t) }, [ligando])
 
   function abrirPostar() {
     if (!logado) { openLogin({ next: `${FEED}?postar=1`, cta: 'Entrar no Club' }); return }
@@ -201,6 +223,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
 
   /** Clique em "Abrir no ...". Membro: lembra o post para perguntar na volta; na primeira vez, as ideias antes. */
   function aoAbrir(p: PostFeed, e?: { preventDefault: () => void }) {
+    marcarVisto(p.id)
     if (modo !== 'membro' || p.meu) return
     if (!lerMarca(CHAVE_IDEIAS) && e) { e.preventDefault(); setFolha({ t: 'ideias', p, abrir: true }); return }
     gravarPendente(p)
@@ -210,6 +233,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     const href = linkFeed(p.url)
     setFolha(null)
     if (!href) return
+    marcarVisto(p.id)
     gravarPendente(p)
     window.open(href, '_blank', 'noopener,noreferrer')
   }
@@ -221,16 +245,21 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   }
 
   function aoMarcar(p: PostFeed, gestos: Gesto[] | null, depois?: 'retorno') {
-    setLista(l => {
-      if (!l) return l
-      if (aba === 'para_ver' && gestos !== null) return { ...l, itens: l.itens.filter(x => x.id !== p.id) }
-      return { ...l, itens: l.itens.map(x => (x.id === p.id ? { ...x, minha_marca: gestos, ja_sigo: x.ja_sigo || !!gestos?.includes('segui') } : x)) }
-    })
+    // A carta fica no lugar (numa grade, tirar uma carta faz todas trocarem de casa); na proxima carga
+    // de "Para ver" ela nao volta.
+    setLista(l => (l ? { ...l, itens: l.itens.map(x => (x.id === p.id ? { ...x, minha_marca: gestos, ja_sigo: x.ja_sigo || !!gestos?.includes('segui') } : x)) } : l))
+    marcarVisto(p.id)
     if (gestos === null) { setToast({ texto: 'Marca desfeita. O post voltou para Para ver.' }); setFolha(null); if (aba === 'para_ver') carregar(); return }
-    if (gestos.length === 0) { setToast({ texto: 'Ok, só vi. O post saiu da sua fila.' }); setFolha(null); return }
+    if (gestos.length === 0) { setToast({ texto: 'Ok, só vi.' }); setFolha(null); return }
+    setLigando(p.id)
     if (depois === 'retorno') { setFolha({ t: 'retorno', p }); return }
-    const proximo = (lista?.itens ?? []).find(x => x.id !== p.id && !x.meu && x.minha_marca === null) ?? null
-    setFolha({ t: 'proximo', p: proximo })
+    setFolha(null)
+    // O proximo que a pessoa ainda nao marcou, de preferencia depois deste na lista.
+    const lst = lista?.itens ?? []
+    const k = lst.findIndex(x => x.id === p.id)
+    const livre = (x: PostFeed) => x.id !== p.id && !x.meu && x.minha_marca === null && !!linkFeed(x.url)
+    const proximo = lst.slice(k + 1).find(livre) ?? lst.slice(0, Math.max(k, 0)).find(livre) ?? null
+    setToast({ texto: 'Apoio marcado.', apoio: true, proximo })
   }
 
   async function abrirQuem(id: string, rede: PostFeed['rede'], titulo: string) {
@@ -251,9 +280,9 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     return null
   }
 
-  const itens = lista?.itens ?? []
+  const itens = useMemo(() => lista?.itens ?? [], [lista])
   const filtrado = !!filtro.rede || !!filtro.tema
-  const rotuloFiltro = [filtro.rede && REDES[filtro.rede].nome, filtro.tema && (filtro.tema === 'semana' ? temaSemana : TEMAS[filtro.tema])].filter(Boolean).join(' · ')
+  const naLista = aba === 'para_ver' || aba === 'recentes'
 
   const abas = useMemo(() => {
     const a: { id: Aba; rotulo: string }[] = []
@@ -264,26 +293,144 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     return a
   }, [modo, organizador])
 
-  const lateral = (
-    <>
+  // Dias da lista (so depois de montar: o servidor nao sabe que horas sao no navegador).
+  const grupos: { g: GrupoDia | null; itens: PostFeed[] }[] = useMemo(
+    () => (agora ? agruparPorDia(itens, agora) : [{ g: null, itens }]), [itens, agora])
+  // Quem chegou: primeiro post no feed nos ultimos 7 dias, dentre os carregados.
+  const chegaram = useMemo(() => {
+    const vistos7 = new Set<string>()
+    return itens.filter(p => {
+      if (!p.primeiro || p.meu || vistos7.has(p.arroba)) return false
+      if (agora && agora - new Date(p.feed_em).getTime() > 7 * 86400000) return false
+      vistos7.add(p.arroba); return true
+    })
+  }, [itens, agora])
+  const escolha = itens.find(p => p.escolha && linkFeed(p.url)) ?? null
+  const gente = (grupos[0]?.g === 'hoje' ? grupos[0].itens : itens).map(p => p.arroba)
+  const genteHoje = grupos[0]?.g === 'hoje'
+
+  function irPara(id: string) {
+    document.getElementById(`post-${id}`)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+  }
+
+  const frase = (arrobas: string[], g: GrupoDia | null) => {
+    const { partes } = linhaViva(arrobas, g ?? 'semana')
+    const nomes = partes.a.map((a, k) => <b key={a}>{k > 0 ? (partes.a.length > 2 || partes.resto.startsWith('e mais') ? ', ' : ' e ') : ''}@{a}</b>)
+    return <>{nomes} {partes.resto}</>
+  }
+
+  const cartaEscolha = escolha && (
+    <section className="fv-esc" aria-label="Escolha da semana">
+      <a className="cp" href={linkFeed(escolha.url)!} target="_blank" rel="noopener noreferrer" onClick={e => aoAbrir(escolha, e)}
+        aria-label={`Abrir o post escolhido de @${escolha.arroba}, em outra aba`}>
+        <JanelaCarta p={escolha} /><span className="fv-fita">Escolha</span>
+      </a>
+      <div className="tx">
+        <span className="eb">Escolha do Club</span>
+        <span className="who"><Avatar arroba={escolha.arroba} t={28} /><span>@{escolha.arroba}</span></span>
+        <p className="tt">{tituloPost(escolha)}</p>
+        <span className="por">Escolhido por quem organiza o feed nesta semana</span>
+        <a className="as-btn sm" href={linkFeed(escolha.url)!} target="_blank" rel="noopener noreferrer" onClick={e => aoAbrir(escolha, e)}>
+          <Ico n="ext" s={16} />Ver no {REDES[escolha.rede].nome}
+        </a>
+      </div>
+    </section>
+  )
+
+  const filaChegaram = chegaram.length > 0 && (
+    <section className="fv-cheg fd-so-cel" aria-label="Chegaram esta semana">
+      <div className="fv-sec-h"><h2>Chegaram esta semana</h2><span>Diga oi no primeiro post</span></div>
+      <div className="fv-row">
+        {chegaram.map(p => {
+          const novo = modo === 'membro' ? p.minha_marca === null && !vistos.has(p.id) : true
+          return (
+            <button key={p.id} type="button" className={`fv-che${novo ? ' novo' : ''}`} onClick={() => irPara(p.id)} aria-label={`Ver o primeiro post de @${p.arroba}`}>
+              <Avatar arroba={p.arroba} t={64} novo={novo} rede={p.rede} /><span className="nm">@{p.arroba}</span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const topo = modo === 'membro'
+    ? (
+      <section className="fv-oi" aria-label="Postar">
+        <h1 className="fd-sr">Feed do Poké Creators Club</h1>
+        <div className="ola">Oi, @{cadastro?.instagram}. <span>Bom ver você por aqui.</span></div>
+        <button type="button" className="fv-comp" onClick={abrirPostar}>
+          <Avatar arroba={cadastro?.instagram || '?'} t={40} /><span className="ph-t">Mostre um post seu para o Club</span>
+          <span className="mais"><Ico n="plus" s={20} /></span>
+        </button>
+        {temaSemana && (
+          <button type="button" className="fv-tema" onClick={() => setFiltro({ rede: null, tema: 'semana' })}>
+            <Ico n="star" s={18} /><span>Tema da semana: <b>{temaSemana}</b></span><Ico n="chev" s={16} />
+          </button>
+        )}
+      </section>
+    )
+    : (
+      <section className="fv-conv">
+        <span className="eb"><Ico n="users" s={16} />Poké Creators Club</span>
+        <h1>O que os creators do Club <em>postaram esta semana</em></h1>
+        {gente.length > 0 && (
+          <div className="gente">
+            <span className="fv-pile">{Array.from(new Set(gente)).slice(0, 4).map(a => <Avatar key={a} arroba={a} t={28} novo />)}</span>
+            <span>{frase(gente, genteHoje ? 'hoje' : 'semana')}</span>
+          </div>
+        )}
+        <div className="acts">
+          <button type="button" className="as-btn pri" onClick={entrar}>Entrar no Club</button>
+          <button type="button" className="as-btn lnk" onClick={() => setFolha({ t: 'regras' })}>Como funciona</button>
+        </div>
+      </section>
+    )
+
+  const chips = naLista && (
+    <div className="fv-chips" role="group" aria-label="Filtrar o feed">
+      <button type="button" className={`fd-pk${!filtrado ? ' on' : ''}`} aria-pressed={!filtrado} onClick={() => setFiltro({ rede: null, tema: null })}>Tudo</button>
       {temaSemana && (
-        <div className="as-card fd-tema">
-          <span className="as-ri"><Ico n="star" s={18} /></span>
-          <span className="tx"><span className="as-k">Tema da semana</span><b>{temaSemana}</b></span>
-          {modo === 'membro' && <button type="button" className="as-btn sm" onClick={abrirPostar}>Postar no tema</button>}
+        <button type="button" className={`fd-pk${filtro.tema === 'semana' ? ' on' : ''}`} aria-pressed={filtro.tema === 'semana'}
+          onClick={() => setFiltro(f => ({ ...f, tema: f.tema === 'semana' ? null : 'semana' }))}><Ico n="star" s={16} />{temaSemana}</button>
+      )}
+      {(Object.keys(REDES) as Rede[]).map(r => (
+        <button key={r} type="button" className={`fd-pk${filtro.rede === r ? ' on' : ''}`} aria-pressed={filtro.rede === r}
+          onClick={() => setFiltro(f => ({ ...f, rede: f.rede === r ? null : r }))}><Ico n={REDES[r].ico} s={16} />{REDES[r].nome}</button>
+      ))}
+      <button type="button" className={`fd-pk${filtro.tema && filtro.tema !== 'semana' ? ' on' : ''}`} onClick={() => setFolha({ t: 'filtro' })}>
+        <Ico n="filtro" s={16} />{filtro.tema && filtro.tema !== 'semana' ? TEMAS[filtro.tema] : 'Mais filtros'}
+      </button>
+    </div>
+  )
+
+  const nav = (
+    <div className="fv-nav">
+      {abas.length > 1 && (
+        <div className="fv-tabs" role="tablist" aria-label="Partes do feed">
+          {abas.map(a => (
+            <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} className={`fv-tab${aba === a.id ? ' on' : ''}`} onClick={() => setAba(a.id)}>
+              {a.rotulo}{a.id === 'para_ver' && temNovo && aba !== 'para_ver' && <i className="dot" aria-label="tem post novo" />}
+            </button>
+          ))}
         </div>
       )}
-      {modo !== 'membro'
-        ? (
-          <div className="as-mis">
-            <div className="as-h3">Poste e apoie com o Club</div>
-            <p className="as-p" style={{ margin: 0 }}>Os posts dos creators do Club, para descobrir e apoiar. Para postar e apoiar, entre no Club.</p>
-            <button type="button" className="as-btn pri" onClick={entrar}>Entrar no Club</button>
-          </div>
-        )
-        : <button type="button" className="as-btn pri cta" onClick={abrirPostar}><Ico n="plus" s={18} />Postar no feed</button>}
-      <button type="button" className="as-btn lnk" onClick={() => setFolha({ t: 'regras' })}>Regras do feed</button>
-    </>
+      {chips}
+    </div>
+  )
+
+  const pilha = (ok: boolean) => (
+    <div className="fd-pilha" aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {[0, 1, 2].map(k => <span key={k} className={`fd-verso${ok && k === 1 ? ' ok' : ''}`}><img src={LOGO_PCC} alt="" /></span>)}
+    </div>
+  )
+
+  const carta = (p: PostFeed) => (
+    <CartaPost key={p.id} p={p} modo={modo} agora={agora} visto={vistos.has(p.id)} ligando={ligando === p.id}
+      onAbrir={(x, e) => aoAbrir(x, e)}
+      onApoiar={aoApoiar}
+      onMenu={logado ? x => setFolha({ t: 'denunciar', p: x }) : undefined}
+      onQuemApoiou={x => abrirQuem(x.id, x.rede, tituloPost(x))} />
   )
 
   const conteudoLista = (
@@ -294,34 +441,106 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
           <button type="button" className="as-btn sm" onClick={() => carregar()}>Tentar de novo</button>
         </div>
       )}
-      {!falhou && itens.length === 0 && !carregando && (
-        <div className="fd-vazio">
-          <span className="as-ri"><Ico n={aba === 'para_ver' && !filtrado ? 'check' : 'spark'} s={26} /></span>
-          <p className="as-p">{filtrado
-            ? 'Nenhum post com esse filtro agora.'
-            : aba === 'para_ver'
-              ? 'Você passou por tudo o que está no feed. Quando entrar post novo, ele aparece aqui.'
-              : 'O feed ainda está vazio. Seja o primeiro post da semana.'}</p>
-          {filtrado
-            ? <button type="button" className="as-btn" onClick={() => setFiltro({ rede: null, tema: null })}>Limpar o filtro</button>
-            : <button type="button" className="as-btn pri" onClick={aba === 'para_ver' ? () => setAba('recentes') : abrirPostar}>{aba === 'para_ver' ? 'Ver os recentes' : 'Postar no feed'}</button>}
+      {!falhou && itens.length === 0 && carregando && (
+        <div className="fd-carregando" aria-busy="true" aria-label="Carregando o feed">
+          <div className="fd-g">{[0, 1, 2, 3].map(k => <CartaEsqueleto key={k} />)}</div>
         </div>
       )}
-      <div className="fd-lista duas">
-        {itens.map(p => (
-          <CardPost key={p.id} p={p} modo={modo} agora={agora}
-            onAbrir={(x, e) => aoAbrir(x, e)}
-            onApoiar={aoApoiar}
-            onRetorno={x => setFolha({ t: 'retorno', p: x })}
-            onMenu={logado ? x => setFolha({ t: 'denunciar', p: x }) : undefined}
-            onQuemApoiou={x => abrirQuem(x.id, x.rede, tituloPost(x))} />
-        ))}
-      </div>
+      {!falhou && itens.length === 0 && !carregando && (
+        filtrado
+          ? (
+            <div className="fd-vz">
+              <h3>Nenhum post com esse filtro agora</h3>
+              <div className="acts"><button type="button" className="as-btn" onClick={() => setFiltro({ rede: null, tema: null })}>Limpar o filtro</button></div>
+            </div>
+          )
+          : aba === 'para_ver'
+            ? (
+              <div className="fd-vz">
+                {pilha(true)}
+                <h3>Você virou todas as cartas</h3>
+                <p className="as-p">Obrigado por olhar o trabalho da turma. Quando entrar post novo, ele aparece aqui.</p>
+                <div className="acts">
+                  <button type="button" className="as-btn pri" onClick={() => setAba('recentes')}>Ver os recentes</button>
+                  <button type="button" className="as-btn lnk" onClick={abrirPostar}>Postar o seu</button>
+                </div>
+              </div>
+            )
+            : (
+              <div className="fd-vz">
+                {pilha(false)}
+                <h3>O feed ainda está vazio</h3>
+                <p className="as-p">Seja o primeiro post da semana.</p>
+                <div className="acts"><button type="button" className="as-btn pri" onClick={modo === 'membro' ? abrirPostar : entrar}>{modo === 'membro' ? 'Postar no feed' : 'Entrar no Club'}</button></div>
+              </div>
+            )
+      )}
+      {grupos.map((gr, gi) => gr.itens.length > 0 && (
+        <section key={gr.g ?? 'todos'} className="fd-bd" aria-label={gr.g ? ROTULO_DIA[gr.g] : 'Posts'}>
+          {gr.g && (
+            <div className="fv-dia">
+              <h2>{ROTULO_DIA[gr.g]}</h2>
+              <div className="fv-vivo">
+                <span className="fv-pile">{Array.from(new Set(gr.itens.map(p => p.arroba))).slice(0, 3).map(a => <Avatar key={a} arroba={a} t={24} />)}</span>
+                <span>{frase(gr.itens.map(p => p.arroba), gr.g)}</span>
+              </div>
+            </div>
+          )}
+          <div className="fd-g">
+            {gr.itens.map((p, k) => (
+              <Fragment key={p.id}>
+                {carta(p)}
+                {/* Membro no celular: a escolha entra na grade do primeiro dia, depois da primeira fileira de quatro. */}
+                {modo === 'membro' && gi === 0 && cartaEscolha && k === Math.min(3, gr.itens.length - 1) && <div className="fd-so-cel fd-g-linha">{cartaEscolha}</div>}
+              </Fragment>
+            ))}
+          </div>
+        </section>
+      ))}
       {lista?.tem_mais && itens.length > 0 && (
-        <button type="button" className="as-btn fd-mais-btn" disabled={carregando} onClick={() => carregar(itens[itens.length - 1].feed_em)}>
+        <button type="button" className="as-btn" style={{ alignSelf: 'center', width: 'auto' }} disabled={carregando} onClick={() => carregar(itens[itens.length - 1].feed_em)}>
           {carregando ? 'Carregando...' : 'Ver mais posts'}
         </button>
       )}
+      {aba === 'para_ver' && !lista?.tem_mais && itens.length > 0 && !filtrado && (
+        <section className="fv-fim" aria-label="Fim da fila">
+          <span className="ok"><Ico n="check" s={30} /></span>
+          <h3>Você chegou ao fim da fila</h3>
+          <p>Obrigado por olhar o trabalho da turma. Quando entrar post novo, ele aparece aqui em cima.</p>
+          <div className="acts">
+            <button type="button" className="as-btn" onClick={() => setAba('recentes')}>Ver os recentes</button>
+            <button type="button" className="as-btn lnk" onClick={abrirPostar}>Postar o seu</button>
+          </div>
+        </section>
+      )}
+    </>
+  )
+
+  const lateral = (
+    <>
+      {modo !== 'membro'
+        ? (
+          <div className="as-mis">
+            <div className="as-h3">Poste e apoie com o Club</div>
+            <p className="as-p" style={{ margin: 0 }}>Os posts dos creators do Club, para descobrir e apoiar. Para postar e apoiar, entre no Club.</p>
+            <button type="button" className="as-btn pri" onClick={entrar}>Entrar no Club</button>
+          </div>
+        )
+        : <button type="button" className="as-btn pri cta" onClick={abrirPostar}><Ico n="plus" s={18} />Postar no feed</button>}
+      {cartaEscolha}
+      {chegaram.length > 0 && (
+        <div className="as-card" style={{ gap: 6 }}>
+          <div className="fv-sec-h"><h2>Chegaram esta semana</h2></div>
+          {chegaram.map(p => (
+            <button key={p.id} type="button" className="fd-dk-che" onClick={() => irPara(p.id)}>
+              <Avatar arroba={p.arroba} t={40} novo={modo === 'membro' ? p.minha_marca === null && !vistos.has(p.id) : true} rede={p.rede} />
+              <span className="tx"><b>@{p.arroba}</b><span>Primeiro post · {tituloPost(p)}</span></span>
+              <Ico n="chev" s={16} />
+            </button>
+          ))}
+        </div>
+      )}
+      <button type="button" className="as-btn lnk" onClick={() => setFolha({ t: 'regras' })}>Como o feed funciona</button>
     </>
   )
 
@@ -329,69 +548,49 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     <Casca logado={!!logado} onEntrar={() => openLogin({ next: FEED, cta: 'Entrar no Club' })} voltar={CLUB} titulo="Feed">
       <div className="fd">
         <div className="fd-layout">
-          <div className="fd-cab" style={{ gap: 12 }}>
-            <div className="fd-cab">
-              <h1 className="as-h2">Feed do Club</h1>
-              <p className="as-p" style={{ margin: 0 }}>Os posts dos creators do Club, para descobrir e apoiar. Ninguém pede nem troca curtida. <button type="button" className="lnk" onClick={() => setFolha({ t: 'regras' })}>Regras</button></p>
-            </div>
-            {temaSemana && (
-              <div className="as-card fd-tema fd-so-cel">
-                <span className="as-ri"><Ico n="star" s={18} /></span>
-                <span className="tx"><span className="as-k">Tema da semana</span><b>{temaSemana}</b></span>
-                {modo === 'membro' && <button type="button" className="as-btn sm" onClick={abrirPostar}>Postar no tema</button>}
-              </div>
-            )}
-
-            {abas.length > 1 && (
-              <div className="fd-seg" role="tablist" aria-label="Partes do feed" style={{ gridTemplateColumns: `repeat(${abas.length},minmax(0,1fr))` }}>
-                {abas.map(a => (
-                  <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} className={aba === a.id ? 'on' : ''} onClick={() => setAba(a.id)}>
-                    {a.rotulo}{a.id === 'para_ver' && temNovo && aba !== 'para_ver' && <i className="fd-dot" aria-label="tem post novo" />}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {(aba === 'para_ver' || aba === 'recentes') && (
-              <div className="fd-bar">
-                <span className="as-meta">{filtrado ? rotuloFiltro : aba === 'para_ver' ? 'O que você ainda não marcou' : 'Mais novos primeiro'}</span>
-                <button type="button" className="as-btn sm" onClick={() => setFolha({ t: 'filtro' })}><Ico n="filtro" s={16} />Filtrar</button>
-              </div>
-            )}
-
-            {(aba === 'para_ver' || aba === 'recentes') && conteudoLista}
+          <div className="fd-bd">
+            {topo}
+            {filaChegaram}
+            {modo !== 'membro' && cartaEscolha && <div className="fd-so-cel">{cartaEscolha}</div>}
+            {nav}
+            {naLista && conteudoLista}
             {aba === 'meus' && <MeusPosts posts={meus} apoio={meuApoio} arroba={cadastro?.instagram ?? ''} agora={agora} onPostar={abrirPostar} onMudou={carregarMeus}
               onQuemApoiou={p => abrirQuem(p.id, p.rede, tituloPost(p))} />}
             {aba === 'organizar' && organizador && <Organizar agora={agora} onMudou={() => carregar()} />}
-            <div className="fd-espaco fd-so-cel" />
+            <div className="fd-fim-espaco fd-so-cel" />
           </div>
-          <aside className="fd-aside" aria-label="Postar e regras">{lateral}</aside>
+          <aside className="fd-aside" aria-label="Postar, escolha da semana e quem chegou">{lateral}</aside>
         </div>
 
-        <div className="fd-fixa fd-so-cel">
-          <div className="in">
-            {modo === 'membro'
-              ? <button type="button" className="as-btn pri cta" style={{ width: '100%' }} onClick={abrirPostar}><Ico n="plus" s={18} />Postar no feed</button>
-              : (
-                <>
-                  <span className="tx">{modo === 'visitante' ? 'Entre no Club para postar e apoiar.' : 'Entre no Club para postar e apoiar. Leva um minuto.'}</span>
-                  <button type="button" className="as-btn pri" onClick={entrar}>{modo === 'visitante' ? 'Entrar' : 'Entrar no Club'}</button>
-                </>
-              )}
-          </div>
-        </div>
+        {modo === 'membro'
+          ? <button type="button" className={`fv-fab${fabFora ? ' fora' : ''}`} onClick={abrirPostar} tabIndex={fabFora ? -1 : 0}><Ico n="plus" s={20} />Postar</button>
+          : (
+            <div className="fd-fixa fd-so-cel">
+              <div className="in">
+                <span className="tx">{modo === 'visitante' ? 'Entre no Club para postar e apoiar.' : 'Entre no Club para postar e apoiar. Leva um minuto.'}</span>
+                <button type="button" className="as-btn pri" onClick={entrar}>{modo === 'visitante' ? 'Entrar' : 'Entrar no Club'}</button>
+              </div>
+            </div>
+          )}
 
-        {toast && (
-          <div className={`fd-toast${toast.erro ? ' erro' : ''}`} role="status">
-            <Ico n={toast.erro ? 'alert' : 'check'} s={16} /><span style={{ flex: 1 }}>{toast.texto}</span>
-          </div>
-        )}
+        {toast && (toast.apoio
+          ? (
+            <div className="fv-toast" role="status">
+              <Ico n="energia" s={18} />
+              <span className="tx">{toast.proximo ? <><b>Apoio marcado.</b> Próximo: @{toast.proximo.arroba}</> : <><b>Apoio marcado.</b> Obrigado por ajudar.</>}</span>
+              {toast.proximo && <button type="button" className="as-btn sm" onClick={() => { const x = toast.proximo!; setToast(null); abrirPeloBotao(x) }}>Abrir</button>}
+            </div>
+          )
+          : (
+            <div className={`fd-toast${toast.erro ? ' erro' : ''}`} role="status">
+              <Ico n={toast.erro ? 'alert' : 'check'} s={16} /><span style={{ flex: 1 }}>{toast.texto}</span>
+            </div>
+          ))}
       </div>
 
       {folha?.t === 'ideias' && <FolhaIdeias p={folha.p} onFechar={() => setFolha(null)} onAbrir={folha.abrir ? () => abrirPeloBotao(folha.p) : undefined} />}
       {folha?.t === 'apoio' && <FolhaApoio p={folha.p} voltando={folha.voltando} onFechar={() => setFolha(null)} onMarcou={aoMarcar}
         onIdeias={p => setFolha({ t: 'ideias', p, abrir: false })} />}
-      {folha?.t === 'proximo' && <FolhaProximo proximo={folha.p} onFechar={() => setFolha(null)} onAbrir={abrirPeloBotao} />}
       {folha?.t === 'retorno' && <FolhaRetorno p={folha.p} onFechar={() => setFolha(null)} onEnviou={p => {
         setLista(l => (l ? { ...l, itens: l.itens.map(x => (x.id === p.id ? { ...x, meu_retorno: true } : x)) } : l))
         setFolha(null); setToast({ texto: `Retorno enviado. Só @${p.arroba} vê.` })
