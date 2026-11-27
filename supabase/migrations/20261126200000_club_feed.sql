@@ -31,14 +31,18 @@
 --   drop function public.club_feed_lista(text, timestamptz, text, text, integer);
 --   drop function public.club_feed_avisar_interno(uuid, text, text, text, text);
 --   drop function public.club_feed_semana_atual();
---   drop table public.club_feed_semanas, public.club_feed_denuncias, public.club_feed_retornos, public.club_feed_apoios;
+--   drop table public.club_feed_bloqueios, public.club_feed_semanas, public.club_feed_denuncias,
+--     public.club_feed_retornos, public.club_feed_apoios;
 --   alter table public.club_conteudos drop column feed_em, drop column feed_pergunta, drop column feed_retorno,
 --     drop column feed_semana, drop column feed_conferir_arroba, drop column feed_oculto_em,
 --     drop column feed_oculto_por, drop column feed_oculto_motivo, drop column feed_oculto_nota;
+--   update public.club_organizadores set papeis = array_remove(papeis, 'feed') where papeis @> array['feed'];
+--   delete from public.club_organizadores where cardinality(papeis) = 0;
 --   alter table public.club_organizadores drop constraint club_organizadores_papeis_check,
 --     add constraint club_organizadores_papeis_check check (cardinality(papeis) >= 1
 --       and papeis <@ array['agenda', 'aniversariantes', 'avisos', 'colecao']);
 --   -- e reaplicar club_missao_cumprida_v2 de 20261125120000_club_capitulos.sql
+--   -- e club_conteudo_salvar de 20261122120000_club_portfolio.sql (antes de dropar feed_em)
 
 -- ── Colunas do feed em club_conteudos ────────────────────────────────────────
 
@@ -103,14 +107,25 @@ create table public.club_feed_semanas (
   updated_at   timestamptz not null default now()
 );
 
+-- Link tirado do feed (pela organizacao ou por denuncias). Fica pela chave do post, e nao
+-- pela linha: apagar o conteudo pelo Portfolio e postar de novo nao limpa o bloqueio.
+create table public.club_feed_bloqueios (
+  chave   text primary key check (chave ~ '^[a-z]+:[A-Za-z0-9_-]{5,40}$'),
+  motivo  text not null,
+  por     uuid references public.users(id) on delete set null,
+  em      timestamptz not null default now()
+);
+
 alter table public.club_feed_apoios    enable row level security;
 alter table public.club_feed_retornos  enable row level security;
 alter table public.club_feed_denuncias enable row level security;
 alter table public.club_feed_semanas   enable row level security;
+alter table public.club_feed_bloqueios enable row level security;
 revoke all on table public.club_feed_apoios    from public, anon, authenticated;
 revoke all on table public.club_feed_retornos  from public, anon, authenticated;
 revoke all on table public.club_feed_denuncias from public, anon, authenticated;
 revoke all on table public.club_feed_semanas   from public, anon, authenticated;
+revoke all on table public.club_feed_bloqueios from public, anon, authenticated;
 
 -- ── Papel 'feed' ─────────────────────────────────────────────────────────────
 
@@ -212,7 +227,7 @@ begin
         exists (select 1 from public.club_feed_apoios a join public.club_conteudos o on o.id = a.conteudo_id
                 where a.user_id = v_uid and o.user_id = p.user_id and a.gestos @> array['segui']) end,
       'apoiaram', case when v_uid is not null and p.user_id = v_uid then
-        (select count(*) from public.club_feed_apoios a where a.conteudo_id = p.id and cardinality(a.gestos) > 0) end
+        (select count(*) from public.club_feed_apoios a where a.conteudo_id = p.id and cardinality(array_remove(a.gestos, 'segui')) > 0) end
     ) order by p.feed_em desc), '[]'::jsonb),
     (select count(*) > v_lim from base)
   into v_itens, v_mais
@@ -280,6 +295,11 @@ begin
     end if;
   end if;
 
+  -- Link tirado do feed fica bloqueado pela chave, mesmo que a linha tenha sido apagada no Portfolio.
+  if exists (select 1 from public.club_feed_bloqueios b where b.chave = v_lido->>'chave') then
+    raise exception 'tirado_do_feed';
+  end if;
+
   v_primeiro := not exists (select 1 from public.club_conteudos c where c.user_id = v_uid and c.feed_em is not null);
 
   select * into v_existe from public.club_conteudos c where c.chave = v_lido->>'chave' for update;
@@ -292,16 +312,20 @@ begin
     update public.club_conteudos c
        set feed_em = now(), feed_pergunta = v_pergunta, feed_retorno = v_retorno,
            feed_semana = case when v_na_sem then v_semana end, feed_conferir_arroba = v_conferir,
-           formato = v_formato, tema = coalesce(v_tema, c.tema),
-           feed_oculto_em = null, feed_oculto_por = null, feed_oculto_motivo = null, feed_oculto_nota = null
+           -- Link que ja estava no Portfolio mantem formato e tema de la (o Album conta por eles).
+           tema = coalesce(c.tema, v_tema)
      where c.id = v_existe.id
      returning * into v_post;
   else
-    insert into public.club_conteudos (user_id, rede, formato, tema, url, chave, publicado_em,
-                                       feed_em, feed_pergunta, feed_retorno, feed_semana, feed_conferir_arroba)
-    values (v_uid, v_lido->>'rede', v_formato, v_tema, v_lido->>'url', v_lido->>'chave', v_hoje,
-            now(), v_pergunta, v_retorno, case when v_na_sem then v_semana end, v_conferir)
-    returning * into v_post;
+    begin
+      insert into public.club_conteudos (user_id, rede, formato, tema, url, chave, publicado_em,
+                                         feed_em, feed_pergunta, feed_retorno, feed_semana, feed_conferir_arroba)
+      values (v_uid, v_lido->>'rede', v_formato, v_tema, v_lido->>'url', v_lido->>'chave', v_hoje,
+              now(), v_pergunta, v_retorno, case when v_na_sem then v_semana end, v_conferir)
+      returning * into v_post;
+    exception when unique_violation then
+      raise exception 'link_ja_cadastrado';
+    end;
     -- Conteudo novo pode render carta do Album (o Album conta no maximo 5 por dia).
     v_cartas := public.club_album_conferir_abertas_interno(v_uid);
   end if;
@@ -330,7 +354,8 @@ $$;
 revoke all on function public.club_feed_postar(jsonb) from public, anon, authenticated;
 grant execute on function public.club_feed_postar(jsonb) to authenticated;
 
--- O autor tira o proprio post do feed. Continua no Portfolio.
+-- O autor tira o proprio post do feed. Continua no Portfolio. Post ja tirado pela organizacao
+-- ou por denuncias fica como esta (senao sairia da fila e ninguem conseguiria devolver).
 create or replace function public.club_feed_tirar_meu(p_id uuid)
 returns jsonb
 language plpgsql security definer
@@ -340,6 +365,9 @@ declare
   v_uid uuid := auth.uid();
 begin
   if v_uid is null then raise exception 'nao_logado'; end if;
+  if exists (select 1 from public.club_conteudos c where c.id = p_id and c.user_id = v_uid and c.feed_oculto_em is not null) then
+    raise exception 'tirado_do_feed';
+  end if;
   update public.club_conteudos c set feed_em = null, feed_semana = null
    where c.id = p_id and c.user_id = v_uid and c.feed_em is not null;
   if not found then raise exception 'post_nao_encontrado'; end if;
@@ -384,6 +412,9 @@ declare
 begin
   if v_uid is null then raise exception 'nao_logado'; end if;
   if not exists (select 1 from public.club_membros m where m.user_id = v_uid) then raise exception 'nao_membro'; end if;
+  if coalesce((select public.club_instagram_limpo(u.instagram) from public.users u where u.id = v_uid), '') !~ '^[a-z0-9._]{1,30}$' then
+    raise exception 'sem_instagram';
+  end if;
   select * into v_c from public.club_conteudos c
    where c.id = p_id and c.feed_em is not null and c.status = 'ativo' and c.feed_oculto_em is null;
   if not found then raise exception 'post_nao_encontrado'; end if;
@@ -400,7 +431,7 @@ begin
         updated_at = now(),
         comentario_confirmado_em = case when excluded.gestos @> array['comentei'] then a.comentario_confirmado_em end;
 
-  if cardinality(v_g) > 0 then
+  if cardinality(array_remove(v_g, 'segui')) > 0 then
     perform public.club_feed_avisar_interno(v_c.user_id, 'Seu post recebeu apoio',
       'Creators do Club apoiaram o seu post no feed.', '/pokecreatorsclub/feed?aba=meus', 'feed_apoio:' || v_c.user_id);
   end if;
@@ -441,6 +472,9 @@ declare
 begin
   if v_uid is null then raise exception 'nao_logado'; end if;
   if not exists (select 1 from public.club_membros m where m.user_id = v_uid) then raise exception 'nao_membro'; end if;
+  if coalesce((select public.club_instagram_limpo(u.instagram) from public.users u where u.id = v_uid), '') !~ '^[a-z0-9._]{1,30}$' then
+    raise exception 'sem_instagram';
+  end if;
   select * into v_c from public.club_conteudos c
    where c.id = p_id and c.feed_em is not null and c.status = 'ativo' and c.feed_oculto_em is null;
   if not found then raise exception 'post_nao_encontrado'; end if;
@@ -487,7 +521,7 @@ begin
         'confirmado_em', a.comentario_confirmado_em,
         'em', a.updated_at) order by a.updated_at desc)
       from public.club_feed_apoios a join public.users u on u.id = a.user_id
-      where a.conteudo_id = p_id and cardinality(a.gestos) > 0), '[]'::jsonb),
+      where a.conteudo_id = p_id and cardinality(array_remove(a.gestos, 'segui')) > 0), '[]'::jsonb),
     'soma', (
       select jsonb_build_object(
         'pessoas', count(*),
@@ -495,7 +529,7 @@ begin
         'comentei', count(*) filter (where a.gestos @> array['comentei']),
         'compartilhei', count(*) filter (where a.gestos @> array['compartilhei']),
         'salvei', count(*) filter (where a.gestos @> array['salvei']))
-      from public.club_feed_apoios a where a.conteudo_id = p_id and cardinality(a.gestos) > 0),
+      from public.club_feed_apoios a where a.conteudo_id = p_id and cardinality(array_remove(a.gestos, 'segui')) > 0),
     'retornos', coalesce((
       select jsonb_agg(jsonb_build_object('arroba', public.club_instagram_limpo(u.instagram), 'respostas', to_jsonb(r.respostas), 'em', r.updated_at)
              order by r.updated_at desc)
@@ -522,6 +556,7 @@ begin
   if not exists (select 1 from public.club_conteudos c where c.id = p_id and c.user_id = v_uid) then
     raise exception 'post_nao_encontrado';
   end if;
+  if lower(btrim(coalesce(p_arroba, ''), ' @')) !~ '^[a-z0-9._]{1,30}$' then raise exception 'apoio_nao_encontrado'; end if;
   select a.user_id into v_quem
   from public.club_feed_apoios a join public.users u on u.id = a.user_id
   where a.conteudo_id = p_id and a.gestos @> array['comentei']
@@ -557,7 +592,7 @@ begin
       'id', c.id, 'rede', c.rede, 'formato', c.formato, 'tema', c.tema, 'pergunta', c.feed_pergunta,
       'url', c.url, 'feed_em', c.feed_em, 'retorno', c.feed_retorno,
       'oculto', c.feed_oculto_em is not null, 'oculto_motivo', c.feed_oculto_motivo,
-      'apoiaram', (select count(*) from public.club_feed_apoios a where a.conteudo_id = c.id and cardinality(a.gestos) > 0),
+      'apoiaram', (select count(*) from public.club_feed_apoios a where a.conteudo_id = c.id and cardinality(array_remove(a.gestos, 'segui')) > 0),
       'a_confirmar', (select count(*) from public.club_feed_apoios a
                       where a.conteudo_id = c.id and a.gestos @> array['comentei'] and a.comentario_confirmado_em is null),
       'retornos', (select count(*) from public.club_feed_retornos r where r.conteudo_id = c.id)
@@ -585,7 +620,7 @@ begin
       'comentarios_confirmados', count(*) filter (where a.comentario_confirmado_em is not null),
       'desde', min(a.created_at))
     from public.club_feed_apoios a join public.club_conteudos c on c.id = a.conteudo_id
-    where a.user_id = v_uid and cardinality(a.gestos) > 0
+    where a.user_id = v_uid and cardinality(array_remove(a.gestos, 'segui')) > 0
   );
 end;
 $$;
@@ -628,6 +663,8 @@ begin
   if v_membros >= 3 and v_c.feed_oculto_em is null then
     update public.club_conteudos c set feed_oculto_em = now(), feed_oculto_por = null, feed_oculto_motivo = 'denuncias'
      where c.id = p_id;
+    insert into public.club_feed_bloqueios (chave, motivo, por) values (v_c.chave, 'denuncias', null)
+    on conflict (chave) do nothing;
   end if;
 
   if v_abertas = 1 or (v_membros >= 3 and v_c.feed_oculto_em is null) then
@@ -663,7 +700,7 @@ begin
     'primeiros', coalesce((
       select jsonb_agg(jsonb_build_object('id', c.id, 'arroba', public.club_instagram_limpo(u.instagram), 'rede', c.rede,
                'tema', c.tema, 'url', c.url, 'feed_em', c.feed_em,
-               'apoiaram', (select count(*) from public.club_feed_apoios a where a.conteudo_id = c.id and cardinality(a.gestos) > 0))
+               'apoiaram', (select count(*) from public.club_feed_apoios a where a.conteudo_id = c.id and cardinality(array_remove(a.gestos, 'segui')) > 0))
              order by c.feed_em)
       from public.club_conteudos c join public.users u on u.id = c.user_id
       where c.feed_em > now() - interval '72 hours' and c.feed_oculto_em is null and c.status = 'ativo'
@@ -717,8 +754,10 @@ declare
   v_c    public.club_conteudos;
   v_nota text := nullif(btrim(coalesce(p_nota, '')), '');
 begin
-  select * into v_c from public.club_conteudos c where c.id = p_id and c.feed_em is not null for update;
+  -- Sem filtro de feed_em: post que o autor tirou continua moderavel (denuncia aberta, devolver).
+  select * into v_c from public.club_conteudos c where c.id = p_id for update;
   if not found then raise exception 'post_nao_encontrado'; end if;
+  if p_autor is not null and v_c.user_id = p_autor then raise exception 'proprio_conteudo'; end if;
   if v_nota is not null and char_length(v_nota) > 300 then raise exception 'nota_longa'; end if;
 
   if p_acao = 'tirar' then
@@ -728,10 +767,13 @@ begin
     update public.club_conteudos c set feed_oculto_em = now(), feed_oculto_por = p_autor,
            feed_oculto_motivo = p_motivo, feed_oculto_nota = v_nota
      where c.id = p_id;
+    insert into public.club_feed_bloqueios (chave, motivo, por) values (v_c.chave, p_motivo, p_autor)
+    on conflict (chave) do update set motivo = excluded.motivo, por = excluded.por, em = now();
   elsif p_acao = 'devolver' then
     update public.club_conteudos c set feed_oculto_em = null, feed_oculto_por = null,
            feed_oculto_motivo = null, feed_oculto_nota = null
      where c.id = p_id;
+    delete from public.club_feed_bloqueios b where b.chave = v_c.chave;
   elsif p_acao = 'arroba_ok' then
     update public.club_conteudos c set feed_conferir_arroba = null where c.id = p_id;
   elsif p_acao <> 'manter' then
@@ -786,6 +828,9 @@ begin
     select 1 from public.club_conteudos c where c.id = p_escolha and c.feed_em is not null and c.feed_oculto_em is null and c.status = 'ativo'
   ) then
     raise exception 'post_nao_encontrado';
+  end if;
+  if p_escolha is not null and exists (select 1 from public.club_conteudos c where c.id = p_escolha and c.user_id = auth.uid()) then
+    raise exception 'proprio_conteudo';
   end if;
 
   insert into public.club_feed_semanas (semana, tema, escolha, updated_por, updated_at)
@@ -907,3 +952,66 @@ begin
 end;
 $$;
 revoke all on function public.club_missao_cumprida_v2(uuid, uuid) from public, anon, authenticated;
+
+-- ── Portfolio: o feed nao gasta a cota do Portfolio ──────────────────────────
+-- Igual a 20261122120000_club_portfolio.sql, exceto as duas contagens de limite, que agora
+-- ignoram o que foi postado pelo feed (feed_em preenchido). O feed nao tem limite; o Portfolio
+-- segue com 5 por dia e 300 no total.
+create or replace function public.club_conteudo_salvar(p jsonb)
+returns jsonb
+language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_uid     uuid := auth.uid();
+  v_agora   timestamptz := now();
+  v_hoje    date := (now() at time zone 'America/Sao_Paulo')::date;
+  v_lido    jsonb;
+  v_formato text := nullif(btrim(coalesce(p->>'formato', '')), '');
+  v_tema    text := nullif(btrim(coalesce(p->>'tema', '')), '');
+  v_data    date;
+  v_novo    public.club_conteudos;
+  v_cartas  jsonb;
+begin
+  if v_uid is null then raise exception 'nao_logado'; end if;
+  if not exists (select 1 from public.club_membros m where m.user_id = v_uid) then raise exception 'nao_membro'; end if;
+
+  v_lido := public.club_conteudo_ler_url(p->>'url');
+  if v_lido is null then raise exception 'link_invalido'; end if;
+  if v_formato is null or v_formato not in ('video_curto', 'video_longo', 'carrossel', 'foto', 'live') then raise exception 'formato_invalido'; end if;
+  if v_tema is not null and v_tema not in ('abertura', 'tour_fichario', 'historia_carta', 'resposta_publico', 'colecao', 'outro') then raise exception 'tema_invalido'; end if;
+  if coalesce(p->>'publicado_em', '') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' then raise exception 'data_invalida'; end if;
+  begin
+    v_data := (p->>'publicado_em')::date;
+  exception when others then
+    raise exception 'data_invalida';
+  end;
+  if v_data > v_hoje or v_data < date '2015-01-01' then raise exception 'data_invalida'; end if;
+
+  if (select count(*) from public.club_conteudos c
+      where c.user_id = v_uid and c.feed_em is null and (c.created_at at time zone 'America/Sao_Paulo')::date = v_hoje) >= 5 then
+    raise exception 'limite_do_dia';
+  end if;
+  if (select count(*) from public.club_conteudos c where c.user_id = v_uid and c.feed_em is null and c.status = 'ativo') >= 300 then
+    raise exception 'limite_total';
+  end if;
+
+  begin
+    insert into public.club_conteudos (user_id, rede, formato, tema, url, chave, publicado_em)
+    values (v_uid, v_lido->>'rede', v_formato, v_tema, v_lido->>'url', v_lido->>'chave', v_data)
+    returning * into v_novo;
+  exception when unique_violation then
+    raise exception 'link_ja_cadastrado';
+  end;
+
+  v_cartas := public.club_album_conferir_abertas_interno(v_uid);
+
+  return jsonb_build_object(
+    'conteudo', jsonb_build_object('id', v_novo.id, 'rede', v_novo.rede, 'formato', v_novo.formato, 'tema', v_novo.tema,
+      'url', v_novo.url, 'publicado_em', v_novo.publicado_em, 'created_at', v_novo.created_at),
+    'cartas', v_cartas
+  );
+end;
+$$;
+revoke all on function public.club_conteudo_salvar(jsonb) from public, anon, authenticated;
+grant execute on function public.club_conteudo_salvar(jsonb) to authenticated;
