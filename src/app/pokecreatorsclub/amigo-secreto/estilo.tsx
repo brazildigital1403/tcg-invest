@@ -54,6 +54,18 @@ const PATHS: Record<string, React.ReactNode> = {
   colecao: <><rect x="2.4" y="4.8" width="13.2" height="16.8" rx="2.4" /><rect x="6" y="2.4" width="13.2" height="16.8" rx="2.4" /><path d="M9.6 10.8l1.8 2.4 3-4.8" /></>,
   trend: <path d="M3.6 16.8l6-6 3.6 3.6 7.2-8.4M16.8 6h3.6v3.6" />,
   chat: <path d="M3.6 3.6h16.8a1.2 1.2 0 011.2 1.2v10.8a1.2 1.2 0 01-1.2 1.2H7.2l-4.8 3.6V4.8a1.2 1.2 0 011.2-1.2z" />,
+  // Feed do Club (26/11/2026): os gestos feitos na rede e as redes, em contorno, sem a cor das marcas.
+  coracao: <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z" />,
+  salvar: <path d="M6 3.5h12v17l-6-4.2-6 4.2z" />,
+  repost: <path d="M17 3.5l3 3-3 3M4 11V9.5a3 3 0 0 1 3-3h13M7 20.5l-3-3 3-3M20 13v1.5a3 3 0 0 1-3 3H4" />,
+  seguir: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M18.5 8v6M15.5 11h6" /></>,
+  bandeira: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></>,
+  filtro: <path d="M4 6h16M7 12h10M10 18h4" />,
+  tiktok: <path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5M14 3c.4 2.6 2.2 4.4 5 4.6" />,
+  youtube: <><rect x="2.5" y="5.5" width="19" height="13" rx="4" /><path d="M10 9.5v5l4.5-2.5z" /></>,
+  twitch: <path d="M5 3.5h15v10l-4 4h-4l-3 3v-3H5zM11 7.5v4M15.5 7.5v4" />,
+  pontos: <path d="M12 6v.5M12 12v.5M12 18v.5" />,
 }
 
 export function Ico({ n, s = 18, className = '' }: { n: keyof typeof PATHS | string; s?: number; className?: string }) {

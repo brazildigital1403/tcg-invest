@@ -16,7 +16,7 @@ import {
   AMIGO_SECRETO_SLUG, dataCurta, dataHora, type EdicaoPublica, type MinhaSala,
 } from '@/lib/amigoSecreto'
 import { instagramUrl, ordenarProximos, quandoTexto, type ListaAniversarios } from '@/lib/pcc/aniversarios'
-import { AGENDA, ALBUM, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, AVISOS, CLUB, agendaEvento, avisoUrl } from '@/lib/pcc/rotas'
+import { AGENDA, ALBUM, AMIGO_SECRETO, AMIGO_SECRETO_SALA, ANIVERSARIANTES, AVISOS, CLUB, FEED, agendaEvento, avisoUrl } from '@/lib/pcc/rotas'
 import { diaMes, diasAtePrazo, ehNovo, pedeResposta, prazoPassou, ultimaVisita, type Aviso, type ListaAvisos } from '@/lib/pcc/avisos'
 import { TIPOS, horaCurta, momento, type Evento, type ListaAgenda } from '@/lib/pcc/agenda'
 import { hojeBrasilia } from '@/lib/pcc/datas'
@@ -276,6 +276,7 @@ export default function CasaClub() {
             <div className="cl-frentes">
               <CartaoAmigoSecreto edicao={edicao} inscrito={inscrito} aberta={aberta} destaque={!tarefa} destino={destino} sala={sala} logado={!!logado} />
               <CartaoAvisos logado={!!logado} lista={avisos?.avisos || null} visto={vistoAvisos} />
+              <CartaoFeed logado={!!logado} membro={!!cadastro?.membro} />
               <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
               <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
             </div>
@@ -285,6 +286,7 @@ export default function CasaClub() {
             <>
               <div className="cl-frentes">
                 <CartaoAvisos logado={!!logado} lista={avisos?.avisos || null} visto={vistoAvisos} />
+                <CartaoFeed logado={!!logado} membro={!!cadastro?.membro} />
                 <CartaoAgenda logado={!!logado} carregou={!!agenda} hoje={eventosHoje[0] || null} proximo={proximoEvento} />
                 <CartaoAniversariantes logado={!!logado} proximo={proximoAniv ? `Próximo: @${proximoAniv.instagram}, ${quandoTexto(proximoAniv.emDias)}.` : null} />
               </div>
@@ -401,6 +403,35 @@ function CartaoAvisos({ logado, lista, visto }: { logado: boolean; lista: Aviso[
         </div>
       </div>
       <Link href={AVISOS} className="as-btn">Ver avisos</Link>
+    </section>
+  )
+}
+
+// Feed do Club (26/11/2026, wireframe v3 quadro 01). Sem selo ilustrado ainda: o quadrado com icone
+// da casa. A linha nunca vira numero de pendencia: so diz se tem post novo para a pessoa.
+function CartaoFeed({ logado, membro }: { logado: boolean; membro: boolean }) {
+  const [novo, setNovo] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!logado || !membro) return
+    let vivo = true
+    supabase.rpc('club_feed_lista', { p_aba: 'para_ver', p_limite: 1 }).then(({ data, error }) => {
+      if (vivo && !error) setNovo(((data as { itens?: unknown[] } | null)?.itens ?? []).length > 0)
+    })
+    return () => { vivo = false }
+  }, [logado, membro])
+  const linha = !logado || !membro || novo === null
+    ? 'Os posts dos creators do Club, para descobrir e apoiar.'
+    : novo ? 'Tem post novo no feed.' : 'Você passou por tudo o que está no feed.'
+  return (
+    <section className="as-card cl-frente">
+      <div className="cl-frente-g">
+        <span className="cl-selo as-selo-ico" aria-hidden="true"><Ico n="trend" s={40} /></span>
+        <div className="cl-frente-tx">
+          <h2 className="as-h3">Feed do Club</h2>
+          <p className="as-meta">{linha}</p>
+        </div>
+      </div>
+      <Link href={FEED} className="as-btn">Abrir o feed</Link>
     </section>
   )
 }

@@ -16,6 +16,7 @@ const PAPEIS: { id: string; rotulo: string; ajuda: string }[] = [
   { id: 'aniversariantes', rotulo: 'Aniversariantes', ajuda: 'remove foto imprópria' },
   { id: 'avisos', rotulo: 'Avisos', ajuda: 'publica, fixa, atualiza e arquiva avisos' },
   { id: 'colecao', rotulo: 'Álbum', ajuda: 'concede cartas de missão conferida pela organização e desfaz os próprios lotes' },
+  { id: 'feed', rotulo: 'Feed', ajuda: 'confere o primeiro post de quem chega, decide as denúncias, tira e devolve posts do feed e escolhe o tema e o post da semana' },
 ]
 const quem = (o: Org) => o.conta?.instagram ? `@${o.conta.instagram}` : o.conta?.username ? `@${o.conta.username}` : o.conta?.email || o.user_id
 const data = (iso: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso))
