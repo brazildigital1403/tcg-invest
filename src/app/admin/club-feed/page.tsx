@@ -39,11 +39,13 @@ export default function AdminClubFeedPage() {
   const [nota, setNota] = useState('')
   // Hora da ultima leitura: decide se o freio de cada rede ainda vale (fora do render, que tem que ser puro).
   const [lidoEm, setLidoEm] = useState(0)
+  const [lendo, setLendo] = useState(false)
 
   const load = useCallback(async () => {
-    setErro('')
+    setErro(''); setLendo(true)
     const res = await fetch('/api/admin/club-feed')
     const d = await res.json().catch(() => ({}))
+    setLendo(false)
     if (!res.ok) { setErro(d.error || `Erro ${res.status}`); return }
     setDados(d as Dados)
     setLidoEm(Date.now())
@@ -82,9 +84,16 @@ export default function AdminClubFeedPage() {
 
   const freioAtivo = (dados?.freio ?? []).filter(f => f.bloqueado_ate && new Date(f.bloqueado_ate).getTime() > lidoEm)
 
+  // Saude da tarefa da Mia Servidor: a ultima tentativa de captura e a rodada mais recente que se ve
+  // daqui. Post de rede liberada esperando ha mais de 2 h sem nenhuma tentativa = a tarefa pode ter parado.
+  const ultimaRodada = lista.reduce<string | null>((m, p) => p.capa.tentou_em && (!m || p.capa.tentou_em > m) ? p.capa.tentou_em : m, null)
+  const parados = lista.filter(p => p.capa.status === 'pendente' && p.capa.tentativas === 0 && !p.oculto
+    && !freioAtivo.some(f => f.rede === p.rede) && lidoEm - new Date(p.feed_em).getTime() > 2 * 3600_000).length
+
   return (
     <AdminPage titulo="Feed do Club" largura="larga"
-      subtitulo="Poké Creators Club. Os posts do feed, as capas que a Mia Servidor captura de hora em hora e as denúncias. A organização com o papel Feed modera pelo próprio feed; aqui você vê tudo e modera também.">
+      subtitulo="Poké Creators Club. Os posts do feed, as capas que a Mia Servidor captura de hora em hora e as denúncias. A organização com o papel Feed modera pelo próprio feed; aqui você vê tudo e modera também."
+      acao={<button type="button" className="cf-btn" disabled={lendo || !!ocupado} onClick={() => { setOk(''); load() }}>{lendo ? 'Atualizando...' : 'Atualizar'}</button>}>
       {erro && <AdminFaixa tom="erro">{erro}</AdminFaixa>}
       {ok && <AdminFaixa tom="ok">{ok}</AdminFaixa>}
       {dados === null && !erro && <AdminVazio>Carregando...</AdminVazio>}
@@ -93,13 +102,19 @@ export default function AdminClubFeedPage() {
         <>
           <section className="cf-grade" aria-label="Resumo">
             <div className="cf-num"><b>{conta.todos}</b><span>posts no feed</span></div>
-            <div className="cf-num"><b>{lista.filter(p => p.capa.status === 'ok').length}</b><span>com capa</span></div>
+            <div className="cf-num"><b>{conta.capa_pendente}</b><span>capa na fila</span></div>
             <div className={`cf-num${conta.capa_falhou ? ' alerta' : ''}`}><b>{conta.capa_falhou}</b><span>capa falhou</span></div>
             <div className={`cf-num${conta.denunciados ? ' alerta' : ''}`}><b>{conta.denunciados}</b><span>com denúncia aberta</span></div>
           </section>
 
           <section className="cf-box" aria-label="Capas">
             <div className="cf-t">Capas de hoje</div>
+            <p className="cf-ajuda">Última rodada da Mia Servidor: {ultimaRodada ? quando(ultimaRodada) : 'nenhuma ainda'}.</p>
+            {parados > 0 && (
+              <AdminFaixa tom="erro">
+                {parados === 1 ? '1 post espera' : `${parados} posts esperam`} há mais de 2 horas sem nenhuma tentativa de capa. A tarefa &quot;Bynx Capas Feed&quot; da Mia Servidor pode ter parado.
+              </AdminFaixa>
+            )}
             <div className="cf-redes">
               {(Object.keys(REDES) as Rede[]).map(r => {
                 const f = freioAtivo.find(x => x.rede === r)
@@ -114,7 +129,7 @@ export default function AdminClubFeedPage() {
                             onClick={() => window.confirm(`Liberar o ${REDES[r].nome} agora? Se o bloqueio for real, a captura volta a bater na rede e o freio liga de novo, por mais tempo.`)
                               && enviar(`freio-${r}`, { acao: 'liberar_freio', rede: r }, `${REDES[r].nome} liberado.`)}>Liberar</button>
                         </>
-                      : <small>Rodando</small>}
+                      : <small>Liberada</small>}
                   </div>
                 )
               })}
@@ -163,7 +178,7 @@ export default function AdminClubFeedPage() {
 
                       <div className="cf-acoes">
                         {href && <a className="cf-btn" href={href} target="_blank" rel="noopener noreferrer">Abrir</a>}
-                        {p.capa.status !== 'ok' && (
+                        {(p.capa.status === 'falhou' || (p.capa.status === 'pendente' && p.capa.tentativas > 0)) && (
                           <button type="button" className="cf-btn" disabled={!!ocupado}
                             onClick={() => enviar(`capa-${p.id}`, { acao: 'capa_de_novo', id: p.id }, 'Capa volta para a fila. A Mia Servidor tenta na próxima hora.')}>Tentar a capa de novo</button>
                         )}
@@ -215,7 +230,7 @@ export default function AdminClubFeedPage() {
         .cf-rede{border:1px solid var(--bx-border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--bx-text-2)}
         .cf-rede b{color:var(--bx-text);font-size:14px}
         .cf-rede small{font-size:12px}
-        .cf-rede.parada{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.06)}
+        .cf-rede.parada{border-color:color-mix(in srgb,var(--bx-red) 40%,transparent);background:color-mix(in srgb,var(--bx-red) 6%,transparent)}
         .cf-ajuda{margin:0;font-size:12.5px;color:var(--bx-text-2)}
         .cf-filtros{display:flex;gap:6px;flex-wrap:wrap}
         .cf-chip{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--bx-border-2);background:transparent;color:var(--bx-text-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s ease,color .15s ease}
@@ -232,9 +247,9 @@ export default function AdminClubFeedPage() {
         .cf-erro{color:var(--bx-red) !important}
         .cf-tags{display:flex;gap:6px;flex-wrap:wrap}
         .cf-tag{font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid var(--bx-border-2);color:var(--bx-text-2)}
-        .cf-tag.ok{border-color:rgba(34,197,94,.4);color:#4ade80}
+        .cf-tag.ok{border-color:color-mix(in srgb,var(--bx-green) 40%,transparent);color:var(--bx-green)}
         .cf-tag.pendente{border-color:rgba(var(--ac-1-rgb),.45);color:var(--ac-1)}
-        .cf-tag.falhou{border-color:rgba(239,68,68,.4);color:var(--bx-red)}
+        .cf-tag.falhou{border-color:color-mix(in srgb,var(--bx-red) 40%,transparent);color:var(--bx-red)}
         .cf-acoes{display:flex;gap:6px;flex-wrap:wrap}
         .cf-btn{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--bx-border-2);background:transparent;color:var(--bx-text);font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none;transition:background .15s ease}
         .cf-btn:hover:not(:disabled){background:var(--bx-surface-2)}
