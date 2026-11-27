@@ -109,12 +109,12 @@ export const FD_CSS = `
 .fd .as-in::placeholder{color:var(--bx-text-3)}
 .fd-cab{display:flex;flex-direction:column;gap:6px}
 .fd-cab .as-p{font-size:14px}
-.fd-cab .lnk{color:var(--bx-text);text-decoration:underline;text-underline-offset:3px;background:none;border:0;font:inherit;padding:0;cursor:pointer;min-height:44px}
-.fd-tema{flex-direction:row;align-items:center;gap:12px;padding:10px 12px}
-.fd-tema .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.fd-tema .tx b{font-size:15.5px;font-weight:800;letter-spacing:-.01em}
-.fd-tema .as-k{color:var(--ac-1)}
-.fd-tema .as-btn{flex:none;width:auto}
+.fd-cab .lnk{color:var(--bx-text);text-decoration:underline;text-underline-offset:3px;background:none;border:0;font:inherit;padding:12px 0;margin:-12px 0;cursor:pointer}
+.fd .fd-tema{flex-direction:row;align-items:center;gap:12px;padding:10px 12px}
+.fd .fd-tema .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fd .fd-tema .tx b{font-size:15.5px;font-weight:800;letter-spacing:-.01em}
+.fd .fd-tema .as-k{color:var(--ac-1)}
+.fd .fd-tema .as-btn{flex:none;width:auto}
 .fd-seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;border:1px solid var(--bx-border);background:var(--bx-surface)}
 .fd-seg button{min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;font:inherit;font-size:13.5px;font-weight:700;color:var(--bx-text-2);background:transparent;border:0;cursor:pointer;transition:background .15s ease,color .15s ease;white-space:nowrap}
 .fd-seg button.on{background:rgba(var(--ac-1-rgb),.12);color:var(--bx-text);box-shadow:inset 0 0 0 1px rgba(var(--ac-1-rgb),.45)}
@@ -234,7 +234,7 @@ export const FD_CSS = `
   .fd-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
   .fd-lista.duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
   .fd-aside{display:flex;flex-direction:column;gap:12px;position:sticky;top:72px}
-  .fd-so-cel{display:none}
+  .fd .fd-so-cel{display:none}
 }
 @media (prefers-reduced-motion:reduce){
   .fd-post,.fd-pk,.fd-seg button,.fd-sw,.fd-sw:after{transition:none}
