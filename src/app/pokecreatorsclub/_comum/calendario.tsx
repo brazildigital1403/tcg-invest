@@ -75,7 +75,13 @@ export function BlocoData({ dia, mes }: { dia: string; mes: string }) {
 }
 
 /** Folha de baixo para cima no celular; janela centralizada no computador. */
-export function Folha({ titulo, eyebrow, onFechar, children }: { titulo: string; eyebrow?: string; onFechar: () => void; children: React.ReactNode }) {
+export function Folha({ titulo, eyebrow, onFechar, children, classe, cabeca }: {
+  titulo: string; eyebrow?: string; onFechar: () => void; children: React.ReactNode
+  /** Classe extra no .as-sheet (ex.: a pele do torneio). */
+  classe?: string
+  /** Cabecalho proprio no lugar do eyebrow + titulo (o X de fechar continua). */
+  cabeca?: React.ReactNode
+}) {
   const ref = useRef<HTMLDivElement | null>(null)
   // O pai pode passar onFechar novo a cada render (ex.: um relogio na pagina). Se o efeito dependesse
   // dele, o foco voltaria para a folha a cada render e o teclado do celular fecharia no meio da digitacao.
@@ -92,9 +98,9 @@ export function Folha({ titulo, eyebrow, onFechar, children }: { titulo: string;
   }, [])
   return (
     <div className="as-sheet-bg" onClick={onFechar}>
-      <div ref={ref} tabIndex={-1} className="as-sheet" role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
+      <div ref={ref} tabIndex={-1} className={`as-sheet${classe ? ` ${classe}` : ''}`} role="dialog" aria-modal="true" aria-label={titulo} onClick={e => e.stopPropagation()}>
         <div className="as-handle" />
-        <div className="as-sh"><div>{eyebrow && <div className="as-eye" style={{ marginBottom: 2 }}>{eyebrow}</div>}<h3 className="as-h3">{titulo}</h3></div><button type="button" className="as-ib" aria-label="Fechar" onClick={onFechar}><Ico n="x" s={20} /></button></div>
+        <div className="as-sh">{cabeca ?? <div>{eyebrow && <div className="as-eye" style={{ marginBottom: 2 }}>{eyebrow}</div>}<h3 className="as-h3">{titulo}</h3></div>}<button type="button" className="as-ib" aria-label="Fechar" onClick={onFechar}><Ico n="x" s={20} /></button></div>
         {children}
       </div>
     </div>
