@@ -161,6 +161,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Aniversariantes', href: '/admin/aniversariantes', Icon: IconCalendar, countKey: 'aniversariantes', group: 'Comunidade' },
   { label: 'Agenda do Club', href: '/admin/club-eventos', Icon: IconStar, group: 'Comunidade' },
   { label: 'Avisos do Club', href: '/admin/club-avisos', Icon: IconBell, group: 'Comunidade' },
+  { label: 'Feed do Club', href: '/admin/club-feed', Icon: IconLink, group: 'Comunidade' },
   { label: 'Álbum do Club', href: '/admin/colecao', Icon: IconCollection, group: 'Comunidade' },
   { label: 'Organizadores do Club', href: '/admin/club-organizadores', Icon: IconKey, group: 'Comunidade' },
 ]
