@@ -66,7 +66,7 @@ export default function MeusPosts({ posts, apoio, arroba, agora, onQuemApoiou, o
         return (
           <article key={p.id} className="fd-post meu">
             <div className="fd-h">
-              <Capa id={p.id} rede={p.rede} formato={p.formato} arroba={arroba} />
+              <Capa id={p.id} rede={p.rede} formato={p.formato} arroba={arroba} capa={p.capa} />
               <div className="fd-tx">
                 <span className="fd-who">{REDES[p.rede].nome}<span className="tm">{haQuanto(p.feed_em, agora)}</span></span>
                 <h3 className="fd-tt">{tituloPost(p)}</h3>

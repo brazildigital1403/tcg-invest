@@ -116,7 +116,7 @@ export function FolhaProximo({ proximo, onFechar, onAbrir }: { proximo: PostFeed
       <div className="as-mis">
         <div className="as-k" style={{ color: 'var(--ac-1)' }}>Próximo no feed</div>
         <div className="fd-h">
-          <Capa id={proximo.id} rede={proximo.rede} formato={proximo.formato} arroba={proximo.arroba} pequena />
+          <Capa id={proximo.id} rede={proximo.rede} formato={proximo.formato} arroba={proximo.arroba} capa={proximo.capa} pequena />
           <div className="fd-tx">
             <span className="fd-who">@{proximo.arroba}<span className="tm">{REDES[proximo.rede].nome}</span></span>
             <b>{tituloPost(proximo)}</b>

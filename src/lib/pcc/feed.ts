@@ -20,6 +20,8 @@ export type PostFeed = {
   tema: Tema | null
   pergunta: Pergunta | null
   url: string
+  /** Caminho da capa no bucket club-fotos (feed/<id>.webp); nulo enquanto a Mia Servidor nao capturou. */
+  capa: string | null
   arroba: string
   feed_em: string
   retorno: boolean
@@ -42,7 +44,7 @@ export type ListaFeed = {
 }
 
 export type MeuPost = {
-  id: string; rede: Rede; formato: Formato; tema: Tema | null; pergunta: Pergunta | null; url: string
+  id: string; rede: Rede; formato: Formato; tema: Tema | null; pergunta: Pergunta | null; url: string; capa: string | null
   feed_em: string; retorno: boolean; oculto: boolean; oculto_motivo: string | null
   apoiaram: number; a_confirmar: number; retornos: number
 }

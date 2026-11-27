@@ -4,6 +4,8 @@
 // do card (nada do Instagram carrega na pagina) e o card do post. A cara e a da casa do Club,
 // sem pele propria: tokens --bx-* / --ac-*, AS_CSS, DM Sans e icones outline do Ico.
 
+import { supabase } from '@/lib/supabaseClient'
+import { BUCKET_CAPAS } from '@/lib/pcc/trends'
 import { Ico } from '../amigo-secreto/estilo'
 import { FORMATOS, PERGUNTAS, REDES, TEMAS, haQuanto, linkFeed, rotuloGesto, type PostFeed, type Rede, type Formato } from '@/lib/pcc/feed'
 
@@ -16,9 +18,14 @@ function anguloDe(id: string): number {
   return ANGULOS[h % ANGULOS.length]
 }
 
-export function Capa({ id, rede, formato, arroba, pequena = false }: { id: string; rede: Rede; formato: Formato; arroba: string; pequena?: boolean }) {
+/** A capa capturada vive no nosso bucket (copiada pela Mia Servidor); nada carrega da rede. */
+const urlCapa = (path: string) => supabase.storage.from(BUCKET_CAPAS).getPublicUrl(path).data.publicUrl
+
+export function Capa({ id, rede, formato, arroba, capa, pequena = false }: { id: string; rede: Rede; formato: Formato; arroba: string; capa?: string | null; pequena?: boolean }) {
   return (
-    <span className={`fd-capa${pequena ? ' sm' : ''}`} style={{ ['--a' as string]: `${anguloDe(id)}deg` }} aria-hidden="true">
+    <span className={`fd-capa${pequena ? ' sm' : ''}${capa ? ' foto' : ''}`} style={{ ['--a' as string]: `${anguloDe(id)}deg` }} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {capa && <img className="img" src={urlCapa(capa)} alt="" loading="lazy" decoding="async" />}
       <span className="ini">{(arroba || '?').charAt(0).toUpperCase()}</span>
       <span className="rede"><Ico n={REDES[rede].ico} s={pequena ? 16 : 20} /></span>
       {!pequena && <span className="fmt">{FORMATOS[formato]}</span>}
@@ -61,7 +68,7 @@ export function CardPost({ p, modo, onAbrir, onApoiar, onRetorno, onMenu, onQuem
         <button type="button" className="as-ib fd-mais" aria-label="Mais opções do post" onClick={() => onMenu(p)}><Ico n="pontos" s={20} /></button>
       )}
       <div className="fd-h">
-        <Capa id={p.id} rede={p.rede} formato={p.formato} arroba={p.arroba} />
+        <Capa id={p.id} rede={p.rede} formato={p.formato} arroba={p.arroba} capa={p.capa} />
         <div className="fd-tx">
           <span className="fd-who">@{p.arroba}<span className="tm">{rede}{agora ? ` · ${haQuanto(p.feed_em, agora)}` : ''}</span></span>
           <h3 className="fd-tt">{tituloPost(p)}</h3>
@@ -139,6 +146,9 @@ export const FD_CSS = `
 .fd-capa .ini{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-size:72px;font-weight:800;letter-spacing:-.04em;color:rgba(255,255,255,.08);line-height:1}
 .fd-capa .rede{position:absolute;left:50%;top:42%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;display:grid;place-items:center;background:rgba(8,10,15,.55);border:1px solid rgba(255,255,255,.18);color:var(--bx-text)}
 .fd-capa .fmt{position:absolute;left:5px;right:5px;bottom:6px;text-align:center;font-size:12px;font-weight:700;line-height:20px;border-radius:999px;background:rgba(8,10,15,.72);color:var(--bx-text);white-space:nowrap;overflow:hidden}
+.fd-capa .img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.fd-capa.foto .ini{display:none}
+.fd-capa.foto .rede{top:auto;bottom:34px;left:auto;right:6px;margin:0;width:28px;height:28px}
 .fd-capa.sm{width:52px;height:68px;border-radius:10px}
 .fd-capa.sm .ini{font-size:44px}
 .fd-capa.sm .rede{width:32px;height:32px;margin:-16px 0 0 -16px;top:50%}
