@@ -55,6 +55,9 @@ export const STATIC_ROUTES: StaticRoute[] = [
   { path: '/fichario-lendario', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/sobre', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/blog', changeFrequency: 'daily', priority: 0.8 },
+  // Feed do Poke Creators Club (decisao do Du, 27/11/2026): uma URL so, servida do cache
+  // (revalidate 300 em pokecreatorsclub/feed/page.tsx). O resto do Club continua noindex.
+  { path: '/pokecreatorsclub/feed', changeFrequency: 'daily', priority: 0.6 },
 ]
 
 // ─── Helper: ID de carta seguro pra URL ───────────────────────────────────────

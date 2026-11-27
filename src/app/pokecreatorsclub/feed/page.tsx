@@ -7,8 +7,8 @@ import FeedClient from './FeedClient'
 // A primeira pagina de "Recentes" vem renderizada do servidor (pagina so client-side chega vazia
 // para o Google), lida como visitante pela club_feed_lista; o resto e lido no navegador.
 //
-// PENDENTE DO DU antes de producao (E9 do plano): o intervalo de atualizacao abaixo, a entrada no
-// sitemap e o robots. Falha de leitura NUNCA vira lista vazia guardada: com throw, o Next mantem a
+// Decisao do Du em 27/11/2026: pagina indexavel, no sitemap (lib/sitemap-core.ts) e atualizada a
+// cada 5 minutos. Falha de leitura NUNCA vira lista vazia guardada: com throw, o Next mantem a
 // versao anterior e tenta de novo na proxima visita.
 export const revalidate = 300
 
