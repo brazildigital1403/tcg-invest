@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import type { ListaFeed } from '@/lib/pcc/feed'
+import type { Destaques, ListaFeed } from '@/lib/pcc/feed'
 import FeedClient from './FeedClient'
 
 // Feed do Poke Creators Club (26/11/2026). Decisao do Du: aberto a todos, inclusive ao Google.
-// A primeira pagina de "Recentes" vem renderizada do servidor (pagina so client-side chega vazia
+// A primeira pagina de "Recentes" e os destaques (chegaram e escolha da semana) vem renderizados do servidor (pagina so client-side chega vazia
 // para o Google), lida como visitante pela club_feed_lista; o resto e lido no navegador.
 //
 // Decisao do Du em 27/11/2026: pagina indexavel, no sitemap (lib/sitemap-core.ts) e atualizada a
@@ -23,16 +23,20 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: titulo, description: descricao },
 }
 
-async function listaInicial(): Promise<ListaFeed> {
+async function leituraInicial(): Promise<{ lista: ListaFeed; destaques: Destaques }> {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
-  const { data, error } = await sb.rpc('club_feed_lista', { p_aba: 'recentes', p_limite: 20 })
-  if (error) throw new Error(`club_feed_lista: ${error.message}`)
-  return data as ListaFeed
+  const [l, d] = await Promise.all([
+    sb.rpc('club_feed_lista', { p_aba: 'recentes', p_limite: 20 }),
+    sb.rpc('club_feed_destaques'),
+  ])
+  if (l.error) throw new Error(`club_feed_lista: ${l.error.message}`)
+  if (d.error) throw new Error(`club_feed_destaques: ${d.error.message}`)
+  return { lista: l.data as ListaFeed, destaques: d.data as Destaques }
 }
 
 export default async function FeedPage() {
-  const inicial = await listaInicial()
-  return <FeedClient inicial={inicial} />
+  const { lista, destaques } = await leituraInicial()
+  return <FeedClient inicial={lista} destaquesIniciais={destaques} />
 }

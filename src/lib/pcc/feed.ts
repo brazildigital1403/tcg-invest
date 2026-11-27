@@ -43,6 +43,17 @@ export type ListaFeed = {
   semana: { inicio: string; tema: string | null } | null
 }
 
+/** Destaques do feed (club_feed_destaques): quem fez o primeiro post nos ultimos 7 dias e a escolha da semana. */
+export type Destaques = {
+  chegaram: { id: string; arroba: string; rede: Rede; formato: Formato; tema: Tema | null; url: string; feed_em: string; marquei: boolean | null }[]
+  escolha: {
+    id: string; arroba: string; rede: Rede; formato: Formato; tema: Tema | null; url: string; capa: string | null; feed_em: string
+    /** Por que a organizacao escolheu; nula se ninguem escreveu. */
+    frase: string | null
+    meu: boolean; marquei: boolean | null
+  } | null
+}
+
 export type MeuPost = {
   id: string; rede: Rede; formato: Formato; tema: Tema | null; pergunta: Pergunta | null; url: string; capa: string | null
   feed_em: string; retorno: boolean; oculto: boolean; oculto_motivo: string | null
@@ -200,6 +211,7 @@ export function erroFeed(msg?: string | null): string {
   if (m.includes('motivo_invalido')) return 'Escolha um motivo.'
   if (m.includes('sem_papel')) return 'Só a organização do feed pode fazer isso.'
   if (m.includes('tema_invalido')) return 'O tema tem de 3 a 40 letras.'
+  if (m.includes('frase_invalida')) return 'A frase tem de 3 a 160 letras.'
   return 'Não deu certo agora. Tente de novo em instantes.'
 }
 

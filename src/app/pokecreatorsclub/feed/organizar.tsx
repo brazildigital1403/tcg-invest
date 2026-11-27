@@ -4,12 +4,15 @@
 // primeiro post de quem chega (meta interna: alguem da organizacao apoia de verdade em ate 1 hora),
 // denuncias, @ do TikTok para conferir e o que esta fora do feed. Nada mexe em carta do Album e
 // tudo vai para o log da organizacao. A segunda-feira traz o tema e a mensagem para o WhatsApp.
+// A escolha da semana (27/11/2026): um post do feed, nunca o proprio, com a frase de por que foi escolhido,
+// gravados juntos com o tema pela club_feed_semana_salvar_v2.
 
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Folha } from '../_comum/calendario'
 import { Ico } from '../amigo-secreto/estilo'
-import { MOTIVOS_DENUNCIA, MOTIVOS_TIRAR, REDES, TEMAS, erroFeed, haQuanto, linkFeed, motivoFora, type ListaOrganizar, type MotivoTirar } from '@/lib/pcc/feed'
+import { MOTIVOS_DENUNCIA, MOTIVOS_TIRAR, REDES, TEMAS, erroFeed, haQuanto, linkFeed, motivoFora, type Destaques, type ListaFeed, type ListaOrganizar, type MotivoTirar, type PostFeed } from '@/lib/pcc/feed'
+import { JanelaCarta, tituloPost } from './comum'
 
 const URL_FEED = 'https://bynx.gg/pokecreatorsclub/feed'
 
@@ -30,15 +33,29 @@ export default function Organizar({ agora, onMudou }: { agora: number; onMudou: 
   const [aviso, setAviso] = useState('')
   const [tema, setTema] = useState('')
   const [copiado, setCopiado] = useState(false)
+  // Escolha da semana: o post e a frase (o que esta no banco e o que a pessoa esta editando).
+  const [candidatos, setCandidatos] = useState<PostFeed[]>([])
+  const [escolha, setEscolha] = useState<string | null>(null)
+  const [frase, setFrase] = useState('')
+  const [salvo, setSalvo] = useState<{ escolha: string | null; frase: string }>({ escolha: null, frase: '' })
 
   const carregar = useCallback(async () => {
     setFalhou('')
-    const { data, error } = await supabase.rpc('club_feed_organizar_lista')
-    if (error) { setFalhou(erroFeed(error.message)); return }
-    const d = data as ListaOrganizar
+    const [o, dst, rec] = await Promise.all([
+      supabase.rpc('club_feed_organizar_lista'),
+      supabase.rpc('club_feed_destaques'),
+      supabase.rpc('club_feed_lista', { p_aba: 'recentes', p_limite: 30 }),
+    ])
+    if (o.error) { setFalhou(erroFeed(o.error.message)); return }
+    const d = o.data as ListaOrganizar
     setDados(d)
     setTema(d.semana.tema ?? '')
+    const fraseAtual = (!dst.error && (dst.data as Destaques).escolha?.id === d.semana.escolha && (dst.data as Destaques).escolha?.frase) || ''
+    setEscolha(d.semana.escolha); setFrase(fraseAtual); setSalvo({ escolha: d.semana.escolha, frase: fraseAtual })
+    // Quem organiza nao escolhe o proprio post (o banco recusa).
+    setCandidatos(rec.error ? [] : ((rec.data as ListaFeed).itens ?? []).filter(p => !p.meu))
   }, [])
+  // Busca ao abrir; o setFalhou('') do inicio e o reset da tentativa.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { carregar() }, [carregar])
 
@@ -53,7 +70,7 @@ export default function Organizar({ agora, onMudou }: { agora: number; onMudou: 
 
   async function salvarSemana() {
     setOcupado('semana'); setAviso('')
-    const { error } = await supabase.rpc('club_feed_semana_salvar', { p_tema: tema.trim() || null, p_escolha: dados?.semana.escolha ?? null })
+    const { error } = await supabase.rpc('club_feed_semana_salvar_v2', { p_tema: tema.trim() || null, p_escolha: escolha, p_frase: escolha ? frase.trim() || null : null })
     setOcupado(null)
     if (error) { setAviso(erroFeed(error.message)); return }
     await carregar(); onMudou()
@@ -126,6 +143,39 @@ export default function Organizar({ agora, onMudou }: { agora: number; onMudou: 
             </div>
           )
         })}
+      </section>
+
+      <section className="as-card" aria-label="Escolha da semana">
+        <div className="as-k">Escolha da semana</div>
+        <p className="as-hint" style={{ margin: 0 }}>Um post que merece destaque nesta semana. Aparece no topo do feed com a fita e a sua frase. Nunca o seu próprio post.</p>
+        <div role="radiogroup" aria-label="Post escolhido">
+          <button type="button" role="radio" aria-checked={escolha === null} className="fd-radio" onClick={() => setEscolha(null)}>
+            <span className={`fd-rd${escolha === null ? ' on' : ''}`} />Nenhuma escolha nesta semana
+          </button>
+          {candidatos.map(p => (
+            <button key={p.id} type="button" role="radio" aria-checked={escolha === p.id} className="fd-radio" onClick={() => setEscolha(p.id)}>
+              <span className={`fd-rd${escolha === p.id ? ' on' : ''}`} />
+              <span className="fd-minicarta" style={{ flex: 1 }}>
+                <span className="fd-cx"><span className="fd-jan"><JanelaCarta p={p} /></span></span>
+                <span className="tx"><b>@{p.arroba}</b>{tituloPost(p)} · {REDES[p.rede].nome}{agora ? ` · ${haQuanto(p.feed_em, agora)}` : ''}</span>
+              </span>
+            </button>
+          ))}
+          {escolha && !candidatos.some(p => p.id === escolha) && (
+            <p className="as-hint" style={{ margin: '8px 0 0' }}>O post escolhido é mais antigo que os 30 últimos do feed. Ele continua escolhido até você trocar.</p>
+          )}
+        </div>
+        {escolha && (
+          <>
+            <label className="as-k" htmlFor="fd-frase">Por que escolhemos (aparece no feed)</label>
+            <textarea id="fd-frase" className="as-in ta" maxLength={160} value={frase} onChange={e => setFrase(e.target.value)}
+              placeholder="Ex.: A edição conta a história inteira em poucos segundos. Vale ver até o fim." />
+            <p className="as-hint" style={{ margin: 0 }}>{frase.trim().length} de 160. Opcional: sem frase, o destaque mostra só o post.</p>
+          </>
+        )}
+        <button type="button" className="as-btn pri" disabled={ocupado === 'semana' || (escolha === salvo.escolha && frase.trim() === salvo.frase.trim())} onClick={salvarSemana}>
+          {ocupado === 'semana' ? 'Salvando...' : 'Salvar a escolha'}
+        </button>
       </section>
 
       <section className="as-card" aria-label="Segunda-feira">

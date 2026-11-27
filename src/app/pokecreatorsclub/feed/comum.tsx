@@ -314,6 +314,7 @@ export const FD_CSS = `
 .fv-esc .who{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;min-width:0}
 .fv-esc .who span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fv-esc .tt{font-size:14px;line-height:1.45;color:var(--bx-text);margin:0}
+.fv-esc q.tt{quotes:"“" "”"}
 .fv-esc .por{font-size:12px;color:var(--bx-text-2)}
 .fv-esc .as-btn{align-self:flex-start;margin-top:auto;width:auto}
 .fd-g > .fd-g-linha{grid-column:1/-1;margin:4px 0;min-width:0}

@@ -16,7 +16,7 @@ import type { CadastroClub } from '@/lib/pcc/membro'
 import { CLUB, FEED } from '@/lib/pcc/rotas'
 import {
   CHAVE_IDEIAS, CHAVE_REGRAS, REDES, ROTULO_DIA, TEMAS, agruparPorDia, erroFeed, gravarMarca, gravarVisto, lerMarca, lerVistos, linhaViva, linkFeed,
-  type Gesto, type GrupoDia, type ListaFeed, type MeuApoio, type MeuPost, type PostFeed, type QuemApoiou, type Rede,
+  type Destaques, type Gesto, type GrupoDia, type ListaFeed, type MeuApoio, type MeuPost, type PostFeed, type QuemApoiou, type Rede,
 } from '@/lib/pcc/feed'
 import { Ico, LOGO_PCC } from '../amigo-secreto/estilo'
 import { Casca } from '../agenda/comum'
@@ -54,7 +54,7 @@ function gravarPendente(p: PostFeed | null) {
   try { if (p) sessionStorage.setItem(CHAVE_PENDENTE, JSON.stringify({ p, em: Date.now() })); else sessionStorage.removeItem(CHAVE_PENDENTE) } catch { /* sem armazenamento: a folha so nao abre sozinha */ }
 }
 
-export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
+export default function FeedClient({ inicial, destaquesIniciais }: { inicial: ListaFeed | null; destaquesIniciais: Destaques | null }) {
   const { openLogin } = useAuthModal()
   // 0 no servidor e na hidratacao: o "ha X min" so aparece depois de montar, para o HTML nao divergir.
   const [agora, setAgora] = useState(0)
@@ -64,6 +64,8 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   const [organizador, setOrganizador] = useState(false)
   const [aba, setAba] = useState<Aba>('recentes')
   const [lista, setLista] = useState<ListaFeed | null>(inicial)
+  // Quem chegou e a escolha da semana: funcao propria, fora do corte da pagina.
+  const [destaques, setDestaques] = useState<Destaques | null>(destaquesIniciais)
   const [carregando, setCarregando] = useState(false)
   const [falhou, setFalhou] = useState(false)
   const [filtro, setFiltro] = useState<Filtro>({ rede: null, tema: null })
@@ -140,6 +142,12 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     const nova = data as ListaFeed
     setLista(l => (antes && l ? { ...nova, itens: [...l.itens, ...nova.itens] } : nova))
   }, [aba, filtro])
+
+  const carregarDestaques = useCallback(async () => {
+    const { data, error } = await supabase.rpc('club_feed_destaques')
+    if (!error) setDestaques(data as Destaques)
+  }, [])
+  useEffect(() => { if (logado) carregarDestaques() }, [logado, carregarDestaques])
 
   const carregarMeus = useCallback(async () => {
     const [m, a] = await Promise.all([supabase.rpc('club_feed_meus'), supabase.rpc('club_feed_meu_apoio')])
@@ -249,6 +257,10 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     // de "Para ver" ela nao volta.
     setLista(l => (l ? { ...l, itens: l.itens.map(x => (x.id === p.id ? { ...x, minha_marca: gestos, ja_sigo: x.ja_sigo || !!gestos?.includes('segui') } : x)) } : l))
     marcarVisto(p.id)
+    setDestaques(d => d && {
+      chegaram: d.chegaram.map(x => (x.id === p.id ? { ...x, marquei: gestos !== null } : x)),
+      escolha: d.escolha && d.escolha.id === p.id ? { ...d.escolha, marquei: gestos !== null } : d.escolha,
+    })
     if (gestos === null) { setToast({ texto: 'Marca desfeita. O post voltou para Para ver.' }); setFolha(null); if (aba === 'para_ver') carregar(); return }
     if (gestos.length === 0) { setToast({ texto: 'Ok, só vi.' }); setFolha(null); return }
     setLigando(p.id)
@@ -296,21 +308,25 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
   // Dias da lista (so depois de montar: o servidor nao sabe que horas sao no navegador).
   const grupos: { g: GrupoDia | null; itens: PostFeed[] }[] = useMemo(
     () => (agora ? agruparPorDia(itens, agora) : [{ g: null, itens }]), [itens, agora])
-  // Quem chegou: primeiro post no feed nos ultimos 7 dias, dentre os carregados.
-  const chegaram = useMemo(() => {
-    const vistos7 = new Set<string>()
-    return itens.filter(p => {
-      if (!p.primeiro || p.meu || vistos7.has(p.arroba)) return false
-      if (agora && agora - new Date(p.feed_em).getTime() > 7 * 86400000) return false
-      vistos7.add(p.arroba); return true
-    })
-  }, [itens, agora])
-  const escolha = itens.find(p => p.escolha && linkFeed(p.url)) ?? null
+  const chegaram = destaques?.chegaram ?? []
+  const escolha = destaques?.escolha && linkFeed(destaques.escolha.url) ? destaques.escolha : null
+
+  /** Um destaque como post do feed: o da lista, se estiver carregado; senao montado com o que o destaque traz. */
+  function comoPost(x: { id: string; arroba: string; rede: Rede; formato: PostFeed['formato']; tema: PostFeed['tema']; url: string; feed_em: string; capa?: string | null; meu?: boolean; marquei: boolean | null }): PostFeed {
+    return itens.find(p => p.id === x.id) ?? {
+      id: x.id, rede: x.rede, formato: x.formato, tema: x.tema, pergunta: null, url: x.url, capa: x.capa ?? null, arroba: x.arroba,
+      feed_em: x.feed_em, retorno: false, primeiro: false, tema_semana: false, escolha: false, meu: !!x.meu,
+      minha_marca: x.marquei ? [] : null, meu_retorno: false, ja_sigo: false, apoiaram: null,
+    }
+  }
   const gente = (grupos[0]?.g === 'hoje' ? grupos[0].itens : itens).map(p => p.arroba)
   const genteHoje = grupos[0]?.g === 'hoje'
 
-  function irPara(id: string) {
-    document.getElementById(`post-${id}`)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+  /** Quem chegou: rola ate a carta se ela esta na pagina; senao abre o post na rede. */
+  function irPara(x: Destaques['chegaram'][number]) {
+    const el = document.getElementById(`post-${x.id}`)
+    if (el) { el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); return }
+    abrirPeloBotao(comoPost(x))
   }
 
   const frase = (arrobas: string[], g: GrupoDia | null) => {
@@ -319,18 +335,19 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
     return <>{nomes} {partes.resto}</>
   }
 
-  const cartaEscolha = escolha && (
+  const postEscolha = escolha ? comoPost(escolha) : null
+  const cartaEscolha = escolha && postEscolha && (
     <section className="fv-esc" aria-label="Escolha da semana">
-      <a className="cp" href={linkFeed(escolha.url)!} target="_blank" rel="noopener noreferrer" onClick={e => aoAbrir(escolha, e)}
+      <a className="cp" href={linkFeed(escolha.url)!} target="_blank" rel="noopener noreferrer" onClick={e => aoAbrir(postEscolha, e)}
         aria-label={`Abrir o post escolhido de @${escolha.arroba}, em outra aba`}>
         <JanelaCarta p={escolha} /><span className="fv-fita">Escolha</span>
       </a>
       <div className="tx">
         <span className="eb">Escolha do Club</span>
         <span className="who"><Avatar arroba={escolha.arroba} t={28} /><span>@{escolha.arroba}</span></span>
-        <p className="tt">{tituloPost(escolha)}</p>
-        <span className="por">Escolhido por quem organiza o feed nesta semana</span>
-        <a className="as-btn sm" href={linkFeed(escolha.url)!} target="_blank" rel="noopener noreferrer" onClick={e => aoAbrir(escolha, e)}>
+        {escolha.frase ? <q className="tt">{escolha.frase}</q> : <p className="tt">{tituloPost(escolha)}</p>}
+        <span className="por">{escolha.frase ? 'Por quem organiza o feed nesta semana' : 'Escolhido por quem organiza o feed nesta semana'}</span>
+        <a className="as-btn sm" href={linkFeed(escolha.url)!} target="_blank" rel="noopener noreferrer" onClick={e => aoAbrir(postEscolha, e)}>
           <Ico n="ext" s={16} />Ver no {REDES[escolha.rede].nome}
         </a>
       </div>
@@ -342,9 +359,9 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
       <div className="fv-sec-h"><h2>Chegaram esta semana</h2><span>Diga oi no primeiro post</span></div>
       <div className="fv-row">
         {chegaram.map(p => {
-          const novo = modo === 'membro' ? p.minha_marca === null && !vistos.has(p.id) : true
+          const novo = modo === 'membro' ? !p.marquei && !vistos.has(p.id) : true
           return (
-            <button key={p.id} type="button" className={`fv-che${novo ? ' novo' : ''}`} onClick={() => irPara(p.id)} aria-label={`Ver o primeiro post de @${p.arroba}`}>
+            <button key={p.id} type="button" className={`fv-che${novo ? ' novo' : ''}`} onClick={() => irPara(p)} aria-label={`Ver o primeiro post de @${p.arroba}`}>
               <Avatar arroba={p.arroba} t={64} novo={novo} rede={p.rede} /><span className="nm">@{p.arroba}</span>
             </button>
           )
@@ -532,8 +549,8 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
         <div className="as-card" style={{ gap: 6 }}>
           <div className="fv-sec-h"><h2>Chegaram esta semana</h2></div>
           {chegaram.map(p => (
-            <button key={p.id} type="button" className="fd-dk-che" onClick={() => irPara(p.id)}>
-              <Avatar arroba={p.arroba} t={40} novo={modo === 'membro' ? p.minha_marca === null && !vistos.has(p.id) : true} rede={p.rede} />
+            <button key={p.id} type="button" className="fd-dk-che" onClick={() => irPara(p)}>
+              <Avatar arroba={p.arroba} t={40} novo={modo === 'membro' ? !p.marquei && !vistos.has(p.id) : true} rede={p.rede} />
               <span className="tx"><b>@{p.arroba}</b><span>Primeiro post · {tituloPost(p)}</span></span>
               <Ico n="chev" s={16} />
             </button>
@@ -551,7 +568,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
           <div className="fd-bd">
             {topo}
             {filaChegaram}
-            {modo !== 'membro' && cartaEscolha && <div className="fd-so-cel">{cartaEscolha}</div>}
+            {cartaEscolha && (modo !== 'membro' || (naLista && !carregando && itens.length === 0)) && <div className="fd-so-cel">{cartaEscolha}</div>}
             {nav}
             {naLista && conteudoLista}
             {aba === 'meus' && <MeusPosts posts={meus} apoio={meuApoio} arroba={cadastro?.instagram ?? ''} agora={agora} onPostar={abrirPostar} onMudou={carregarMeus}
@@ -597,7 +614,7 @@ export default function FeedClient({ inicial }: { inicial: ListaFeed | null }) {
       }} />}
       {folha?.t === 'regras' && <FolhaRegras onFechar={() => setFolha(null)} onAceitar={() => { gravarMarca(CHAVE_REGRAS); setFolha(folha.depois === 'postar' ? { t: 'postar' } : null) }} />}
       {folha?.t === 'postar' && cadastro?.instagram && <FolhaPostar arroba={cadastro.instagram} temaSemana={temaSemana} onFechar={() => setFolha(null)}
-        onPostou={r => { setFolha({ t: 'postado', primeiro: r.primeiro }); setAba('recentes'); carregar() }} />}
+        onPostou={r => { setFolha({ t: 'postado', primeiro: r.primeiro }); setAba('recentes'); carregar(); carregarDestaques() }} />}
       {folha?.t === 'postado' && <FolhaPostado primeiro={folha.primeiro} onFechar={() => setFolha(null)} />}
       {folha?.t === 'denunciar' && <FolhaDenunciar p={folha.p} onFechar={() => setFolha(null)} onEnviou={() => { setFolha(null); setToast({ texto: 'Denúncia enviada. A organização vai olhar.' }) }} />}
       {folha?.t === 'quem' && <FolhaQuemApoiou post={{ id: folha.id, rede: folha.rede, titulo: folha.titulo }} dados={quem.dados} falhou={quem.falhou}
