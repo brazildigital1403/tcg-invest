@@ -201,7 +201,7 @@ function Casca({ children, logado, onEntrar }: { children: React.ReactNode; loga
   )
 }
 
-// Marketplace (28/11/2026, automatico): so no dia, cartas avulsas compraveis ate R$ 30, as mais recentes.
+// Marketplace (28/11/2026, automatico): so no dia, cartas avulsas compraveis ate R$ 30, sorteadas a cada visita.
 // A tela nao tem endereco de ninguem: quem compra recebe em casa e combina a entrega.
 const TETO_PRESENTE_ANIVERSARIO = 30
 function PresenteDoDia({ arroba }: { arroba: string }) {

@@ -418,7 +418,7 @@ function CartaoAvisos({ logado, lista, visto }: { logado: boolean; lista: Aviso[
   )
 }
 
-// "A venda no Marketplace" (28/11/2026, automatico, sem curadoria): os itens compraveis mais recentes,
+// "A venda no Marketplace" (28/11/2026, automatico, sem curadoria): itens compraveis sorteados a cada visita,
 // alternando carta e produto, de 3 a 8, no maximo 2 por vendedor. Sem janela de dias: em 28/11 quase tudo dos
 // ultimos 30 dias era de um vendedor so, e o teto por vendedor deixava o bloco abaixo do minimo. Nao repete as cartas
 // do set do Torneio, que tem bloco proprio. Sem itens suficientes, some.
@@ -429,7 +429,7 @@ function ChegouClub() {
     const setsTorneio = TORNEIO.sets as readonly string[]
     return escolher(vitrine, { filtro: i => !(i.set_id && setsTorneio.includes(i.set_id)), max: 8, min: 3, alternar: true }, novosUsados())
   }, [vitrine])
-  return <TrilhoVenda titulo="À venda no Marketplace" frase="Cartas e produtos da Bynx, os mais recentes primeiro." itens={itens} bloco="casa_chegou" />
+  return <TrilhoVenda titulo="À venda no Marketplace" frase="Cartas e produtos à venda na Bynx, uma seleção nova a cada visita." itens={itens} bloco="casa_chegou" />
 }
 
 // Feed do Club (26/11/2026, wireframe v3 quadro 01; selo ilustrado do Du em 27/11). A linha nunca vira numero de pendencia: so diz se tem post novo para a pessoa.

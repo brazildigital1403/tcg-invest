@@ -9,14 +9,17 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { track, type OrigemClubOferta } from '@/lib/analytics'
 import { AnuncioCard, ProdutoCard } from '@/components/marketplace/CardsVenda'
-import { carregarVitrine, type ItemVenda } from '@/lib/pcc/ofertas'
+import { carregarVitrine, embaralhar, type ItemVenda } from '@/lib/pcc/ofertas'
 
-/** Itens compraveis do Marketplace (null enquanto carrega). Uma leitura por pagina (memo em lib/pcc/ofertas). */
+/**
+ * Itens compraveis do Marketplace (null enquanto carrega), EMBARALHADOS a cada abertura da pagina: quem volta ve
+ * outros produtos (pedido do Du, 28/11). A leitura e uma so (memo em lib/pcc/ofertas); o sorteio e por tela.
+ */
 export function useVitrine(): ItemVenda[] | null {
   const [itens, setItens] = useState<ItemVenda[] | null>(null)
   useEffect(() => {
     let vivo = true
-    carregarVitrine().then(v => { if (vivo) setItens(v) })
+    carregarVitrine().then(v => { if (vivo) setItens(embaralhar(v)) })
     return () => { vivo = false }
   }, [])
   return itens

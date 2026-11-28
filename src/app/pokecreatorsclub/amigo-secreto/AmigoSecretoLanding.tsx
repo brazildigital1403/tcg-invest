@@ -188,7 +188,7 @@ export default function AmigoSecretoLanding() {
   )
 }
 
-// Marketplace (28/11/2026, automatico): itens compraveis dentro do teto da edicao, os mais recentes.
+// Marketplace (28/11/2026, automatico): itens compraveis dentro do teto da edicao, sorteados a cada visita.
 function PresentesNoMarketplace({ teto }: { teto: number }) {
   const vitrine = useVitrine()
   const itens = useMemo(() => (vitrine ? escolher(vitrine, { filtro: i => i.price <= teto / 100 && !i.graduada, max: 6, min: 2 }, novosUsados()) : []), [vitrine, teto])

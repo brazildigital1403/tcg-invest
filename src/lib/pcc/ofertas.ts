@@ -115,7 +115,10 @@ async function ler(): Promise<ItemVenda[]> {
 export type Regra = {
   /** Filtro do bloco (categoria, set, teto...). */
   filtro?: (i: ItemVenda) => boolean
-  /** 'recentes' (padrao) ou 'barato'. */
+  /**
+   * Sem ordem (padrao): a ordem em que a vitrine chegou, que o useVitrine embaralha a cada abertura da pagina
+   * (pedido do Du, 28/11: os produtos mudam a cada visita). 'recentes' e 'barato' ficam para quem precisar.
+   */
   ordem?: 'recentes' | 'barato'
   max: number
   /** Abaixo disto o bloco some. */
@@ -132,9 +135,8 @@ export type Regra = {
  */
 export function escolher(todos: ItemVenda[], regra: Regra, usados: Usados): ItemVenda[] {
   const base = todos.filter(i => !usados.ids.has(i.id) && (!regra.filtro || regra.filtro(i)))
-  base.sort(regra.ordem === 'barato'
-    ? (a, b) => a.price - b.price
-    : (a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+  if (regra.ordem === 'barato') base.sort((a, b) => a.price - b.price)
+  else if (regra.ordem === 'recentes') base.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
   let fila = base
   if (regra.alternar) {
     const cartas = base.filter(i => !i.ehProduto), prods = base.filter(i => i.ehProduto)
@@ -171,3 +173,13 @@ export const ehCartaAvulsa = (i: ItemVenda) => !i.ehProduto && !i.graduada
 /** Do set (blocos de Torneio e Agenda): carta avulsa anunciada do set ou selado que a loja marcou com o set. */
 export const doSet = (sets: readonly string[]) => (i: ItemVenda) =>
   !!i.set_id && sets.includes(i.set_id) && (i.ehProduto ? i.tipo === 'selado' : !i.graduada)
+
+/** Copia embaralhada (Fisher-Yates). */
+export function embaralhar<T>(lista: T[]): T[] {
+  const a = lista.slice()
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}

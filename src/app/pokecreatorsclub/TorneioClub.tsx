@@ -61,7 +61,7 @@ export default function TorneioClub({ resultado = RESULTADO_TORNEIO }: { resulta
   // catalogo, e os selados que a loja marcou com o set. So antes do torneio; some quando as partidas comecam.
   const vitrine = useVitrine()
   const doSet = useMemo(() => (vitrine
-    ? escolher(vitrine, { filtro: doSetDe(TORNEIO.sets), ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
+    ? escolher(vitrine, { filtro: doSetDe(TORNEIO.sets), max: 6, min: 2, umaPorCarta: true }, novosUsados())
     : []), [vitrine])
   const comResultado = estado?.tipo === 'fim' && !!resultado
 

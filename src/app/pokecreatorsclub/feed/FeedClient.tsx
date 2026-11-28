@@ -546,7 +546,7 @@ export default function FeedClient({ inicial, destaquesIniciais }: { inicial: Li
         </section>
       ))}
       {ofertas.trilho.length > 0 && (
-        <TrilhoVenda titulo="À venda no Marketplace" frase="Cartas e produtos da Bynx, os mais recentes primeiro." itens={ofertas.trilho} bloco="feed_trilho" />
+        <TrilhoVenda titulo="À venda no Marketplace" frase="Cartas e produtos à venda na Bynx, uma seleção nova a cada visita." itens={ofertas.trilho} bloco="feed_trilho" />
       )}
       {lista?.tem_mais && itens.length > 0 && (
         <button type="button" className="as-btn" style={{ alignSelf: 'center', width: 'auto' }} disabled={carregando} onClick={() => carregar(itens[itens.length - 1].feed_em)}>

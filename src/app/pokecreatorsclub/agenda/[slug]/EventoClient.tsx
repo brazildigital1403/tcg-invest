@@ -156,7 +156,7 @@ export default function EventoClient({ slug }: { slug: string }) {
 function CartasDoSet({ setId, nome }: { setId: string; nome: string }) {
   const vitrine = useVitrine()
   const itens = useMemo(() => (vitrine
-    ? escolher(vitrine, { filtro: doSet([setId]), ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
+    ? escolher(vitrine, { filtro: doSet([setId]), max: 6, min: 2, umaPorCarta: true }, novosUsados())
     : []), [vitrine, setId])
   return <TrilhoVenda titulo={`${nome} na Bynx`} frase="Cartas e selados do set do evento à venda no Marketplace." itens={itens} bloco="agenda_evento" />
 }
