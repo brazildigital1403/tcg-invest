@@ -183,7 +183,7 @@ export function trackLojaClique(lojaId: string, tipo: string): void {
  */
 /** Bloco do Club que mostrou o item do Marketplace. */
 export type OrigemClubOferta =
-  | 'feed_card' | 'feed_trilho' | 'casa_chegou' | 'torneio' | 'amigo_landing' | 'amigo_sala' | 'aniversario'
+  | 'feed_card' | 'feed_trilho' | 'casa_chegou' | 'torneio' | 'amigo_landing' | 'amigo_sala' | 'aniversario' | 'agenda_evento'
 
 export type OrigemSacola =
   | 'anuncio' | 'produto' | 'grade_anuncio' | 'folha' | 'vitrine' | 'aviso_checkout' | 'meta'

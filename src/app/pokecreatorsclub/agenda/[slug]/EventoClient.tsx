@@ -12,13 +12,15 @@ import { authFetch } from '@/lib/authFetch'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { hojeBrasilia } from '@/lib/pcc/datas'
 import {
-  TIPOS, dataPorExtenso, dominio, erroAgenda, googleAgendaUrl, mapaUrl, momento, ondeTexto, rotuloLink, textoWhatsApp,
+  TIPOS, TIPOS_COM_SET, dataPorExtenso, dominio, erroAgenda, googleAgendaUrl, mapaUrl, momento, ondeTexto, rotuloLink, textoWhatsApp,
   type Evento,
 } from '@/lib/pcc/agenda'
 import { AGENDA, AGENDA_ORGANIZAR, agendaEvento } from '@/lib/pcc/rotas'
 import { Ico, SeloFrente } from '../../amigo-secreto/estilo'
 import { Folha } from '../../_comum/calendario'
 import { Casca, ChipEstado } from '../comum'
+import { TrilhoVenda, useVitrine } from '../../_comum/vendas'
+import { escolher, novosUsados } from '@/lib/pcc/ofertas'
 
 const BUCKET = 'club-fotos'
 const urlImagem = (path: string) => supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
@@ -142,10 +144,21 @@ export default function EventoClient({ slug }: { slug: string }) {
       <div className="ev-lado">{acoes}</div>
     </div>
 
+    {/* Marketplace (28/11/2026, automatico): as cartas do set do evento a venda, enquanto ele nao passou. */}
+    {ev.set_id && ev.status === 'publicado' && !passou && TIPOS_COM_SET.includes(ev.tipo) && <CartasDoSet setId={ev.set_id} nome={ev.set_nome || 'do set'} />}
+
     {folha === 'agenda' && <FolhaAgenda ev={ev} urlEvento={urlAbsoluta} onFechar={fechar} />}
     {folha === 'compartilhar' && <FolhaCompartilhar ev={ev} urlEvento={urlAbsoluta} onFechar={fechar} />}
     <style>{EV_CSS}</style>
   </>)
+}
+
+function CartasDoSet({ setId, nome }: { setId: string; nome: string }) {
+  const vitrine = useVitrine()
+  const itens = useMemo(() => (vitrine
+    ? escolher(vitrine, { filtro: i => !i.ehProduto && i.set_id === setId, ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
+    : []), [vitrine, setId])
+  return <TrilhoVenda titulo={`Cartas de ${nome} na Bynx`} frase="Cartas do set do evento à venda no Marketplace." itens={itens} bloco="agenda_evento" />
 }
 
 function FolhaAgenda({ ev, urlEvento, onFechar }: { ev: Evento; urlEvento: string; onFechar: () => void }) {

@@ -9,7 +9,8 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { MESES_CURTOS } from '@/lib/pcc/datas'
-import { ORDEM_TIPOS, TIPOS, linhaMeta, parseDia, type Evento, type TipoEvento } from '@/lib/pcc/agenda'
+import { ORDEM_TIPOS, TIPOS, TIPOS_COM_SET, linhaMeta, parseDia, type Evento, type TipoEvento } from '@/lib/pcc/agenda'
+import { supabase } from '@/lib/supabaseClient'
 import { Ico } from '../../amigo-secreto/estilo'
 import { BlocoData } from '../../_comum/calendario'
 import { TipoQuad } from '../comum'
@@ -18,19 +19,21 @@ export type DadosEvento = {
   tipo: TipoEvento | ''; titulo: string; descricao: string; formato: 'online' | 'presencial'
   local_nome: string; cidade: string; uf: string; link_url: string; participantes: string[]
   imagem_path: string | null; inicio_data: string; fim_data: string; hora_inicio: string; hora_fim: string
+  /** Set da colecao (so lancamento, abertura e torneio); gravado a parte, por club_agenda_definir_set. */
+  set_id: string | null
 }
 export type AcaoSalvar = 'rascunho' | 'publicar' | 'salvar'
 
 export const vazio = (): DadosEvento => ({
   tipo: '', titulo: '', descricao: '', formato: 'online', local_nome: '', cidade: '', uf: '', link_url: '',
-  participantes: [], imagem_path: null, inicio_data: '', fim_data: '', hora_inicio: '', hora_fim: '',
+  participantes: [], imagem_path: null, inicio_data: '', fim_data: '', hora_inicio: '', hora_fim: '', set_id: null,
 })
 
 export const deEvento = (e: Evento): DadosEvento => ({
   tipo: e.tipo, titulo: e.titulo, descricao: e.descricao || '', formato: e.formato, local_nome: e.local_nome || '',
   cidade: e.cidade || '', uf: e.uf || '', link_url: e.link_url || '', participantes: e.participantes,
   imagem_path: e.imagem_path, inicio_data: e.inicio_data, fim_data: e.fim_data === e.inicio_data ? '' : e.fim_data,
-  hora_inicio: e.hora_inicio || '', hora_fim: e.hora_fim || '',
+  hora_inicio: e.hora_inicio || '', hora_fim: e.hora_fim || '', set_id: e.set_id ?? null,
 })
 
 /** Duplicar: tudo menos datas, imagem e estado. */
@@ -121,6 +124,8 @@ export function FormEvento({ titulo, inicial, estado, urlImagem, onSalvar, subir
               ))}
             </div>
           </div>
+
+          {TIPOS_COM_SET.includes(d.tipo as TipoEvento) && <CampoSet valor={d.set_id} onMudar={v => set('set_id', v)} />}
 
           <label className="as-f">
             <span className="as-lb">Título</span>
@@ -244,3 +249,32 @@ const FE_CSS = `
   .fe-lado{position:sticky;top:88px}
 }
 `
+
+// Set da colecao do evento (28/11/2026). Lista os sets mais recentes do catalogo (leitura publica) e o atual,
+// se for mais antigo. A pagina do evento usa o set para mostrar, sozinha, as cartas dele a venda na Bynx.
+function CampoSet({ valor, onMudar }: { valor: string | null; onMudar: (v: string | null) => void }) {
+  const [sets, setSets] = useState<{ id: string; nome: string }[]>([])
+  useEffect(() => {
+    let vivo = true
+    supabase.from('pokemon_sets').select('id, name, name_pt, release_date').order('release_date', { ascending: false, nullsFirst: false }).limit(80)
+      .then(async ({ data }) => {
+        let lista = (data || []).map(s => ({ id: s.id as string, nome: (s.name_pt || s.name) as string }))
+        if (valor && !lista.some(s => s.id === valor)) {
+          const { data: um } = await supabase.from('pokemon_sets').select('id, name, name_pt').eq('id', valor).maybeSingle()
+          if (um) lista = [{ id: um.id, nome: um.name_pt || um.name }, ...lista]
+        }
+        if (vivo) setSets(lista)
+      })
+    return () => { vivo = false }
+  }, [valor])
+  return (
+    <label className="as-f">
+      <span className="as-lb">Set da coleção (opcional)</span>
+      <select className="as-in" value={valor ?? ''} onChange={e => onMudar(e.target.value || null)}>
+        <option value="">Sem set</option>
+        {sets.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+      </select>
+      <span className="as-meta">Com o set, a página do evento mostra as cartas dele à venda no Marketplace da Bynx.</span>
+    </label>
+  )
+}

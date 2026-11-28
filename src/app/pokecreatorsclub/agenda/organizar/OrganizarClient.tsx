@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { MESES_CURTOS, hojeBrasilia } from '@/lib/pcc/datas'
-import { TIPOS, erroAgenda, linhaMeta, momento, parseDia, type Evento } from '@/lib/pcc/agenda'
+import { TIPOS, TIPOS_COM_SET, erroAgenda, linhaMeta, momento, parseDia, type Evento } from '@/lib/pcc/agenda'
 import { AGENDA, AGENDA_ORGANIZAR, agendaEvento } from '@/lib/pcc/rotas'
 import { Ico } from '../../amigo-secreto/estilo'
 import { BlocoData, Folha } from '../../_comum/calendario'
@@ -73,6 +73,12 @@ export default function OrganizarClient() {
     // Imagem trocada ou tirada: a antiga sai do armazenamento depois de salvar.
     if (ev?.imagem_path && ev.imagem_path !== d.imagem_path) await supabase.storage.from(BUCKET).remove([ev.imagem_path])
     const salvo = data as Evento
+    // Set da colecao (28/11/2026): gravado a parte; fora de lancamento, abertura e torneio, o set sai.
+    const querSet = TIPOS_COM_SET.includes(d.tipo as Evento['tipo']) ? d.set_id : null
+    if ((salvo.set_id ?? null) !== querSet) {
+      const r = await supabase.rpc('club_agenda_definir_set', { p_id: salvo.id, p_set: querSet })
+      if (r.error) return `O evento foi salvo, mas o set não. ${erroAgenda(r.error.message)}`
+    }
     setAviso(acao === 'publicar' ? `"${salvo.titulo}" publicado.` : acao === 'rascunho' ? 'Rascunho salvo.' : 'Alterações salvas.')
     voltarLista()
     await carregar()

@@ -13,7 +13,12 @@ export type Evento = {
   link_url: string | null; participantes: string[]; imagem_path: string | null
   inicio_data: string; fim_data: string; hora_inicio: string | null; hora_fim: string | null
   status: StatusEvento; nota_status: string | null; remarcado_em: string | null
+  /** Set da colecao (28/11/2026): lancamento, abertura e torneio; a pagina mostra as cartas do set a venda. */
+  set_id?: string | null; set_nome?: string | null
 }
+
+/** Tipos de evento que podem ter o set da colecao. */
+export const TIPOS_COM_SET: TipoEvento[] = ['lancamento', 'abertura', 'torneio']
 
 export type ListaAgenda = { eventos: Evento[]; papeis: string[] }
 
@@ -216,6 +221,7 @@ export function erroAgenda(msg: string | undefined | null): string {
   if (m.includes('participantes_demais')) return 'Coloque no máximo 20 @.'
   if (m.includes('motivo_obrigatorio')) return 'Conte o motivo do cancelamento.'
   if (m.includes('evento_cancelado')) return 'Evento cancelado não pode ser editado.'
+  if (m.includes('set_invalido')) return 'Esse set não está no catálogo.'
   if (m.includes('so_rascunho')) return 'Só rascunho pode ser excluído. Para evento publicado, use Cancelar.'
   if (m.includes('ja_publicado')) return 'Este evento já foi publicado.'
   if (m.includes('estado_invalido')) return 'Esta ação não vale para o estado atual do evento.'
