@@ -71,6 +71,8 @@ interface Produto {
   idioma: string | null
   /** Subtipo de `selado` (etb, booster_box...). Null nos outros tipos. */
   formato: string | null
+  /** Set da colecao (so selado), conferido no catalogo pela rota. */
+  set_id?: string | null
   /** Medidas da embalagem em cm; null = a Bynx estima pelo tipo. */
   largura_cm: number | null
   altura_cm: number | null
@@ -113,6 +115,8 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
   //   idioma, e e a caixa que decide o frete.
   const [idioma, setIdioma] = useState('pt')
   const [formato, setFormato] = useState<string>('')
+  // Set da colecao do selado (28/11/2026): opcional; com ele o produto entra nos blocos do Club do set.
+  const [setId, setSetId] = useState<string>('')
   const [largTxt, setLargTxt] = useState('')
   const [altTxt, setAltTxt] = useState('')
   const [comprTxt, setComprTxt] = useState('')
@@ -144,7 +148,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
 
   function limpar() {
     setTipo('selado'); setNome(''); setPrecoTxt(''); setEstoqueTxt('1'); setPesoTxt('')
-    setIdioma('pt'); setFormato(''); setLargTxt(''); setAltTxt(''); setComprTxt('')
+    setIdioma('pt'); setFormato(''); setSetId(''); setLargTxt(''); setAltTxt(''); setComprTxt('')
     setDescricao(''); setFotos([]); setEditId(null)
   }
   function abrirNovo() { limpar(); setForm(true) }
@@ -154,6 +158,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
     setEstoqueTxt(String(p.estoque)); setPesoTxt(p.peso_g ? String(p.peso_g) : '')
     setIdioma(p.idioma || 'pt')
     setFormato(p.formato || '')
+    setSetId(p.set_id || '')
     setLargTxt(p.largura_cm ? String(p.largura_cm) : '')
     setAltTxt(p.altura_cm ? String(p.altura_cm) : '')
     setComprTxt(p.comprimento_cm ? String(p.comprimento_cm) : '')
@@ -215,7 +220,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
     setErro(null)
     try {
       const t = await token()
-      const corpo = { tipo, nome: nome.trim(), idioma, formato: tipo === 'selado' ? (formato || null) : null, preco_cents: preco, estoque: est, peso_g: peso, largura_cm: largura, altura_cm: altura, comprimento_cm: comprimento, descricao: descricao.trim() || null, fotos }
+      const corpo = { tipo, nome: nome.trim(), idioma, formato: tipo === 'selado' ? (formato || null) : null, set_id: tipo === 'selado' ? (setId || null) : null, preco_cents: preco, estoque: est, peso_g: peso, largura_cm: largura, altura_cm: altura, comprimento_cm: comprimento, descricao: descricao.trim() || null, fotos }
       const r = await fetch(`/api/lojas/${lojaId}/produtos`, {
         method: editId ? 'PATCH' : 'POST',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
@@ -375,6 +380,11 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
                   </button>
                 ))}
               </div>
+              <label style={S.lbl} htmlFor="produto-set">Set da coleção (opcional)</label>
+              <SeletorSet id="produto-set" valor={setId} onMudar={setSetId} style={S.input} />
+              <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)', margin: '6px 0 10px', lineHeight: 1.4 }}>
+                Com o set, o produto também aparece nos espaços da Bynx que falam desse set.
+              </p>
             </>
           )}
 
@@ -511,4 +521,28 @@ const S: Record<string, React.CSSProperties> = {
   h2: { fontSize: 16, fontWeight: 800, margin: '10px 0 6px' },
   txt: { fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.55, maxWidth: 380, margin: '0 auto' },
   erro: { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 },
+}
+
+/** Sets mais recentes do catalogo (leitura publica) e o atual, se for mais antigo. */
+function SeletorSet({ id, valor, onMudar, style }: { id: string; valor: string; onMudar: (v: string) => void; style: React.CSSProperties }) {
+  const [sets, setSets] = useState<{ id: string; nome: string }[]>([])
+  useEffect(() => {
+    let vivo = true
+    supabase.from('pokemon_sets').select('id, name, name_pt, release_date').order('release_date', { ascending: false, nullsFirst: false }).limit(80)
+      .then(async ({ data }) => {
+        let lista = (data || []).map(s => ({ id: s.id as string, nome: (s.name_pt || s.name) as string }))
+        if (valor && !lista.some(s => s.id === valor)) {
+          const { data: um } = await supabase.from('pokemon_sets').select('id, name, name_pt').eq('id', valor).maybeSingle()
+          if (um) lista = [{ id: um.id, nome: um.name_pt || um.name }, ...lista]
+        }
+        if (vivo) setSets(lista)
+      })
+    return () => { vivo = false }
+  }, [valor])
+  return (
+    <select id={id} value={valor} onChange={e => onMudar(e.target.value)} style={style}>
+      <option value="">Sem set</option>
+      {sets.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+    </select>
+  )
 }

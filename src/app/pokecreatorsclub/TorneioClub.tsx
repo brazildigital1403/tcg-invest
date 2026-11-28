@@ -12,7 +12,7 @@ import { PREMIOS_TORNEIO, RESULTADO_TORNEIO, TORNEIO, estadoTorneio, type Estado
 import { Ico } from './amigo-secreto/estilo'
 import { Folha } from './_comum/calendario'
 import { TrilhoVenda, useVitrine } from './_comum/vendas'
-import { escolher, novosUsados } from '@/lib/pcc/ofertas'
+import { doSet as doSetDe, escolher, novosUsados } from '@/lib/pcc/ofertas'
 
 const LOGO = '/pokecreatorsclub/torneio/logo.webp'
 const IG = (h: string) => `https://instagram.com/${h}`
@@ -58,10 +58,10 @@ export default function TorneioClub({ resultado = RESULTADO_TORNEIO }: { resulta
   const estado: EstadoTorneio | null = agora ? estadoTorneio(agora, !!resultado) : null
 
   // Marketplace (28/11/2026, automatico): as cartas anunciadas do set dos premios, pelo set da carta no
-  // catalogo. So antes do torneio; some quando as partidas comecam. Selado de loja fica de fora (sem set).
+  // catalogo, e os selados que a loja marcou com o set. So antes do torneio; some quando as partidas comecam.
   const vitrine = useVitrine()
   const doSet = useMemo(() => (vitrine
-    ? escolher(vitrine, { filtro: i => !i.ehProduto && !!i.set_id && (TORNEIO.sets as readonly string[]).includes(i.set_id), ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
+    ? escolher(vitrine, { filtro: doSetDe(TORNEIO.sets), ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
     : []), [vitrine])
   const comResultado = estado?.tipo === 'fim' && !!resultado
 
@@ -186,7 +186,7 @@ export default function TorneioClub({ resultado = RESULTADO_TORNEIO }: { resulta
       <style>{TO_CSS}</style>
     </section>
     {!acompanhando && doSet.length > 0 && (
-      <TrilhoVenda titulo="Jogue com Reinado Delta" frase="Cartas do set dos prêmios à venda no Marketplace da Bynx." itens={doSet} bloco="torneio" className="to-vendas" />
+      <TrilhoVenda titulo="Jogue com Reinado Delta" frase="Cartas e selados do set dos prêmios à venda no Marketplace da Bynx." itens={doSet} bloco="torneio" className="to-vendas" />
     )}
     </>
   )

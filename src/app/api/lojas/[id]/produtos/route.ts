@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { planoEfetivoLoja, LIMITE_FOTOS_PRODUTO } from '@/lib/planoLoja'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
@@ -61,7 +62,20 @@ type Formato = (typeof FORMATOS)[number]
 const ehFormato = (v: unknown): v is Formato => FORMATOS.includes(v as Formato)
 type Idioma = (typeof IDIOMAS)[number]
 const ehIdioma = (v: unknown): v is Idioma => IDIOMAS.includes(v as Idioma)
-const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, largura_cm, altura_cm, comprimento_cm, idioma, formato, vendidos, fotos, ativo, created_at'
+const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, largura_cm, altura_cm, comprimento_cm, idioma, formato, set_id, vendidos, fotos, ativo, created_at'
+
+/**
+ * Set da colecao do selado (28/11/2026). Opcional, so em selado, e sempre conferido no catalogo: com ele o
+ * produto entra sozinho nos blocos do Club que mostram o set (Torneio, evento da Agenda). Devolve o id,
+ * null (sem set) ou 'invalido'.
+ */
+async function lerSet(sb: SupabaseClient, v: unknown): Promise<string | null | 'invalido'> {
+  const id = typeof v === 'string' ? v.trim() : ''
+  if (!id) return null
+  if (!/^[A-Za-z0-9._-]{1,30}$/.test(id)) return 'invalido'
+  const { data } = await sb.from('pokemon_sets').select('id').eq('id', id).maybeSingle()
+  return data ? id : 'invalido'
+}
 
 type Tipo = (typeof TIPOS)[number]
 const ehTipo = (v: unknown): v is Tipo => TIPOS.includes(v as Tipo)
@@ -187,6 +201,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const erro = validar(body, false)
     if (erro) return NextResponse.json({ error: erro }, { status: 400 })
+    const setId = body.tipo === 'selado' ? await lerSet(sb, body.set_id) : null
+    if (setId === 'invalido') return NextResponse.json({ error: 'Esse set não está no catálogo.' }, { status: 400 })
 
     const { data, error } = await sb
       .from('loja_produtos')
@@ -201,6 +217,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         idioma: ehIdioma(body.idioma) ? body.idioma : 'pt',
         // Formato so sobrevive em selado -- o check do banco recusaria o resto.
         formato: body.tipo === 'selado' && ehFormato(body.formato) ? body.formato : null,
+        set_id: setId,
         largura_cm: cm(body.largura_cm),
         altura_cm: cm(body.altura_cm),
         comprimento_cm: cm(body.comprimento_cm),
@@ -249,6 +266,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     //   nao sabe de onde veio.
     if ('tipo' in body && body.tipo !== 'selado') patch.formato = null
     else if ('formato' in body) patch.formato = ehFormato(body.formato) ? body.formato : null
+    // O set segue a mesma regra do formato: fora de selado, sai.
+    if ('tipo' in body && body.tipo !== 'selado') patch.set_id = null
+    else if ('set_id' in body) {
+      const setId = await lerSet(sb, body.set_id)
+      if (setId === 'invalido') return NextResponse.json({ error: 'Esse set não está no catálogo.' }, { status: 400 })
+      patch.set_id = setId
+    }
     if ('ativo' in body) patch.ativo = !!body.ativo
     if ('fotos' in body && Array.isArray(body.fotos)) patch.fotos = body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(auth.loja as { plano: string; plano_expira_em: string | null })])
 

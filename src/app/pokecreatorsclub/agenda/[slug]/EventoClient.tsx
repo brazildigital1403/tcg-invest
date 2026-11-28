@@ -20,7 +20,7 @@ import { Ico, SeloFrente } from '../../amigo-secreto/estilo'
 import { Folha } from '../../_comum/calendario'
 import { Casca, ChipEstado } from '../comum'
 import { TrilhoVenda, useVitrine } from '../../_comum/vendas'
-import { escolher, novosUsados } from '@/lib/pcc/ofertas'
+import { doSet, escolher, novosUsados } from '@/lib/pcc/ofertas'
 
 const BUCKET = 'club-fotos'
 const urlImagem = (path: string) => supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
@@ -156,9 +156,9 @@ export default function EventoClient({ slug }: { slug: string }) {
 function CartasDoSet({ setId, nome }: { setId: string; nome: string }) {
   const vitrine = useVitrine()
   const itens = useMemo(() => (vitrine
-    ? escolher(vitrine, { filtro: i => !i.ehProduto && i.set_id === setId, ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
+    ? escolher(vitrine, { filtro: doSet([setId]), ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
     : []), [vitrine, setId])
-  return <TrilhoVenda titulo={`Cartas de ${nome} na Bynx`} frase="Cartas do set do evento à venda no Marketplace." itens={itens} bloco="agenda_evento" />
+  return <TrilhoVenda titulo={`${nome} na Bynx`} frase="Cartas e selados do set do evento à venda no Marketplace." itens={itens} bloco="agenda_evento" />
 }
 
 function FolhaAgenda({ ev, urlEvento, onFechar }: { ev: Evento; urlEvento: string; onFechar: () => void }) {

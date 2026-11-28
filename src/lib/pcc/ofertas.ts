@@ -19,7 +19,7 @@ export type ItemVenda = Record<string, any> & {
   created_at: string
   /** Chave do vendedor para a regra de variedade: a loja, ou a pessoa sem loja. */
   vendedor: string
-  /** Set da carta do anuncio (pelo catalogo); nulo em produto de loja. */
+  /** Set da carta do anuncio (pelo catalogo) ou o que a loja informou no selado (28/11/2026). */
   set_id?: string | null
 }
 
@@ -92,7 +92,7 @@ async function ler(): Promise<ItemVenda[]> {
   if (comConnect.length) {
     const porId = new Map(comConnect.map(l => [l.id, l]))
     const { data, error } = await supabase.from('loja_produtos')
-      .select('id, slug, tipo, nome, preco_cents, estoque, fotos, loja_id, created_at')
+      .select('id, slug, tipo, nome, preco_cents, estoque, fotos, loja_id, created_at, set_id')
       .eq('ativo', true).gt('estoque', 0).in('loja_id', [...porId.keys()])
       .order('created_at', { ascending: false }).limit(200)
     if (error) throw new Error('vitrine')
@@ -102,7 +102,7 @@ async function ler(): Promise<ItemVenda[]> {
       itens.push({
         id: `produto:${p.id}`, ehProduto: true, slug: p.slug || p.id, tipo: p.tipo, card_name: p.nome,
         price: p.preco_cents / 100, fotos: Array.isArray(p.fotos) ? p.fotos.filter(Boolean) : [], estoque: p.estoque,
-        created_at: p.created_at, status: 'disponivel', user_id: l.owner_user_id, vendedor: `loja:${l.id}`, set_id: null,
+        created_at: p.created_at, status: 'disponivel', user_id: l.owner_user_id, vendedor: `loja:${l.id}`, set_id: p.set_id ?? null,
         seller_city: l.cidade, seller_loja_slug: l.slug, seller_loja_nome: l.nome, seller_loja_logo: l.logo_url,
         seller_loja_verificada: !!l.verificada, seller_loja_cidade: l.cidade, seller_loja_natureza: l.natureza,
         seller_vende: true, preco_mercado: 0,
@@ -167,3 +167,7 @@ export const ehSelado = (i: ItemVenda) => !!i.ehProduto && i.tipo === 'selado'
 export const ehFichario = (i: ItemVenda) => !!i.ehProduto && i.tipo === 'fichario'
 export const ehAcessorio = (i: ItemVenda) => !!i.ehProduto && i.tipo === 'acessorio'
 export const ehCartaAvulsa = (i: ItemVenda) => !i.ehProduto && !i.graduada
+
+/** Do set (blocos de Torneio e Agenda): carta avulsa anunciada do set ou selado que a loja marcou com o set. */
+export const doSet = (sets: readonly string[]) => (i: ItemVenda) =>
+  !!i.set_id && sets.includes(i.set_id) && (i.ehProduto ? i.tipo === 'selado' : !i.graduada)
