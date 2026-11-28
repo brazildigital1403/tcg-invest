@@ -26,6 +26,8 @@ import {
   FolhaApoio, FolhaDenunciar, FolhaFiltro, FolhaIdeias, FolhaPostado, FolhaPostar, FolhaQuemApoiou, FolhaRegras, FolhaRetorno,
   type Filtro,
 } from './folhas'
+import { CardVenda, TrilhoVenda, useVitrine } from '../_comum/vendas'
+import { ehAcessorio, ehCartaAvulsa, ehFichario, ehSelado, escolher, novosUsados, type ItemVenda } from '@/lib/pcc/ofertas'
 import MeusPosts from './meus'
 import Organizar from './organizar'
 
@@ -306,6 +308,31 @@ export default function FeedClient({ inicial, destaquesIniciais }: { inicial: Li
   }, [modo, organizador])
 
   // Dias da lista (so depois de montar: o servidor nao sabe que horas sao no navegador).
+  // Marketplace dentro do Feed (28/11/2026, automatico): so em Recentes. Um card na grade depois do 6o post,
+  // depois a cada 8, no maximo 3; a categoria sai do tema que domina os 6 posts de cima (nunca casa produto com
+  // a carta do post). No fim da pagina, o trilho com o que chegou no Marketplace. Teto de 2 por vendedor na pagina.
+  const vitrine = useVitrine()
+  const ofertas = useMemo(() => {
+    const vazio = { slots: new Map<number, { item: ItemVenda; rotulo: string }>(), trilho: [] as ItemVenda[] }
+    if (!vitrine || !vitrine.length || aba !== 'recentes') return vazio
+    const usados = novosUsados()
+    for (let pos = 6, n = 0; pos < itens.length && n < 3; pos += 8, n++) {
+      const conta = new Map<string, number>()
+      for (const p of itens.slice(Math.max(0, pos - 6), pos)) if (p.tema) conta.set(p.tema, (conta.get(p.tema) || 0) + 1)
+      const tema = [...conta.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+      const opcoes = tema === 'abertura' ? [{ f: ehSelado, rotulo: 'Para quem abre' }]
+        : tema === 'tour_fichario' ? [{ f: ehFichario, rotulo: 'Para o seu fichário' }, { f: ehAcessorio, rotulo: 'Para o seu fichário' }]
+        : [{ f: ehCartaAvulsa, rotulo: 'Para a sua coleção' }]
+      for (const o of opcoes) {
+        const [item] = escolher(vitrine, { filtro: o.f, max: 1 }, usados)
+        if (item) { vazio.slots.set(pos, { item, rotulo: o.rotulo }); break }
+      }
+    }
+    vazio.trilho = escolher(vitrine, { max: 8, min: 3, alternar: true }, usados)
+    return vazio
+  }, [vitrine, aba, itens])
+  const posDe = useMemo(() => new Map(itens.map((p, i) => [p.id, i])), [itens])
+
   const grupos: { g: GrupoDia | null; itens: PostFeed[] }[] = useMemo(
     () => (agora ? agruparPorDia(itens, agora) : [{ g: null, itens }]), [itens, agora])
   const chegaram = destaques?.chegaram ?? []
@@ -506,6 +533,10 @@ export default function FeedClient({ inicial, destaquesIniciais }: { inicial: Li
           <div className="fd-g">
             {gr.itens.map((p, k) => (
               <Fragment key={p.id}>
+                {(() => {
+                  const o = ofertas.slots.get(posDe.get(p.id) ?? -1)
+                  return o ? <div className="fd-venda"><span className="fd-venda-t">{o.rotulo}</span><CardVenda item={o.item} bloco="feed_card" /></div> : null
+                })()}
                 {carta(p)}
                 {/* Membro no celular: a escolha entra na grade do primeiro dia, depois da primeira fileira de quatro. */}
                 {modo === 'membro' && gi === 0 && cartaEscolha && k === Math.min(3, gr.itens.length - 1) && <div className="fd-so-cel fd-g-linha">{cartaEscolha}</div>}
@@ -514,6 +545,9 @@ export default function FeedClient({ inicial, destaquesIniciais }: { inicial: Li
           </div>
         </section>
       ))}
+      {ofertas.trilho.length > 0 && (
+        <TrilhoVenda titulo="À venda no Marketplace" frase="Cartas e produtos da Bynx, os mais recentes primeiro." itens={ofertas.trilho} bloco="feed_trilho" />
+      )}
       {lista?.tem_mais && itens.length > 0 && (
         <button type="button" className="as-btn" style={{ alignSelf: 'center', width: 'auto' }} disabled={carregando} onClick={() => carregar(itens[itens.length - 1].feed_em)}>
           {carregando ? 'Carregando...' : 'Ver mais posts'}

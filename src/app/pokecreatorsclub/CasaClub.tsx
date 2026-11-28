@@ -6,7 +6,7 @@
 //
 // Nova frente entra como mais um cartao, sem "em breve".
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -28,6 +28,9 @@ import EntrarClub from './EntrarClub'
 import TrendsClub from './TrendsClub'
 import BatalhaClub from './BatalhaClub'
 import TorneioClub from './TorneioClub'
+import { TrilhoVenda, useVitrine } from './_comum/vendas'
+import { escolher, novosUsados } from '@/lib/pcc/ofertas'
+import { TORNEIO } from '@/lib/pcc/torneio'
 import VideosClub from './VideosClub'
 import type { Trend } from '@/lib/pcc/trends'
 import type { VideoClub } from '@/lib/pcc/videos'
@@ -311,6 +314,9 @@ export default function CasaClub() {
 
           <TrendsClub trends={trends} />
 
+          {/* Marketplace (28/11/2026, automatico): o que chegou a venda, entre as Trends e os Videos. */}
+          <ChegouClub />
+
           <VideosClub videos={videos} />
 
           <footer className="as-foot">
@@ -410,6 +416,20 @@ function CartaoAvisos({ logado, lista, visto }: { logado: boolean; lista: Aviso[
       <Link href={AVISOS} className="as-btn">Ver avisos</Link>
     </section>
   )
+}
+
+// "A venda no Marketplace" (28/11/2026, automatico, sem curadoria): os itens compraveis mais recentes,
+// alternando carta e produto, de 3 a 8, no maximo 2 por vendedor. Sem janela de dias: em 28/11 quase tudo dos
+// ultimos 30 dias era de um vendedor so, e o teto por vendedor deixava o bloco abaixo do minimo. Nao repete as cartas
+// do set do Torneio, que tem bloco proprio. Sem itens suficientes, some.
+function ChegouClub() {
+  const vitrine = useVitrine()
+  const itens = useMemo(() => {
+    if (!vitrine) return []
+    const setsTorneio = TORNEIO.sets as readonly string[]
+    return escolher(vitrine, { filtro: i => !(i.set_id && setsTorneio.includes(i.set_id)), max: 8, min: 3, alternar: true }, novosUsados())
+  }, [vitrine])
+  return <TrilhoVenda titulo="À venda no Marketplace" frase="Cartas e produtos da Bynx, os mais recentes primeiro." itens={itens} bloco="casa_chegou" />
 }
 
 // Feed do Club (26/11/2026, wireframe v3 quadro 01; selo ilustrado do Du em 27/11). A linha nunca vira numero de pendencia: so diz se tem post novo para a pessoa.

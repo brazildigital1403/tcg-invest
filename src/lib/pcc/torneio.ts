@@ -16,6 +16,8 @@ export const TORNEIO = {
   /** Grupo da Escolinha dos Poke Creators, onde fica a lista de interessados. */
   grupo: 'https://chat.whatsapp.com/GkK4MTUscm43SFjAfjp7HE',
   organizacao: ['pokevandy', 'cardsdovictor'],
+  /** Sets dos premios, para o bloco automatico de cartas do Marketplace (pelo set da carta do anuncio). */
+  sets: ['dlr'],
 } as const
 
 export const PREMIOS_TORNEIO: Record<1 | 2, { linha: string; nome: string; pacotes: string; img: string; w: number; h: number; alt: string }> = {

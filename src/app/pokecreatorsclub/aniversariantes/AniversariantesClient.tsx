@@ -17,6 +17,8 @@ import { MESES, MESES_CURTOS, diasDoMes, hojeBrasilia, quandoTexto, trocarMes } 
 import { ANIVERSARIANTES, ANIVERSARIANTES_ORGANIZAR, CLUB } from '@/lib/pcc/rotas'
 import { AS_CSS, Ico, SeloFrente, VoltarClub } from '../amigo-secreto/estilo'
 import { Abas, BlocoData, CAL_CSS, CalendarioMes, Folha, NavMes } from '../_comum/calendario'
+import { TrilhoVenda, useVitrine } from '../_comum/vendas'
+import { ehCartaAvulsa, escolher, novosUsados } from '@/lib/pcc/ofertas'
 
 const BUCKET = 'club-fotos'
 const ROTA = ANIVERSARIANTES
@@ -108,6 +110,7 @@ export default function AniversariantesClient() {
   const colProximos = (
     <div className={`pc-col${aba === 'proximos' ? ' on' : ''}`}>
       {hojeLista.map(p => <CartaHoje key={p.instagram} p={p} />)}
+      {hojeLista.some(p => !p.eu) && <PresenteDoDia arroba={hojeLista.find(p => !p.eu)!.instagram} />}
       {destaque.map(p => (
         <section key={p.instagram} className="as-frente an-carta">
           <Rosto p={p} tam={64} />
@@ -196,6 +199,17 @@ function Casca({ children, logado, onEntrar }: { children: React.ReactNode; loga
       <style>{AS_CSS + CAL_CSS + AN_CSS}</style>
     </div>
   )
+}
+
+// Marketplace (28/11/2026, automatico): so no dia, cartas avulsas compraveis ate R$ 30, as mais recentes.
+// A tela nao tem endereco de ninguem: quem compra recebe em casa e combina a entrega.
+const TETO_PRESENTE_ANIVERSARIO = 30
+function PresenteDoDia({ arroba }: { arroba: string }) {
+  const vitrine = useVitrine()
+  const itens = useMemo(() => (vitrine
+    ? escolher(vitrine, { filtro: i => ehCartaAvulsa(i) && i.price <= TETO_PRESENTE_ANIVERSARIO, max: 4, min: 2 }, novosUsados())
+    : []), [vitrine])
+  return <TrilhoVenda titulo={`Um presente para @${arroba}`} frase="Cartas até R$ 30 à venda no Marketplace da Bynx." itens={itens} bloco="aniversario" />
 }
 
 function CartaHoje({ p }: { p: Proximo }) {

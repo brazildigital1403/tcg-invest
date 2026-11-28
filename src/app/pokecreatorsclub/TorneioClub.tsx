@@ -6,11 +6,13 @@
 // Brasilia (lib/pcc/torneio.ts); antes de montar nao renderiza nada, para o HTML nao divergir.
 // Encerrado com resultado: "Ver o resultado" abre a Folha da casa com o podio (?resultado=1 abre direto).
 
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { PREMIOS_TORNEIO, RESULTADO_TORNEIO, TORNEIO, estadoTorneio, type EstadoTorneio, type LugarTorneio, type ResultadoTorneio } from '@/lib/pcc/torneio'
 import { Ico } from './amigo-secreto/estilo'
 import { Folha } from './_comum/calendario'
+import { TrilhoVenda, useVitrine } from './_comum/vendas'
+import { escolher, novosUsados } from '@/lib/pcc/ofertas'
 
 const LOGO = '/pokecreatorsclub/torneio/logo.webp'
 const IG = (h: string) => `https://instagram.com/${h}`
@@ -54,6 +56,13 @@ export default function TorneioClub({ resultado = RESULTADO_TORNEIO }: { resulta
   }, [])
 
   const estado: EstadoTorneio | null = agora ? estadoTorneio(agora, !!resultado) : null
+
+  // Marketplace (28/11/2026, automatico): as cartas anunciadas do set dos premios, pelo set da carta no
+  // catalogo. So antes do torneio; some quando as partidas comecam. Selado de loja fica de fora (sem set).
+  const vitrine = useVitrine()
+  const doSet = useMemo(() => (vitrine
+    ? escolher(vitrine, { filtro: i => !i.ehProduto && !!i.set_id && (TORNEIO.sets as readonly string[]).includes(i.set_id), ordem: 'barato', max: 6, min: 2, umaPorCarta: true }, novosUsados())
+    : []), [vitrine])
   const comResultado = estado?.tipo === 'fim' && !!resultado
 
   // Link compartilhado (?resultado=1): abre a folha assim que o resultado existe.
@@ -122,6 +131,7 @@ export default function TorneioClub({ resultado = RESULTADO_TORNEIO }: { resulta
 
   const acompanhando = estado.tipo === 'agora'
   return (
+    <>
     <section className="to" id="torneio" aria-labelledby="to-titulo">
       <span className="to-bola" aria-hidden="true" />
       {logoEl}
@@ -175,6 +185,10 @@ export default function TorneioClub({ resultado = RESULTADO_TORNEIO }: { resulta
       </div>
       <style>{TO_CSS}</style>
     </section>
+    {!acompanhando && doSet.length > 0 && (
+      <TrilhoVenda titulo="Jogue com Reinado Delta" frase="Cartas do set dos prêmios à venda no Marketplace da Bynx." itens={doSet} bloco="torneio" className="to-vendas" />
+    )}
+    </>
   )
 }
 

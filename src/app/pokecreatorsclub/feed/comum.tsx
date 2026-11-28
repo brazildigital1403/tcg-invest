@@ -351,6 +351,9 @@ export const FD_CSS = `
 .fv-toast .tx b{color:var(--bx-text)}
 .fv-toast .as-btn{width:auto;flex:none}
 @keyframes fv-toast{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.fd-venda{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fd-venda>*:last-child{flex:1}
+.fd-venda-t{align-self:flex-start;display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:800;background:var(--ac-grad);color:var(--bx-brand-ink)}
 .fd-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 8px}
 .fd-c{position:relative;min-width:0;display:flex;flex-direction:column;scroll-margin-top:170px}
 .fd-cx{position:relative;display:block;padding:5px;border-radius:10px;border:1px solid var(--bx-border-2);background:linear-gradient(160deg,var(--bx-bg-elev),var(--bx-bg));box-shadow:0 6px 18px rgba(0,0,0,.45);text-decoration:none;color:inherit;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}

@@ -181,6 +181,10 @@ export function trackLojaClique(lojaId: string, tipo: string): void {
  *   aviso_checkout "Juntar e ir para o carrinho" no checkout direto
  *   meta           "Colocar no carrinho" da pagina da meta
  */
+/** Bloco do Club que mostrou o item do Marketplace. */
+export type OrigemClubOferta =
+  | 'feed_card' | 'feed_trilho' | 'casa_chegou' | 'torneio' | 'amigo_landing' | 'amigo_sala' | 'aniversario'
+
 export type OrigemSacola =
   | 'anuncio' | 'produto' | 'grade_anuncio' | 'folha' | 'vitrine' | 'aviso_checkout' | 'meta'
 
@@ -340,6 +344,12 @@ export type BynxEvent =
       // a Stripe). E o numero que decide a compra sem login (Quadro #2).
       name: 'carrinho_checkout'
       properties: { itens: number; unidades: number; logado: boolean }
+    }
+
+  // Marketplace dentro do Club (28/11/2026): clique no "Comprar" de um bloco automatico.
+  | {
+      name: 'club_oferta_clique'
+      properties: { bloco: OrigemClubOferta; tipo: 'anuncio' | 'produto'; preco: number }
     }
 
   // Monetização (4)

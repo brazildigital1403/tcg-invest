@@ -4,7 +4,7 @@
 // o cadastro em um passo (folha). Quem ja tem conta entra pelo AuthModal e
 // cai na sala. Quem acabou de criar a conta vai direto para a sala.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
@@ -16,6 +16,8 @@ import {
   AMIGO_SECRETO_SLUG, brl, dataCurta, dataHora, horaCurta, type EdicaoPublica,
 } from '@/lib/amigoSecreto'
 import { AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
+import { TrilhoVenda, useVitrine } from '../_comum/vendas'
+import { escolher, novosUsados } from '@/lib/pcc/ofertas'
 import { AS_CSS, Avatar, Ico, SeloFrente, VoltarClub } from './estilo'
 
 const SALA = AMIGO_SECRETO_SALA
@@ -145,6 +147,8 @@ export default function AmigoSecretoLanding() {
                 </>
               )}
 
+              {edicao.estado !== 'encerrado' && <PresentesNoMarketplace teto={edicao.teto_cents} />}
+
               {MOSTRAR_PERGUNTAS && <div className="as-faq">
                 <details open={desktop || undefined}>
                   <summary>Como funciona<Ico n="down" /></summary>
@@ -182,6 +186,13 @@ export default function AmigoSecretoLanding() {
       <style>{AS_CSS}</style>
     </div>
   )
+}
+
+// Marketplace (28/11/2026, automatico): itens compraveis dentro do teto da edicao, os mais recentes.
+function PresentesNoMarketplace({ teto }: { teto: number }) {
+  const vitrine = useVitrine()
+  const itens = useMemo(() => (vitrine ? escolher(vitrine, { filtro: i => i.price <= teto / 100 && !i.graduada, max: 6, min: 2 }, novosUsados()) : []), [vitrine, teto])
+  return <TrilhoVenda titulo={`Presentes até ${brl(teto)} no Marketplace`} frase="Cartas e produtos dentro do teto da edição, à venda na Bynx." itens={itens} bloco="amigo_landing" />
 }
 
 function FolhaCadastro({ onFechar, onJaTemConta }: { onFechar: () => void; onJaTemConta: () => void }) {

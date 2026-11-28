@@ -18,6 +18,8 @@ import {
 } from '@/lib/amigoSecreto'
 import { AMIGO_SECRETO, AMIGO_SECRETO_SALA, CLUB } from '@/lib/pcc/rotas'
 import { AS_CSS, Avatar, Ico, SeloFrente, VoltarClub } from '../estilo'
+import { TrilhoVenda, useVitrine } from '../../_comum/vendas'
+import { escolher, novosUsados } from '@/lib/pcc/ofertas'
 
 const SALA = AMIGO_SECRETO_SALA
 const SLUG = AMIGO_SECRETO_SLUG
@@ -399,7 +401,7 @@ export default function SalaClient() {
           else { setFolha(null); setSalvouPista(true) }
         }} />}
       {folha === 'pokemon' && <FolhaPokemon eu={eu!} ocupado={ocupado} onFechar={fechar} onSalvar={async p => { if (await chamar('amigo_secreto_salvar_perfil', { p_slug: SLUG, p: { pokemon: p || '' } })) { setFolha(null); carregar() } }} />}
-      {folha === 'tirou' && tirou && <FolhaTirou tirou={tirou} postarAte={sala.postar_ate} postado={!!eu!.postado_em} onFechar={fechar} onPostei={() => setFolha('rastreio')} onAjuda={() => setFolha('ajuda')} />}
+      {folha === 'tirou' && tirou && <FolhaTirou tirou={tirou} postarAte={sala.postar_ate} postado={!!eu!.postado_em} teto={sala.teto_cents} onFechar={fechar} onPostei={() => setFolha('rastreio')} onAjuda={() => setFolha('ajuda')} />}
       {folha === 'rastreio' && tirou && <FolhaRastreio eu={eu!} tirou={tirou} postarAte={sala.postar_ate} ocupado={ocupado} onFechar={fechar} onSalvar={async r => { if (await chamar('amigo_secreto_postei', { p_slug: SLUG, p_rastreio: r })) setFolha(null) }} />}
       {folha === 'recebi' && <FolhaRecebi postado={!!sala.recebo?.postado_em} ocupado={ocupado} onFechar={fechar} onConfirmar={async emMaos => { if (await chamar('amigo_secreto_recebi', { p_slug: SLUG, p_em_maos: emMaos })) setFolha(null) }} />}
       {folha === 'ajuda' && <FolhaAjuda antes={estado === 'inscricoes'} onFechar={fechar} />}
@@ -797,7 +799,13 @@ function FolhaPokemon({ eu, ocupado, onFechar, onSalvar }: { eu: Eu; ocupado: bo
   )
 }
 
-function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: { tirou: Tirou; postarAte: string; postado: boolean; onFechar: () => void; onPostei: () => void; onAjuda: () => void }) {
+function FolhaTirou({ tirou, postarAte, postado, teto, onFechar, onPostei, onAjuda }: { tirou: Tirou; postarAte: string; postado: boolean; teto: number; onFechar: () => void; onPostei: () => void; onAjuda: () => void }) {
+  // Marketplace (28/11/2026, automatico): itens compraveis ate o teto, enquanto da tempo de comprar,
+  // receber em casa e postar (5 dias antes do prazo). Nunca le a pista nem usa o endereco de ninguem.
+  const vitrine = useVitrine()
+  const ideias = useMemo(() => (vitrine && !postado && diasAte(postarAte) >= 5
+    ? escolher(vitrine, { filtro: i => i.price <= teto / 100 && !i.graduada, max: 4, min: 2 }, novosUsados())
+    : []), [vitrine, postado, postarAte, teto])
   const [copiado, setCopiado] = useState(false)
   const [enderecoAberto, setEnderecoAberto] = useState(false)
   const e = tirou.endereco
@@ -842,6 +850,9 @@ function FolhaTirou({ tirou, postarAte, postado, onFechar, onPostei, onAjuda }: 
           </div>
         )}
       </div>
+      {ideias.length > 0 && (
+        <TrilhoVenda titulo={`Ideias até ${brl(teto)} para @${tirou.instagram}`} frase="À venda no Marketplace da Bynx. A compra chega no seu endereço, e daí você embala e posta." itens={ideias} bloco="amigo_sala" verMais={false} />
+      )}
       {/* Camada 2: endereco, fechado ate a pessoa pedir. */}
       {endereco ? (
         <div className="as-addr-lock">
