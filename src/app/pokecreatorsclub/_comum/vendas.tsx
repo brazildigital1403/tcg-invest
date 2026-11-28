@@ -71,7 +71,8 @@ export function TrilhoVenda({ titulo, frase, itens, bloco, verMais = true, class
 }
 
 export const CV_CSS = `
-.cv{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cv{display:flex;flex-direction:column;gap:12px;min-width:0;margin-top:12px}
+.as-sheet .cv{margin-top:0}
 .cv-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .cv-tx{display:flex;flex-direction:column;gap:4px;min-width:0}
 .cv-h{margin:0;font-size:17px;font-weight:800;letter-spacing:-.01em;color:var(--bx-text)}
@@ -84,5 +85,5 @@ export const CV_CSS = `
 .cv-mais{flex:none;width:120px;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;border-radius:14px;border:1px dashed var(--bx-border-2);color:var(--bx-text-2);font-size:13px;font-weight:700;text-decoration:none;min-height:44px}
 .cv-mais:hover{color:var(--bx-text);border-color:var(--bx-text-3)}
 @media (min-width:769px) and (max-width:1023px){ .cv-trilho{margin:0 -24px;padding-left:24px;padding-right:24px} }
-@media (min-width:1024px){ .cv-trilho{margin:0;padding:2px 0 6px} .cv-it{width:200px} }
+@media (min-width:1024px){ .cv{margin-top:28px} .as-sheet .cv{margin-top:0} .cv-trilho{margin:0;padding:2px 0 6px} .cv-it{width:200px} }
 `
